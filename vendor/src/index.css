@@ -1,0 +1,74 @@
+@import "tailwindcss";
+
+@import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,100..900;1,100..900&display=swap");
+
+body {
+  font-family: "Montserrat", sans-serif;
+  font-optical-sizing: auto;
+  background-color: #f5f0f0;
+}
+
+.container {
+  max-width: 95%;
+  margin: auto;
+  box-sizing: border-box;
+}
+
+.link:hover {
+  color: #ff5252;
+}
+
+.bg-primary {
+  background-color: #ff5252;
+}
+
+@layer base {
+  .scrollbar-red::-webkit-scrollbar {
+    width: 8px;
+  }
+  .scrollbar-red::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .scrollbar-red::-webkit-scrollbar-thumb {
+    background: #663fea;
+    border-radius: 4px;
+    border: 2px solid #fff;
+  }
+  .scrollbar-red::-webkit-scrollbar-thumb:hover {
+    background: #5234e9;
+  }
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(139, 69, 19, 0.1);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #a855f7, #ec4899);
+  border-radius: 10px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #9333ea, #db2777);
+}
+
+.login {
+  background-image: url("../public/login/login.jpg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: cover;
+}
+
+@media (min-width: 1024px) {
+  .login {
+    background-image: none;
+  }
+}
+
+@media (min-width: 640px) {
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+  }
+}
