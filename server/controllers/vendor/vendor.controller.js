@@ -232,7 +232,7 @@ export const changePassword = async (req, res) => {
 
     try {
       await transporter.sendMail({
-        from: process.env.GMAIL_USER,
+        from: process.env.SENDER_EMAIL,
         to: vendor.email,
         subject: "✅ Password Changed Successfully",
         html: `
@@ -266,7 +266,7 @@ export const changePassword = async (req, res) => {
                       <tr>
                         <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
                           Need help? <a href="mailto:${
-                            process.env.GMAIL_USER
+                            process.env.SENDER_EMAIL
                           }" style="color:#10b981;text-decoration:none;">Contact Support</a>
                         </td>
                       </tr>
@@ -318,7 +318,7 @@ export const sendResetOtp = async (req, res) => {
     await vendor.save();
 
     const mailOption = {
-      from: process.env.GMAIL_USER,
+      from: process.env.SENDER_EMAIL,
       to: vendor.email,
       subject: "🔐 Password Reset Request",
       html: `
@@ -433,7 +433,7 @@ export const resetPassword = async (req, res) => {
 
     try {
       await transporter.sendMail({
-        from: process.env.GMAIL_USER,
+        from: process.env.SENDER_EMAIL,
         to: vendor.email,
         subject: "✅ Password Changed Successfully",
         html: `
@@ -467,7 +467,7 @@ export const resetPassword = async (req, res) => {
                       <tr>
                         <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
                           Need help? <a href="mailto:${
-                            process.env.GMAIL_USER
+                            process.env.SENDER_EMAIL
                           }" style="color:#10b981;text-decoration:none;">Contact Support</a>
                         </td>
                       </tr>

@@ -22,7 +22,7 @@ export const googleAuth = async (req, res) => {
     if (!freshUser.welcomeMailSent) {
       try {
         await transporter.sendMail({
-          from: process.env.GMAIL_USER,
+          from: process.env.SENDER_EMAIL,
           to: freshUser.email,
           subject: "🎉 Welcome to Falcon Shop – Google Login",
           html: `
@@ -50,7 +50,7 @@ export const googleAuth = async (req, res) => {
                         </tr>
                         <tr>
                           <td style="background:#f3f4f6;padding:20px;font-size:12px;color:#888;text-align:center;">
-                            Need help? <a href="mailto:${process.env.GMAIL_USER}" style="color:#3b82f6;text-decoration:none;">Contact Support</a>
+                            Need help? <a href="mailto:${process.env.SENDER_EMAIL}" style="color:#3b82f6;text-decoration:none;">Contact Support</a>
                           </td>
                         </tr>
                       </table>
@@ -98,7 +98,7 @@ export const googlePassword = async (req, res) => {
 
     try {
       await transporter.sendMail({
-        from: process.env.GMAIL_USER,
+        from: process.env.SENDER_EMAIL,
         to: user.email,
         subject: "🔐 Password Successfully Set",
         html: `
@@ -124,7 +124,7 @@ export const googlePassword = async (req, res) => {
                       </tr>
                       <tr>
                         <td style="background:#f3f4f6;padding:20px;font-size:12px;color:#888;text-align:center;">
-                          Need help? <a href="mailto:${process.env.GMAIL_USER}" style="color:#10b981;text-decoration:none;">Contact Support</a>
+                          Need help? <a href="mailto:${process.env.SENDER_EMAIL}" style="color:#10b981;text-decoration:none;">Contact Support</a>
                         </td>
                       </tr>
                     </table>
