@@ -150,11 +150,13 @@ export const login = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
   try {
-    res.clearCookie("token", {
+    res.clearCookie("token", token, {
       httpOnly: true,
-      sameSite: "strict",
-      maxAge: 0,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 24 * 60 * 60 * 1000,
     });
     return res.status(204).json({
       success: true,
@@ -365,7 +367,7 @@ export const sendResetOtp = async (req, res) => {
     if (!email) {
       return res.json({ success: false, message: "Email is required" });
     }
-    const user = await User.findOne({email});
+    const user = await User.findOne({ email });
 
     if (!user) {
       return res

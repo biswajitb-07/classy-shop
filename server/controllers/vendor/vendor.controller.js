@@ -85,14 +85,15 @@ export const login = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
   try {
-    res.clearCookie("token1", {
+    res.clearCookie("token1", token, {
       httpOnly: true,
-      sameSite: "strict",
-      maxAge: 0,
+      secure: isProd,
+      sameSite: isProd ? "none" : "lax",
+      maxAge: 24 * 60 * 60 * 1000,
     });
 
-    // Send a success response
     return res.status(204).json({
       success: true,
       message: "Logged out successfully",
