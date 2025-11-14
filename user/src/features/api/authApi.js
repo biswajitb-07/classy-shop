@@ -51,7 +51,6 @@ export const authApi = createApi({
         url: "set-password",
         method: "POST",
         body: { password },
-        credentials: "include",
       }),
     }),
     changePassword: builder.mutation({
@@ -59,7 +58,6 @@ export const authApi = createApi({
         url: "change-password",
         method: "POST",
         body: { currentPassword, newPassword },
-        credentials: "include",
       }),
     }),
     sendResetOtp: builder.mutation({
