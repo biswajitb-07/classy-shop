@@ -152,11 +152,10 @@ export const login = async (req, res) => {
 export const logout = async (req, res) => {
   const isProd = process.env.NODE_ENV === "production";
   try {
-    res.clearCookie("token", token, {
+    res.clearCookie("token", {
       httpOnly: true,
       secure: isProd,
       sameSite: isProd ? "none" : "lax",
-      maxAge: 24 * 60 * 60 * 1000,
     });
     return res.status(204).json({
       success: true,
