@@ -1,13 +1,13 @@
 import { Outlet } from "react-router-dom";
-import Header from "../components/navbar/Header";
-import BottomNav from "../components/navbar/BottomNav";
-import Contact from "../components/contact/Contact";
-import Footer from "../components/footer/Footer";
-import OAuthToast from "../pages/user/auth/OAuthToast";
-import Features from "../components/Features";
-import CategoryPanel from "../components/category/CategoryPanel";
+import Header from "../components/navbar/Header.jsx";
+import BottomNav from "../components/navbar/BottomNav.jsx";
+import Contact from "../components/contact/Contact.jsx";
+import Footer from "../components/footer/Footer.jsx";
+import OAuthToast from "../pages/user/auth/OAuthToast.jsx";
+import Features from "../components/Features.jsx";
+import CategoryPanel from "../components/category/CategoryPanel.jsx";
 import { useEffect, useState } from "react";
-import { useGetVendorCategoriesQuery } from "../features/api/categoryApi";
+import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
 
 const MainLayout = () => {
   const [prevScrollPos, setPrevScrollPos] = useState(0);

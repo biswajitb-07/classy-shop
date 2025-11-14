@@ -1,11 +1,11 @@
 import { configureStore } from "@reduxjs/toolkit";
 import rootRedcuer from "./rootReducer";
-import { authApi } from "../features/api/authApi";
-import { fashionApi } from "../features/api/fashionApi";
-import { cartApi } from "../features/api/cartApi";
-import { categoryApi } from "../features/api/categoryApi";
-import { electronicApi } from "../features/api/electronicApi";
-import { orderApi } from "../features/api/orderApi";
+import { authApi } from "../features/api/authApi.js";
+import { fashionApi } from "../features/api/fashionApi.js";
+import { cartApi } from "../features/api/cartApi.js";
+import { categoryApi } from "../features/api/categoryApi.js";
+import { electronicApi } from "../features/api/electronicApi.js";
+import { orderApi } from "../features/api/orderApi.js";
 
 export const appStore = configureStore({
   reducer: rootRedcuer,

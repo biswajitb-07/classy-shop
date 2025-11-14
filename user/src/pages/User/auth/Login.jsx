@@ -9,8 +9,8 @@ import { toast } from "react-hot-toast";
 import {
   useRegisterUserMutation,
   useLoginUserMutation,
-} from "../../../features/api/authApi";
-import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader";
+} from "../../../features/api/authApi.js";
+import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 
 const Login = () => {
   const [state, setState] = useState("Login");

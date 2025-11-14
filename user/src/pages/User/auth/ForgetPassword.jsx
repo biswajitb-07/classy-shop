@@ -4,10 +4,10 @@ import { toast } from "react-hot-toast";
 import {
   useSendResetOtpMutation,
   useResetPasswordMutation,
-} from "../../../features/api/authApi";
+} from "../../../features/api/authApi.js";
 import { GoMail } from "react-icons/go";
 import { MdLockOutline } from "react-icons/md";
-import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader";
+import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 
 const ForgotPassword = () => {
   const [step, setStep] = useState(1);

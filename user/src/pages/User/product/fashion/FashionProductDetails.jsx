@@ -1,15 +1,15 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useGetFashionItemsQuery } from "../../../../features/api/fashionApi";
+import { useGetFashionItemsQuery } from "../../../../features/api/fashionApi.js";
 import { FaStar, FaStarHalfAlt } from "react-icons/fa";
 import { IoShareSocialOutline } from "react-icons/io5";
 import { ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
-import RelatedProduct from "../../../../components/products/RelatedProduct";
-import { useAddToCartMutation } from "../../../../features/api/cartApi";
+import RelatedProduct from "../../../../components/products/RelatedProduct.jsx";
+import { useAddToCartMutation } from "../../../../features/api/cartApi.js";
 import { toast } from "react-hot-toast";
-import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader";
-import PageLoader from "../../../../components/Loader/PageLoader";
-import ErrorMessage from "../../../../components/error/ErrorMessage";
+import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader.jsx";
+import PageLoader from "../../../../components/Loader/PageLoader.jsx";
+import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import { useSelector } from "react-redux";
 
 const FashionProductDetails = () => {

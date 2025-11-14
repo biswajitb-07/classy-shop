@@ -11,11 +11,11 @@ import toast from "react-hot-toast";
 import {
   useGetUserOrdersQuery,
   useUpdateOrderStatusMutation,
-} from "../../../features/api/orderApi";
-import PageLoader from "../../../components/Loader/PageLoader";
-import ErrorMessage from "../../../components/error/ErrorMessage";
-import ConfirmDialog from "../../../components/ConfirmDialog";
-import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader";
+} from "../../../features/api/orderApi.js";
+import PageLoader from "../../../components/Loader/PageLoader.jsx";
+import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
+import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
+import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 
 const OrderDetailsPage = () => {
   const { orderId } = useParams();

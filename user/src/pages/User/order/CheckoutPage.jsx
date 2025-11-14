@@ -6,15 +6,15 @@ import {
   FaCreditCard,
   FaMoneyBillWave,
 } from "react-icons/fa";
-import { useGetCartQuery } from "../../../features/api/cartApi";
+import { useGetCartQuery } from "../../../features/api/cartApi.js";
 import {
   useCreateOrderMutation,
   useConfirmPaymentMutation,
-} from "../../../features/api/orderApi";
-import PageLoader from "../../../components/Loader/PageLoader";
-import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader";
+} from "../../../features/api/orderApi.js";
+import PageLoader from "../../../components/Loader/PageLoader.jsx";
+import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 import { toast } from "react-hot-toast";
-import ErrorMessage from "../../../components/error/ErrorMessage";
+import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
 import { useSelector } from "react-redux";
 
 const CheckoutPage = () => {

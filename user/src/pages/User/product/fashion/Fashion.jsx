@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import FashionProductCard from "./FashionProductCard";
-import ProductFilter from "../../../../components/products/ProductFilter";
-import { useGetFashionItemsQuery } from "../../../../features/api/fashionApi";
-import ErrorMessage from "../../../../components/error/ErrorMessage";
-import ProductNotAvailable from "../../../../components/products/ProductNotAvailable";
-import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import FashionProductCard from "./FashionProductCard.jsx";
+import ProductFilter from "../../../../components/products/ProductFilter.jsx";
+import { useGetFashionItemsQuery } from "../../../../features/api/fashionApi.js";
+import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
+import ProductNotAvailable from "../../../../components/products/ProductNotAvailable.jsx";
+import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi.js";
 import { CgCloseR } from "react-icons/cg";
 
 const PAGE_SIZE = 15;

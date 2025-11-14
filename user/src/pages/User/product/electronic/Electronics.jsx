@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import ElectronicProductCard from "./ElectronicsProductCard";
-import ProductFilter from "../../../../components/products/ProductFilter";
-import { useGetElectronicItemsQuery } from "../../../../features/api/electronicApi";
-import ErrorMessage from "../../../../components/error/ErrorMessage";
-import ProductNotAvailable from "../../../../components/products/ProductNotAvailable";
-import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import ElectronicProductCard from "./ElectronicsProductCard.jsx";
+import ProductFilter from "../../../../components/products/ProductFilter.jsx";
+import { useGetElectronicItemsQuery } from "../../../../features/api/electronicApi.js";
+import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
+import ProductNotAvailable from "../../../../components/products/ProductNotAvailable.jsx";
+import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi.js";
 import { CgCloseR } from "react-icons/cg";
 
 const PAGE_SIZE = 15;

@@ -5,30 +5,30 @@ import { WifiOff } from "lucide-react";
 import {
   PublicRoute,
   UserRoute,
-} from "./components/protectRoute/ProtectedRoutes";
+} from "./components/protectRoute/ProtectedRoutes.jsx";
 
-const MainLayout = lazy(() => import("./layout/MainLayout"));
-const Home = lazy(() => import("./pages/Home"));
-const Login = lazy(() => import("./pages/User/auth/Login"));
-const Profile = lazy(() => import("./pages/user/profile/Profile"));
-const ForgotPassword = lazy(() => import("./pages/user/auth/ForgetPassword"));
-const Fashion = lazy(() => import("./pages/User/product/fashion/Fashion"));
-const Error = lazy(() => import("./components/error/Error"));
+const MainLayout = lazy(() => import("./layout/MainLayout.jsx"));
+const Home = lazy(() => import("./pages/Home.jsx"));
+const Login = lazy(() => import("./pages/User/auth/Login.jsx"));
+const Profile = lazy(() => import("./pages/user/profile/Profile.jsx"));
+const ForgotPassword = lazy(() => import("./pages/user/auth/ForgetPassword.jsx"));
+const Fashion = lazy(() => import("./pages/User/product/fashion/Fashion.jsx"));
+const Error = lazy(() => import("./components/error/Error.jsx"));
 const FashionProductDetails = lazy(() =>
-  import("./pages/User/product/fashion/FashionProductDetails")
+  import("./pages/User/product/fashion/FashionProductDetails.jsx")
 );
-const WishlistPage = lazy(() => import("./components/products/WishlistPage"));
-const CartPage = lazy(() => import("./components/shipping/CartPage"));
+const WishlistPage = lazy(() => import("./components/products/WishlistPage.jsx"));
+const CartPage = lazy(() => import("./components/shipping/CartPage.jsx"));
 const Electronics = lazy(() =>
-  import("./pages/User/product/electronic/Electronics")
+  import("./pages/User/product/electronic/Electronics.jsx")
 );
 const ElectronicsProductDetails = lazy(() =>
-  import("./pages/User/product/electronic/ElectronicsProductDetails")
+  import("./pages/User/product/electronic/ElectronicsProductDetails.jsx")
 );
-const CheckoutPage = lazy(() => import("./pages/User/order/CheckOutPage"));
-const OrderListPage = lazy(() => import("./pages/User/order/OrderListPage"));
+const CheckoutPage = lazy(() => import("./pages/User/order/CheckOutPage.jsx"));
+const OrderListPage = lazy(() => import("./pages/User/order/OrderListPage.jsx"));
 const OrderDetailsPage = lazy(() =>
-  import("./pages/User/order/OrderDetailsPage")
+  import("./pages/User/order/OrderDetailsPage.jsx")
 );
 
 const appRouter = createBrowserRouter([

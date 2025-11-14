@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaChevronRight } from "react-icons/fa";
-import { useGetUserOrdersQuery } from "../../../features/api/orderApi";
-import PageLoader from "../../../components/Loader/PageLoader";
-import ErrorMessage from "../../../components/error/ErrorMessage";
+import { useGetUserOrdersQuery } from "../../../features/api/orderApi.js";
+import PageLoader from "../../../components/Loader/PageLoader.jsx";
+import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
 
 const OrderListPage = () => {
   const navigate = useNavigate();

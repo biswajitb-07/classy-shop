@@ -23,8 +23,8 @@ import {
   useLoadUserQuery,
   useSetPasswordMutation,
   useChangePasswordMutation,
-} from "../../../features/api/authApi";
-import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader";
+} from "../../../features/api/authApi.js";
+import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 
 // Enhanced Profile Skeleton (updated colors to match red theme)
 const ProfileSkeleton = () => (

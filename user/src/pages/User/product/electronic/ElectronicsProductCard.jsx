@@ -10,10 +10,10 @@ import {
   useAddToWishlistMutation,
   useRemoveFromWishlistMutation,
   useGetWishlistQuery,
-} from "../../../../features/api/cartApi";
-import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader";
-import ErrorMessage from "../../../../components/error/ErrorMessage";
-import ProductModal from "../../../../components/products/ProductModal";
+} from "../../../../features/api/cartApi.js";
+import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader.jsx";
+import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
+import ProductModal from "../../../../components/products/ProductModal.jsx";
 import { useSelector } from "react-redux";
 
 const PAGE_SIZE = 15;

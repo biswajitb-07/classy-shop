@@ -1,13 +1,13 @@
-import FreeShiping from "../components/shipping/FreeShiping";
-import HomeCatSlider from "../components/slider/HomeCatSlider";
-import HomeSlider from "../components/slider/HomeSlider";
-import BannerBox from "../components/Banner/BannerBox";
-import PopularProduct from "../components/products/PopularProducts";
-import LatestProduct from "../components/products/LatestProduct";
-import FeatureProduct from "../components/products/FeatureProduct";
-import MidBanner from "../components/Banner/MidBanner";
-import Feedback from "../components/Testimonial/Feedback";
-import Blog from "../components/Testimonial/Blog";
+import FreeShiping from "../components/shipping/FreeShiping.jsx";
+import HomeCatSlider from "../components/slider/HomeCatSlider.jsx";
+import HomeSlider from "../components/slider/HomeSlider.jsx";
+import BannerBox from "../components/Banner/BannerBox.jsx";
+import PopularProduct from "../components/products/PopularProducts.jsx";
+import LatestProduct from "../components/products/LatestProduct.jsx";
+import FeatureProduct from "../components/products/FeatureProduct.jsx";
+import MidBanner from "../components/Banner/MidBanner.jsx";
+import Feedback from "../components/Testimonial/Feedback.jsx";
+import Blog from "../components/Testimonial/Blog.jsx";
 
 const Home = () => {
   return (
