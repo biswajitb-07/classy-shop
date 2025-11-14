@@ -5,6 +5,8 @@ export const generateToken = (res, user, message) => {
     expiresIn: "1d",
   });
 
+  const isProd = process.env.NODE_ENV === "production";
+
   return res
     .status(200)
     .cookie("token", token, {
