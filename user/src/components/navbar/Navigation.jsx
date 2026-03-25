@@ -1,10 +1,12 @@
 import { RiMenu2Fill } from "react-icons/ri";
 import { LiaAngleDownSolid } from "react-icons/lia";
-import { Link, NavLink } from "react-router-dom";
+import { Link, NavLink, useLocation } from "react-router-dom";
 import { GoRocket } from "react-icons/go";
 import { useEffect } from "react";
 
 const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
+  const location = useLocation();
+
   useEffect(() => {
     const root = document.documentElement;
     if (isOpenCatPanel) {
@@ -17,6 +19,11 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
   }, [isOpenCatPanel]);
 
   const getSlug = (str) => str.toLowerCase().replace(/\s+/g, "-");
+  const normalizePath = (path) => path.replace(/\/+$/, "") || "/";
+  const currentPath = normalizePath(location.pathname);
+  const isPathActive = (path) =>
+    currentPath === normalizePath(path) ||
+    currentPath.startsWith(`${normalizePath(path)}/`);
 
   return (
     <>
@@ -60,9 +67,9 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                     >
                       <NavLink
                         to={`/${slug}`}
-                        className={({ isActive }) =>
+                        className={() =>
                           `link font-[500] text-[12px] md:text-[14px] p-2 ${
-                            isActive
+                            isPathActive(`/${slug}`)
                               ? "border-b-2 border-red-500"
                               : "hover:bg-gray-200"
                           }`
@@ -89,9 +96,9 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                                 >
                                   <NavLink
                                     to={`/${slug}/${subSlug}`}
-                                    className={({ isActive }) =>
+                                    className={() =>
                                       `block px-4 py-2 ${
-                                        isActive
+                                        isPathActive(`/${slug}/${subSlug}`)
                                           ? "bg-red-500 text-white"
                                           : "hover:bg-gray-200"
                                       }`
@@ -111,9 +118,11 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                                               <li key={third.name}>
                                                 <NavLink
                                                   to={`/${slug}/${subSlug}/${thirdSlug}`}
-                                                  className={({ isActive }) =>
+                                                  className={() =>
                                                     `block px-4 py-2 ${
-                                                      isActive
+                                                      isPathActive(
+                                                        `/${slug}/${subSlug}/${thirdSlug}`
+                                                      )
                                                         ? "bg-red-500 text-white"
                                                         : "hover:bg-gray-200"
                                                     }`

@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 
-export const Error = () => (
+const Error = () => (
   <main className="flex min-h-screen w-full items-center justify-center bg-neutral-900 bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-900 px-4 py-10 text-white">
     <div className="max-w-sm text-center sm:max-w-md md:max-w-lg lg:max-w-xl">
       <h1 className="relative mb-2 text-8xl font-black text-red-500 sm:text-9xl md:text-[10rem] lg:text-[11rem]">
@@ -46,3 +46,5 @@ export const Error = () => (
     </div>
   </main>
 );
+
+export default Error;

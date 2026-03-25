@@ -17,12 +17,6 @@ const Hero = () => {
           Here’s what’s happening on your store today. See the statistics at
           once.
         </p>
-        <Link to="/add-product">
-          <button className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center gap-2 px-4 py-2 cursor-pointer rounded shadow-sm text-sm mx-auto md:mx-0">
-            <AiOutlinePlus />
-            Add Product
-          </button>
-        </Link>
       </div>
 
       {/* Right image */}

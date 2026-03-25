@@ -16,12 +16,17 @@ import electronicBrandRouter from "./routes/vendor/electronic/electronicBrand.ro
 import electronicRouter from "./routes/vendor/electronic/electronic.route.js";
 import orderRouter from "./routes/user/order.route.js";
 import bagBrandRouter from "./routes/vendor/bag/bagBrand.route.js";
+import bagRouter from "./routes/vendor/bag/bag.route.js";
 import groceryBrandRouter from "./routes/vendor/grocery/groceryBrand.route.js";
+import groceryRouter from "./routes/vendor/grocery/grocery.route.js";
 import footwearBrandRouter from "./routes/vendor/footwear/footwearBrand.route.js";
+import footwearRouter from "./routes/vendor/footwear/footwear.route.js";
 import beautyBrandRouter from "./routes/vendor/beauty/beautyBrand.route.js";
-import wellnessBrandRouter from "./routes/vendor/wellness/wellness.route.js";
+import beautyRouter from "./routes/vendor/beauty/beauty.route.js";
+import wellnessBrandRouter from "./routes/vendor/wellness/wellnessBrand.route.js";
+import wellnessRouter from "./routes/vendor/wellness/wellness.route.js";
 import jewelleryBrandRouter from "./routes/vendor/jewellery/jewelleryBrand.route.js";
-import bagBrand from "./models/vendor/bag/bagBrand.model.js";
+import jewelleryRouter from "./routes/vendor/jewellery/jewellery.route.js";
 
 const app = express();
 const port = process.env.PORT || 5000;
@@ -38,7 +43,7 @@ app.use(
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false },
-  })
+  }),
 );
 app.use(passport.initialize());
 app.use(passport.session());
@@ -59,13 +64,18 @@ app.use("/api/v1/vendor/electronic-brands", electronicBrandRouter);
 app.use("/api/v1/vendor/electronic", electronicRouter);
 
 app.use("/api/v1/vendor/bag-brands", bagBrandRouter);
-app.use("/api/v1/vendor/bag", bagBrand);
+app.use("/api/v1/vendor/bag", bagRouter);
 
 app.use("/api/v1/vendor/grocery-brands", groceryBrandRouter);
+app.use("/api/v1/vendor/grocery", groceryRouter);
 app.use("/api/v1/vendor/footwear-brands", footwearBrandRouter);
+app.use("/api/v1/vendor/footwear", footwearRouter);
 app.use("/api/v1/vendor/beauty-brands", beautyBrandRouter);
+app.use("/api/v1/vendor/beauty", beautyRouter);
 app.use("/api/v1/vendor/wellness-brands", wellnessBrandRouter);
+app.use("/api/v1/vendor/wellness", wellnessRouter);
 app.use("/api/v1/vendor/jewellery-brands", jewelleryBrandRouter);
+app.use("/api/v1/vendor/jewellery", jewelleryRouter);
 
 app.use("/api/v1/product", cartWishlistRouter);
 app.use("/api/v1/vendor/orders", orderRouter);

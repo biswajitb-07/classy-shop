@@ -63,18 +63,19 @@ const ShowAllElectronicProduct = () => {
   const [selectedSubCategory, setSelectedSubCategory] = useState("all");
   const [selectedThirdLevel, setSelectedThirdLevel] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletingItemId, setDeletingItemId] = useState(null);
 
   const items = response?.electronicItems ?? [];
   const brands = [...new Set(items.map((item) => item.brand))];
   const matchedCategory = categoryData?.categories?.find(
-    (cat) => cat.name === CATEGORY
+    (cat) => cat.name === CATEGORY,
   );
   const subCategories =
     matchedCategory?.subCategories?.map((sub) => sub.name) ?? [];
   const thirdLevelCategories =
     matchedCategory?.subCategories
       ?.flatMap((sub) =>
-        sub.thirdLevelSubCategories?.map((third) => third.name)
+        sub.thirdLevelSubCategories?.map((third) => third.name),
       )
       ?.filter(Boolean) ?? [];
 
@@ -108,7 +109,7 @@ const ShowAllElectronicProduct = () => {
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
   const paginatedItems = filteredItems.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    currentPage * ITEMS_PER_PAGE,
   );
 
   useEffect(() => {
@@ -144,6 +145,7 @@ const ShowAllElectronicProduct = () => {
   };
 
   const handleDeleteItem = async (id) => {
+    setDeletingItemId(id);
     try {
       await deleteElectronicItem(id).unwrap();
       toast.success("Product deleted successfully!");
@@ -151,6 +153,8 @@ const ShowAllElectronicProduct = () => {
       refetch();
     } catch (err) {
       toast.error(err?.data?.message || "Failed to delete product");
+    } finally {
+      setDeletingItemId(null);
     }
   };
 
@@ -223,7 +227,7 @@ const ShowAllElectronicProduct = () => {
       setEditFields((prev) =>
         checked
           ? { ...prev, [field]: [...(prev[field] || []), val] }
-          : { ...prev, [field]: (prev[field] || []).filter((s) => s !== val) }
+          : { ...prev, [field]: (prev[field] || []).filter((s) => s !== val) },
       );
     } else {
       setEditFields((prev) => ({ ...prev, [field]: value }));
@@ -342,18 +346,18 @@ const ShowAllElectronicProduct = () => {
     for (let i = 1; i <= maxStars; i++) {
       if (i <= roundedRating) {
         stars.push(
-          <FaStar key={i} className="text-yellow-500 text-xs sm:text-sm" />
+          <FaStar key={i} className="text-yellow-500 text-xs sm:text-sm" />,
         );
       } else if (i - 0.5 === roundedRating) {
         stars.push(
           <FaStarHalfAlt
             key={i}
             className="text-yellow-500 text-xs sm:text-sm"
-          />
+          />,
         );
       } else {
         stars.push(
-          <FaStar key={i} className="text-gray-300 text-xs sm:text-sm" />
+          <FaStar key={i} className="text-gray-300 text-xs sm:text-sm" />,
         );
       }
     }
@@ -627,7 +631,7 @@ const ShowAllElectronicProduct = () => {
               const discountPercentage = Math.round(
                 ((item.originalPrice - item.discountedPrice) /
                   item.originalPrice) *
-                  100
+                  100,
               );
 
               return (
@@ -691,7 +695,7 @@ const ShowAllElectronicProduct = () => {
                                 src={
                                   selectedUpdates[item._id]?.[idx]
                                     ? URL.createObjectURL(
-                                        selectedUpdates[item._id][idx]
+                                        selectedUpdates[item._id][idx],
                                       )
                                     : img
                                 }
@@ -706,7 +710,7 @@ const ShowAllElectronicProduct = () => {
                                   handleMultiImageSelect(
                                     item._id,
                                     idx,
-                                    e.target.files[0]
+                                    e.target.files[0],
                                   )
                                 }
                               />
@@ -728,7 +732,7 @@ const ShowAllElectronicProduct = () => {
                                   setNewImages((prev) => ({
                                     ...prev,
                                     [item._id]: prev[item._id].filter(
-                                      (_, i) => i !== idx
+                                      (_, i) => i !== idx,
                                     ),
                                   }))
                                 }
@@ -748,7 +752,7 @@ const ShowAllElectronicProduct = () => {
                               onChange={(e) =>
                                 handleAddNewImage(
                                   item._id,
-                                  Array.from(e.target.files)
+                                  Array.from(e.target.files),
                                 )
                               }
                             />
@@ -846,12 +850,12 @@ const ShowAllElectronicProduct = () => {
                         <FaEdit />
                       </button>
                       <button
-                        disabled={isDeleting}
+                        disabled={isDeleting && deletingItemId === item._id}
                         onClick={() => handleDeleteItem(item._id)}
                         className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-all cursor-pointer"
                         aria-label="Delete product"
                       >
-                        {isDeleting ? (
+                        {isDeleting && deletingItemId === item._id ? (
                           <AuthButtonLoader size="small" />
                         ) : (
                           <FaTrash />
@@ -871,8 +875,8 @@ const ShowAllElectronicProduct = () => {
 
   const renderEditModal = () => (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-6 transition-opacity duration-300">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl max-h-[90vh] overflow-hidden animate-fade-in border border-gray-200">
-        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 text-white relative overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-2xl max-w-6xl max-h-[90vh] overflow-hidden animate-fade-in border border-gray-200 flex flex-col">
+        <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-8 py-6 text-white relative overflow-hidden flex-shrink-0">
           <div className="absolute inset-0 bg-white/10 backdrop-blur-sm"></div>
           <div className="relative z-10 flex justify-between items-center">
             <div className="flex items-center gap-4">
@@ -896,7 +900,7 @@ const ShowAllElectronicProduct = () => {
             </button>
           </div>
         </div>
-        <div className="p-8 max-h-[calc(90vh-120px)] overflow-y-auto">
+        <div className="p-8 overflow-y-auto flex-1">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <div className="space-y-6">
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
@@ -1105,7 +1109,7 @@ const ShowAllElectronicProduct = () => {
                         onChange={(e) =>
                           handleFieldChange(
                             "thirdLevelCategory",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         className="w-full border-2 border-gray-200 px-4 py-3 rounded-xl focus:ring-4 focus:ring-orange-200 focus:border-orange-400 transition-all bg-white shadow-sm"
@@ -1129,7 +1133,7 @@ const ShowAllElectronicProduct = () => {
               placeholder="Enter detailed product description..."
             />
           </div>
-          <div className="px-8 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-4">
+          <div className="px-8 py-6 bg-gradient-to-r from-gray-50 to-gray-100 border-t border-gray-200 flex flex-col sm:flex-row justify-end gap-4 flex-shrink-0">
             <button
               onClick={closeEditDialog}
               className="px-8 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-all cursor-pointer shadow-md hover:shadow-lg font-semibold hover:scale-105"

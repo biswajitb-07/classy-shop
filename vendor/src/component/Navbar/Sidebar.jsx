@@ -5,10 +5,15 @@ import { RiProductHuntLine } from "react-icons/ri";
 import { AiOutlineLogout, AiOutlineClose } from "react-icons/ai";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { IoBagCheckOutline } from "react-icons/io5";
+import { FiUsers } from "react-icons/fi";
+import { HiOutlineBuildingStorefront } from "react-icons/hi2";
 import { useDispatch, useSelector } from "react-redux";
 import { toggleSidebar } from "../../features/authSlice";
 import { useNavigate } from "react-router-dom";
-import { useLogoutUserMutation } from "../../features/api/authApi";
+import {
+  useGetDashboardSummaryQuery,
+  useLogoutUserMutation,
+} from "../../features/api/authApi";
 import { toast } from "react-hot-toast";
 import AuthButtonLoader from "../../component/Loader/AuthButtonLoader";
 
@@ -21,6 +26,8 @@ const Sidebar = () => {
   const dispatch = useDispatch();
 
   const [logoutUser, { isLoading: logoutIsLoading }] = useLogoutUserMutation();
+  const { data: summaryData } = useGetDashboardSummaryQuery();
+  const summary = summaryData?.summary;
 
   const toggleAccordion = (key) => {
     setOpenAccordion(openAccordion === key ? null : key);
@@ -228,10 +235,40 @@ const Sidebar = () => {
                       Electronic Product
                     </li>
                     <li
+                      onClick={() => navigate("/grocery-products")}
+                      className="cursor-pointer hover:text-gray-800"
+                    >
+                      Grocery Product
+                    </li>
+                    <li
+                      onClick={() => navigate("/footwear-products")}
+                      className="cursor-pointer hover:text-gray-800"
+                    >
+                      Footwear Product
+                    </li>
+                    <li
                       onClick={() => navigate("/bag-products")}
                       className="cursor-pointer hover:text-gray-800"
                     >
                       Bag Product
+                    </li>
+                    <li
+                      onClick={() => navigate("/beauty-products")}
+                      className="cursor-pointer hover:text-gray-800"
+                    >
+                      Beauty Product
+                    </li>
+                    <li
+                      onClick={() => navigate("/wellness-products")}
+                      className="cursor-pointer hover:text-gray-800"
+                    >
+                      Wellness Product
+                    </li>
+                    <li
+                      onClick={() => navigate("/jewellery-products")}
+                      className="cursor-pointer hover:text-gray-800"
+                    >
+                      Jewellery Product
                     </li>
                   </ul>
                 </div>
@@ -244,6 +281,65 @@ const Sidebar = () => {
             >
               <IoBagCheckOutline size={20} />
               Orders
+            </li>
+
+            <li className="flex flex-col">
+              <button
+                onClick={() => toggleAccordion("community")}
+                className="flex items-center justify-between gap-2 hover:bg-gray-200 px-2 py-2 rounded w-full cursor-pointer"
+              >
+                <div className="flex items-center gap-4 text-gray-700 font-bold text-sm">
+                  <FiUsers size={20} />
+                  Community
+                </div>
+                {openAccordion === "community" ? (
+                  <IoIosArrowUp />
+                ) : (
+                  <IoIosArrowDown />
+                )}
+              </button>
+              <div
+                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
+                  openAccordion === "community"
+                    ? "grid-rows-[1fr]"
+                    : "grid-rows-[0fr]"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <div className="mt-3 grid gap-3">
+                    <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-white p-2 text-sky-600 shadow-sm">
+                          <FiUsers size={18} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-600">
+                            Users
+                          </p>
+                          <p className="text-lg font-black text-slate-900">
+                            {summary?.totalUsers ?? 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div className="rounded-xl bg-white p-2 text-rose-600 shadow-sm">
+                          <HiOutlineBuildingStorefront size={18} />
+                        </div>
+                        <div>
+                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-600">
+                            Vendors
+                          </p>
+                          <p className="text-lg font-black text-slate-900">
+                            {summary?.totalVendors ?? 0}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </li>
 
             <li

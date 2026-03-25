@@ -26,7 +26,6 @@ import {
 } from "../../../features/api/authApi.js";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 
-// Enhanced Profile Skeleton (updated colors to match red theme)
 const ProfileSkeleton = () => (
   <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-100 p-4">
     <div className="max-w-6xl mx-auto">

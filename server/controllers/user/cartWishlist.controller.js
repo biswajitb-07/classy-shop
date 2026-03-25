@@ -2,14 +2,27 @@ import { Cart } from "../../models/user/cart.model.js";
 import { Wishlist } from "../../models/user/wishlist.model.js";
 import Fashion from "../../models/vendor/fashion/fashion.model.js";
 import Electronics from "../../models/vendor/electronic/electronic.model.js";
+import Bag from "../../models/vendor/bag/bag.model.js";
+import Footwear from "../../models/vendor/footwear/footwear.model.js";
+import Grocery from "../../models/vendor/grocery/grocery.model.js";
+import Beauty from "../../models/vendor/beauty/beauty.model.js";
+import Wellness from "../../models/vendor/wellness/wellness.model.js";
+import Jewellery from "../../models/vendor/jewellery/jewellery.model.js";
 
 const productModels = {
   Fashion,
   Electronics,
+  Bag,
+  Footwear,
+  Grocery,
+  Beauty,
+  Wellness,
+  Jewellery,
 };
 
 const CATEGORY_FIELDS = {
   Fashion: ["size"],
+  Footwear: ["size"],
   Electronics: ["ram", "storage"],
 };
 
@@ -62,10 +75,21 @@ export const addToCart = async (req, res) => {
     let hasVariants = false;
     if (productType === "Fashion") {
       hasVariants = product.sizes && product.sizes.length > 0;
+    } else if (productType === "Footwear") {
+      hasVariants = product.sizes && product.sizes.length > 0;
     } else if (productType === "Electronics") {
       hasVariants =
         (product.rams && product.rams.length > 0) ||
         (product.storage && product.storage.length > 0);
+    } else if (productType === "Bag") {
+      hasVariants = false;
+    } else if (
+      productType === "Grocery" ||
+      productType === "Beauty" ||
+      productType === "Wellness" ||
+      productType === "Jewellery"
+    ) {
+      hasVariants = false;
     }
 
     let variantKey;

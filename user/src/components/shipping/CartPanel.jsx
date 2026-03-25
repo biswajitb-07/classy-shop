@@ -108,7 +108,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
   const getVariantDisplay = (productType, variant) => {
     if (!variant || variant === "default") return null;
 
-    if (productType === "Fashion") {
+    if (productType === "Fashion" || productType === "Footwear") {
       const [key, value] = variant.split(":");
       if (key === "size" && value) {
         return `Size: ${value}`;

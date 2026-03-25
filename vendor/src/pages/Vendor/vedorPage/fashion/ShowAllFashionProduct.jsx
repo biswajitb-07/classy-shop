@@ -61,18 +61,19 @@ const ShowAllFashionProduct = () => {
   const [selectedSubCategory, setSelectedSubCategory] = useState("all");
   const [selectedThirdLevel, setSelectedThirdLevel] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [deletingItemId, setDeletingItemId] = useState(null);
 
   const items = response?.fashionItems ?? [];
   const brands = [...new Set(items.map((item) => item.brand))];
   const matchedCategory = categoryData?.categories?.find(
-    (cat) => cat.name === CATEGORY
+    (cat) => cat.name === CATEGORY,
   );
   const subCategories =
     matchedCategory?.subCategories?.map((sub) => sub.name) ?? [];
   const thirdLevelCategories =
     matchedCategory?.subCategories
       ?.flatMap((sub) =>
-        sub.thirdLevelSubCategories?.map((third) => third.name)
+        sub.thirdLevelSubCategories?.map((third) => third.name),
       )
       ?.filter((name, index, self) => self.indexOf(name) === index) ?? [];
 
@@ -106,7 +107,7 @@ const ShowAllFashionProduct = () => {
   const totalPages = Math.ceil(filteredItems.length / ITEMS_PER_PAGE);
   const paginatedItems = filteredItems.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
+    currentPage * ITEMS_PER_PAGE,
   );
 
   useEffect(() => {
@@ -142,6 +143,7 @@ const ShowAllFashionProduct = () => {
   };
 
   const handleDeleteItem = async (id) => {
+    setDeletingItemId(id);
     try {
       await deleteFashionItem(id).unwrap();
       toast.success("Product deleted successfully!");
@@ -149,6 +151,8 @@ const ShowAllFashionProduct = () => {
       refetch();
     } catch (err) {
       toast.error(err?.data?.message || "Failed to delete product");
+    } finally {
+      setDeletingItemId(null);
     }
   };
 
@@ -221,7 +225,7 @@ const ShowAllFashionProduct = () => {
       setEditFields((prev) =>
         checked
           ? { ...prev, sizes: [...(prev.sizes || []), size] }
-          : { ...prev, sizes: (prev.sizes || []).filter((s) => s !== size) }
+          : { ...prev, sizes: (prev.sizes || []).filter((s) => s !== size) },
       );
     } else {
       setEditFields((prev) => ({ ...prev, [field]: value }));
@@ -338,18 +342,18 @@ const ShowAllFashionProduct = () => {
     for (let i = 1; i <= maxStars; i++) {
       if (i <= roundedRating) {
         stars.push(
-          <FaStar key={i} className="text-yellow-500 text-xs sm:text-sm" />
+          <FaStar key={i} className="text-yellow-500 text-xs sm:text-sm" />,
         );
       } else if (i - 0.5 === roundedRating) {
         stars.push(
           <FaStarHalfAlt
             key={i}
             className="text-yellow-500 text-xs sm:text-sm"
-          />
+          />,
         );
       } else {
         stars.push(
-          <FaStar key={i} className="text-gray-300 text-xs sm:text-sm" />
+          <FaStar key={i} className="text-gray-300 text-xs sm:text-sm" />,
         );
       }
     }
@@ -555,7 +559,7 @@ const ShowAllFashionProduct = () => {
         <button
           onClick={() => {
             refetch();
-            setCurrentPage(1); // Reset to page 1 on refresh
+            setCurrentPage(1);
           }}
           className="flex items-center justify-center gap-2 sm:gap-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-xl hover:from-indigo-600 hover:to-purple-600 transition-all shadow-lg hover:shadow-xl font-semibold hover:scale-105 text-sm sm:text-base"
           disabled={isLoading}
@@ -621,7 +625,7 @@ const ShowAllFashionProduct = () => {
               const discountPercentage = Math.round(
                 ((item.originalPrice - item.discountedPrice) /
                   item.originalPrice) *
-                  100
+                  100,
               );
 
               return (
@@ -685,7 +689,7 @@ const ShowAllFashionProduct = () => {
                                 src={
                                   selectedUpdates[item._id]?.[idx]
                                     ? URL.createObjectURL(
-                                        selectedUpdates[item._id][idx]
+                                        selectedUpdates[item._id][idx],
                                       )
                                     : img
                                 }
@@ -700,7 +704,7 @@ const ShowAllFashionProduct = () => {
                                   handleMultiImageSelect(
                                     item._id,
                                     idx,
-                                    e.target.files[0]
+                                    e.target.files[0],
                                   )
                                 }
                               />
@@ -722,7 +726,7 @@ const ShowAllFashionProduct = () => {
                                   setNewImages((prev) => ({
                                     ...prev,
                                     [item._id]: prev[item._id].filter(
-                                      (_, i) => i !== idx
+                                      (_, i) => i !== idx,
                                     ),
                                   }))
                                 }
@@ -742,7 +746,7 @@ const ShowAllFashionProduct = () => {
                               onChange={(e) =>
                                 handleAddNewImage(
                                   item._id,
-                                  Array.from(e.target.files)
+                                  Array.from(e.target.files),
                                 )
                               }
                             />
@@ -828,12 +832,12 @@ const ShowAllFashionProduct = () => {
                         <FaEdit />
                       </button>
                       <button
-                        disabled={isDeleting}
+                        disabled={isDeleting && deletingItemId === item._id}
                         onClick={() => handleDeleteItem(item._id)}
                         className="bg-red-500 text-white p-2 rounded-full hover:bg-red-600 transition-all cursor-pointer"
                         aria-label="Delete product"
                       >
-                        {isDeleting ? (
+                        {isDeleting && deletingItemId === item._id ? (
                           <AuthButtonLoader size="small" />
                         ) : (
                           <FaTrash />
@@ -1061,7 +1065,7 @@ const ShowAllFashionProduct = () => {
                         onChange={(e) =>
                           handleFieldChange(
                             "thirdLevelCategory",
-                            e.target.value
+                            e.target.value,
                           )
                         }
                         className="w-full border-2 border-gray-200 px-4 py-3 rounded-xl focus:ring-4 focus:ring-orange-200 focus:border-orange-400 transition-all bg-white shadow-sm"

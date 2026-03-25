@@ -10,7 +10,6 @@ import {
   PublicRoute,
 } from "./component/protectRoute/ProtectedRoutes";
 import MainLayout from "./layout/MainLayout";
-import AddProduct from "./component/product/AddProduct";
 import Category from "./pages/Vendor/category/Category";
 import Profile from "./pages/Vendor/profile/Profile";
 import CategoryList from "./pages/Vendor/category/CategoryList";
@@ -22,9 +21,14 @@ import ShowAllElectronicProduct from "./pages/Vendor/vedorPage/electronic/ShowAl
 import BagBrandManager from "./pages/Vendor/vedorPage/bag/BagBrandManager";
 import GroceryBrandManager from "./pages/Vendor/vedorPage/grocery/GroceryBrandManager";
 import FootwearBrandManager from "./pages/Vendor/vedorPage/footwear/FootwearBrandManager";
+import ShowAllGroceryProduct from "./pages/Vendor/vedorPage/grocery/ShowAllGroceryProduct";
+import ShowAllFootwearProduct from "./pages/Vendor/vedorPage/footwear/ShowAllFootwearProduct";
 import BeautyBrandManager from "./pages/Vendor/vedorPage/beauty/BeautyBrandManager";
 import WellnessBrandManager from "./pages/Vendor/vedorPage/wellness/wellnessBrandManager";
+import ShowAllBeautyProduct from "./pages/Vendor/vedorPage/beauty/ShowAllBeautyProduct";
+import ShowAllWellnessProduct from "./pages/Vendor/vedorPage/wellness/ShowAllWellnessProduct";
 import JewelleryBrandManager from "./pages/Vendor/vedorPage/jewellery/jewelleryBrandManager";
+import ShowAllJewelleryProduct from "./pages/Vendor/vedorPage/jewellery/ShowAllJewelleryProduct";
 import ShowAllBagProduct from "./pages/Vendor/vedorPage/bag/ShowAllBagProduct";
 import Orders from "./pages/Vendor/vedorPage/Orders";
 import OrderDetailsPage from "./pages/Vendor/vedorPage/OrderDetailsPage";
@@ -62,15 +66,9 @@ const appRouter = createBrowserRouter([
         path: "/orders",
         element: <Orders />,
       },
-       {
-        path: "/order/:orderId",
-        element: (
-            <OrderDetailsPage />
-        ),
-      },
       {
-        path: "/add-product",
-        element: <AddProduct />,
+        path: "/order/:orderId",
+        element: <OrderDetailsPage />,
       },
       {
         path: "/category",
@@ -109,20 +107,40 @@ const appRouter = createBrowserRouter([
         element: <GroceryBrandManager />,
       },
       {
+        path: "/grocery-products",
+        element: <ShowAllGroceryProduct />,
+      },
+      {
         path: "/footwear-brand-list",
         element: <FootwearBrandManager />,
+      },
+      {
+        path: "/footwear-products",
+        element: <ShowAllFootwearProduct />,
       },
       {
         path: "/beauty-brand-list",
         element: <BeautyBrandManager />,
       },
       {
+        path: "/beauty-products",
+        element: <ShowAllBeautyProduct />,
+      },
+      {
         path: "/wellness-brand-list",
-        element: <WellnessBrandManager/>
+        element: <WellnessBrandManager />,
+      },
+      {
+        path: "/wellness-products",
+        element: <ShowAllWellnessProduct />,
       },
       {
         path: "/jewellery-brand-list",
-        element: <JewelleryBrandManager/>
+        element: <JewelleryBrandManager />,
+      },
+      {
+        path: "/jewellery-products",
+        element: <ShowAllJewelleryProduct />,
       },
     ],
   },

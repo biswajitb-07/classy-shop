@@ -8,6 +8,7 @@ import {
   resetPassword,
   changePassword,
   getVendorProfile,
+  getDashboardSummary,
   updateVendorProfile,
 } from "../../controllers/vendor/vendor.controller.js";
 import isAuthenticatedVendor from "../../middleware/vendor/isAuthenticatedVendor.js";
@@ -23,6 +24,7 @@ vendorRouter.post("/reset-password", resetPassword);
 vendorRouter.post("/change-password", isAuthenticatedVendor, changePassword);
 
 vendorRouter.get("/profile", isAuthenticatedVendor, getVendorProfile);
+vendorRouter.get("/dashboard-summary", isAuthenticatedVendor, getDashboardSummary);
 vendorRouter.put("/profile/update", isAuthenticatedVendor, upload.single("photo"), updateVendorProfile);
 
 export default vendorRouter;

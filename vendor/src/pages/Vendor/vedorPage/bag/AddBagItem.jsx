@@ -19,7 +19,7 @@ const AddBagItem = ({
   onClose,
   refetch,
   categoryData,
-  fashionBrands,
+  bagBrands,
   brandRefetch,
 }) => {
   const [form, setForm] = useState({
@@ -120,8 +120,8 @@ const AddBagItem = ({
     }
   };
 
-  const brands = fashionBrands.brand || [];
-  const categories = categoryData.categories || [];
+  const brands = bagBrands?.brand || [];
+  const categories = categoryData?.categories || [];
   const subCategories = form.category
     ? categories.find((cat) => cat.name === form.category)?.subCategories || []
     : [];

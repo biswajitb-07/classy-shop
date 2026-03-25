@@ -1,33 +1,50 @@
 import express from "express";
 import {
-  addWellnessBrand,
-  deleteWellnessBrand,
-  getWellnessBrandsByVendor,
-  updateWellnessBrand,
-} from "../../../controllers/vendor/wellness/wellnessBrand.controller.js";
+  getWellnessItems,
+  addWellnessItem,
+  updateWellnessItem,
+  deleteWellnessItem,
+  updateWellnessImagesByIndex,
+  getWellnessItemsForUser,
+} from "../../../controllers/vendor/wellness/wellness.controller.js";
 import isAuthenticatedVendor from "../../../middleware/vendor/isAuthenticatedVendor.js";
+import upload from "../../../utils/multer.js";
 
-const wellnessBrandRouter = express.Router();
+const wellnessRouter = express.Router();
 
-wellnessBrandRouter.get(
-  "/wellness-brand",
+wellnessRouter.get("/all-wellness-items", getWellnessItemsForUser);
+wellnessRouter.get(
+  "/wellness-items",
   isAuthenticatedVendor,
-  getWellnessBrandsByVendor
+  getWellnessItems
 );
-wellnessBrandRouter.post(
-  "/wellness-brand",
+wellnessRouter.post(
+  "/wellness-items",
   isAuthenticatedVendor,
-  addWellnessBrand
+  upload.array("image", 5),
+  addWellnessItem
 );
-wellnessBrandRouter.put(
-  "/wellness-brand",
+wellnessRouter.put(
+  "/wellness-items/:id",
   isAuthenticatedVendor,
-  updateWellnessBrand
-);
-wellnessBrandRouter.delete(
-  "/wellness-brand",
-  isAuthenticatedVendor,
-  deleteWellnessBrand
+  upload.array("image"),
+  updateWellnessItem
 );
 
-export default wellnessBrandRouter;
+wellnessRouter.put(
+  "/wellness-items/update-multiple-images/:id",
+  isAuthenticatedVendor,
+  upload.fields([
+    { name: "replaceFiles", maxCount: 10 },
+    { name: "newFiles", maxCount: 10 },
+  ]),
+  updateWellnessImagesByIndex
+);
+
+wellnessRouter.delete(
+  "/wellness-items/:id",
+  isAuthenticatedVendor,
+  deleteWellnessItem
+);
+
+export default wellnessRouter;

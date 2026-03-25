@@ -9,6 +9,11 @@ import { electronicApi } from "../features/api/electronic/electronicApi";
 import { bagBrandApi } from "../features/api/bag/bagBrandApi";
 import { groceryBrandApi } from "../features/api/grocery/groceryBrandApi";
 import { footwearBrandApi } from "../features/api/footwear/footwearBrandApi";
+import { groceryApi } from "../features/api/grocery-product/groceryApi";
+import { footwearApi } from "../features/api/footwear-product/footwearApi";
+import { beautyApi } from "../features/api/beauty-product/beautyApi";
+import { wellnessApi } from "../features/api/wellness-product/wellnessApi";
+import { jewelleryApi } from "../features/api/jewellery-product/jewelleryApi";
 import { beautyBrandApi } from "../features/api/beauty/beautyBrandApi";
 import { wellnessBrandApi } from "../features/api/wellness/welllnessBrandApi";
 import { jewelleryBrandApi } from "../features/api/jewellery/jewelleryBrandApi";
@@ -29,6 +34,11 @@ export const appStore = configureStore({
       bagApi.middleware,
       groceryBrandApi.middleware,
       footwearBrandApi.middleware,
+      groceryApi.middleware,
+      footwearApi.middleware,
+      beautyApi.middleware,
+      wellnessApi.middleware,
+      jewelleryApi.middleware,
       beautyBrandApi.middleware,
       wellnessBrandApi.middleware,
       jewelleryBrandApi.middleware,

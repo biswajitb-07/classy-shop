@@ -45,7 +45,9 @@ const WishlistPage = () => {
   };
 
   const isVariantRequired = (product, productType) => {
-    if (productType === "Fashion") return product.sizes?.length > 0;
+    if (productType === "Fashion" || productType === "Footwear") {
+      return product.sizes?.length > 0;
+    }
     if (productType === "Electronics") return true;
     return false;
   };
@@ -73,7 +75,7 @@ const WishlistPage = () => {
     if (options) {
       setModalCartLoading(true);
       try {
-        if (productType === "Fashion") {
+        if (productType === "Fashion" || productType === "Footwear") {
           const selectedSizes = Object.keys(quantities).filter(
             (size) => quantities[size] > 0
           );
@@ -149,7 +151,7 @@ const WishlistPage = () => {
       const productId = i.productId;
       try {
         let extra = {};
-        if (productType === "Fashion") {
+        if (productType === "Fashion" || productType === "Footwear") {
           extra.size = product.sizes?.[0] || null;
         } else if (productType === "Electronics") {
           extra.ram = product.rams?.[0];

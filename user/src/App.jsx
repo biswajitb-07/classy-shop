@@ -12,10 +12,40 @@ const Home = lazy(() => import("./pages/Home.jsx"));
 const Login = lazy(() => import("./pages/User/auth/Login.jsx"));
 const Profile = lazy(() => import("./pages/user/profile/Profile.jsx"));
 const ForgotPassword = lazy(() => import("./pages/user/auth/ForgetPassword.jsx"));
+const Bag = lazy(() => import("./pages/User/product/bag/Bag.jsx"));
+const Grocery = lazy(() => import("./pages/User/product/grocery/Grocery.jsx"));
+const Beauty = lazy(() => import("./pages/User/product/beauty/Beauty.jsx"));
+const Jewellery = lazy(() =>
+  import("./pages/User/product/jewellery/Jewellery.jsx")
+);
 const Fashion = lazy(() => import("./pages/User/product/fashion/Fashion.jsx"));
+const Footwear = lazy(() =>
+  import("./pages/User/product/footwear/Footwear.jsx")
+);
+const Wellness = lazy(() =>
+  import("./pages/User/product/wellness/Wellness.jsx")
+);
 const Error = lazy(() => import("./components/error/Error.jsx"));
+const BagProductDetails = lazy(() =>
+  import("./pages/User/product/bag/BagProductDetails.jsx")
+);
+const GroceryProductDetails = lazy(() =>
+  import("./pages/User/product/grocery/GroceryProductDetails.jsx")
+);
+const BeautyProductDetails = lazy(() =>
+  import("./pages/User/product/beauty/BeautyProductDetails.jsx")
+);
+const JewelleryProductDetails = lazy(() =>
+  import("./pages/User/product/jewellery/JewelleryProductDetails.jsx")
+);
 const FashionProductDetails = lazy(() =>
   import("./pages/User/product/fashion/FashionProductDetails.jsx")
+);
+const FootwearProductDetails = lazy(() =>
+  import("./pages/User/product/footwear/FootwearProductDetails.jsx")
+);
+const WellnessProductDetails = lazy(() =>
+  import("./pages/User/product/wellness/WellnessProductDetails.jsx")
 );
 const WishlistPage = lazy(() => import("./components/products/WishlistPage.jsx"));
 const CartPage = lazy(() => import("./components/shipping/CartPage.jsx"));
@@ -69,20 +99,148 @@ const appRouter = createBrowserRouter([
         ),
       },
       {
+        path: "/bag",
+        element: <Bag />,
+      },
+      {
+        path: "/grocery",
+        element: <Grocery />,
+      },
+      {
+        path: "/groceries",
+        element: <Grocery />,
+      },
+      {
+        path: "/beauty",
+        element: <Beauty />,
+      },
+      {
+        path: "/jewellery",
+        element: <Jewellery />,
+      },
+      {
+        path: "/bags",
+        element: <Bag />,
+      },
+      {
+        path: "/wellness",
+        element: <Wellness />,
+      },
+      {
+        path: "/bag/:subcategory",
+        element: <Bag />,
+      },
+      {
+        path: "/grocery/:subcategory",
+        element: <Grocery />,
+      },
+      {
+        path: "/groceries/:subcategory",
+        element: <Grocery />,
+      },
+      {
+        path: "/beauty/:subcategory",
+        element: <Beauty />,
+      },
+      {
+        path: "/jewellery/:subcategory",
+        element: <Jewellery />,
+      },
+      {
+        path: "/bags/:subcategory",
+        element: <Bag />,
+      },
+      {
+        path: "/wellness/:subcategory",
+        element: <Wellness />,
+      },
+      {
+        path: "/bag/:subcategory/:thirdcategory",
+        element: <Bag />,
+      },
+      {
+        path: "/grocery/:subcategory/:thirdcategory",
+        element: <Grocery />,
+      },
+      {
+        path: "/groceries/:subcategory/:thirdcategory",
+        element: <Grocery />,
+      },
+      {
+        path: "/beauty/:subcategory/:thirdcategory",
+        element: <Beauty />,
+      },
+      {
+        path: "/jewellery/:subcategory/:thirdcategory",
+        element: <Jewellery />,
+      },
+      {
+        path: "/bags/:subcategory/:thirdcategory",
+        element: <Bag />,
+      },
+      {
+        path: "/wellness/:subcategory/:thirdcategory",
+        element: <Wellness />,
+      },
+      {
+        path: "/bag/bag-product-details/:productId",
+        element: <BagProductDetails />,
+      },
+      {
+        path: "/grocery/grocery-product-details/:productId",
+        element: <GroceryProductDetails />,
+      },
+      {
+        path: "/groceries/grocery-product-details/:productId",
+        element: <GroceryProductDetails />,
+      },
+      {
+        path: "/beauty/beauty-product-details/:productId",
+        element: <BeautyProductDetails />,
+      },
+      {
+        path: "/jewellery/jewellery-product-details/:productId",
+        element: <JewelleryProductDetails />,
+      },
+      {
+        path: "/bags/bag-product-details/:productId",
+        element: <BagProductDetails />,
+      },
+      {
+        path: "/wellness/wellness-product-details/:productId",
+        element: <WellnessProductDetails />,
+      },
+      {
         path: "/fashion",
         element: <Fashion />,
+      },
+      {
+        path: "/footwear",
+        element: <Footwear />,
       },
       {
         path: "/fashion/:subcategory",
         element: <Fashion />,
       },
       {
+        path: "/footwear/:subcategory",
+        element: <Footwear />,
+      },
+      {
         path: "/fashion/:subcategory/:thirdcategory",
         element: <Fashion />,
       },
       {
+        path: "/footwear/:subcategory/:thirdcategory",
+        element: <Footwear />,
+      },
+      {
         path: "/fashion/fashion-product-details/:productId",
         element: <FashionProductDetails />,
+      },
+      {
+        path: "/footwear/footwear-product-details/:productId",
+        element: <FootwearProductDetails />,
       },
       {
         path: "/electronics",

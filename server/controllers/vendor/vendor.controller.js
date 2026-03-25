@@ -1,4 +1,5 @@
 import { Vendor } from "../../models/vendor/vendor.model.js";
+import { User } from "../../models/user/user.model.js";
 import bcrypt from "bcryptjs";
 import { generateTokenVendor } from "../../utils/generateTokenVendor.js";
 import { loginSchema } from "../../validation/vendor/vendor.validation.js";
@@ -125,6 +126,42 @@ export const getVendorProfile = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to load vendor profile",
+    });
+  }
+};
+
+export const getDashboardSummary = async (req, res) => {
+  try {
+    const [totalUsers, totalVendors, recentUsers, recentVendors] =
+      await Promise.all([
+        User.countDocuments(),
+        Vendor.countDocuments(),
+        User.countDocuments({
+          createdAt: {
+            $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          },
+        }),
+        Vendor.countDocuments({
+          createdAt: {
+            $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          },
+        }),
+      ]);
+
+    return res.status(200).json({
+      success: true,
+      summary: {
+        totalUsers,
+        totalVendors,
+        recentUsers,
+        recentVendors,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load dashboard summary",
     });
   }
 };

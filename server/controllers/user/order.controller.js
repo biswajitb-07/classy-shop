@@ -3,11 +3,23 @@ import crypto from "crypto";
 import { Cart } from "../../models/user/cart.model.js";
 import Fashion from "../../models/vendor/fashion/fashion.model.js";
 import Electronics from "../../models/vendor/electronic/electronic.model.js";
+import Bag from "../../models/vendor/bag/bag.model.js";
+import Footwear from "../../models/vendor/footwear/footwear.model.js";
+import Grocery from "../../models/vendor/grocery/grocery.model.js";
+import Beauty from "../../models/vendor/beauty/beauty.model.js";
+import Wellness from "../../models/vendor/wellness/wellness.model.js";
+import Jewellery from "../../models/vendor/jewellery/jewellery.model.js";
 import Order from "../../models/user/order.model.js";
 
 const productModels = {
   Fashion,
   Electronics,
+  Bag,
+  Footwear,
+  Grocery,
+  Beauty,
+  Wellness,
+  Jewellery,
 };
 
 const razorpay = new Razorpay({

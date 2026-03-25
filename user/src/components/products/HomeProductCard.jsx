@@ -129,7 +129,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
       }
       return;
     }
-    if (productType === "Fashion") {
+    if (productType === "Fashion" || productType === "Footwear") {
       if (product.sizes?.length > 0) {
         if (!fromModal) {
           openModal(product);
@@ -184,6 +184,33 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
         toast.success("Added to cart!");
       } catch (err) {
         console.log(err);
+        toast.error(err?.data?.message || "Failed to add");
+      } finally {
+        setCartLoadingId(null);
+      }
+      return;
+    }
+
+    if (
+      productType === "Bag" ||
+      productType === "Grocery" ||
+      productType === "Beauty" ||
+      productType === "Wellness" ||
+      productType === "Jewellery"
+    ) {
+      setCartLoadingId(product._id);
+      try {
+        if (1 > product.inStock) {
+          toast.error(`Only ${product.inStock} items available`);
+          return;
+        }
+        await addToCart({
+          productId: product._id,
+          productType,
+          quantity: 1,
+        }).unwrap();
+        toast.success("Added to cart!");
+      } catch (err) {
         toast.error(err?.data?.message || "Failed to add");
       } finally {
         setCartLoadingId(null);
@@ -307,7 +334,9 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
                       )}
                     </button>
 
-                    {(p.category === "Fashion" && p.sizes?.length > 0) ||
+                    {((p.category === "Fashion" ||
+                      p.category === "Footwear") &&
+                      p.sizes?.length > 0) ||
                     p.category === "Electronics" ? (
                       <button
                         onClick={(e) => {

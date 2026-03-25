@@ -10,6 +10,11 @@ import { electronicApi } from "../features/api/electronic/electronicApi";
 import { bagBrandApi } from "../features/api/bag/bagBrandApi";
 import { groceryBrandApi } from "../features/api/grocery/groceryBrandApi";
 import { footwearBrandApi } from "../features/api/footwear/footwearBrandApi";
+import { groceryApi } from "../features/api/grocery-product/groceryApi";
+import { footwearApi } from "../features/api/footwear-product/footwearApi";
+import { beautyApi } from "../features/api/beauty-product/beautyApi";
+import { wellnessApi } from "../features/api/wellness-product/wellnessApi";
+import { jewelleryApi } from "../features/api/jewellery-product/jewelleryApi";
 import { beautyBrandApi } from "../features/api/beauty/beautyBrandApi";
 import { wellnessBrandApi } from "../features/api/wellness/welllnessBrandApi";
 import { jewelleryBrandApi } from "../features/api/jewellery/jewelleryBrandApi";
@@ -27,6 +32,11 @@ const rootRedcuer = combineReducers({
   [bagApi.reducerPath]: bagApi.reducer,
   [groceryBrandApi.reducerPath]: groceryBrandApi.reducer,
   [footwearBrandApi.reducerPath]: footwearBrandApi.reducer,
+  [groceryApi.reducerPath]: groceryApi.reducer,
+  [footwearApi.reducerPath]: footwearApi.reducer,
+  [beautyApi.reducerPath]: beautyApi.reducer,
+  [wellnessApi.reducerPath]: wellnessApi.reducer,
+  [jewelleryApi.reducerPath]: jewelleryApi.reducer,
   [beautyBrandApi.reducerPath]: beautyBrandApi.reducer,
   [wellnessBrandApi.reducerPath]: wellnessBrandApi.reducer,
   [jewelleryBrandApi.reducerPath]: jewelleryBrandApi.reducer,

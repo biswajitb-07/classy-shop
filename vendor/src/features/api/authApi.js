@@ -81,6 +81,12 @@ export const authApi = createApi({
         credentials: "include",
       }),
     }),
+    getDashboardSummary: builder.query({
+      query: () => ({
+        url: "dashboard-summary",
+        method: "GET",
+      }),
+    }),
   }),
 });
 
@@ -93,4 +99,5 @@ export const {
   useSendResetOtpMutation,
   useResetPasswordMutation,
   useChangePasswordMutation,
+  useGetDashboardSummaryQuery,
 } = authApi;
