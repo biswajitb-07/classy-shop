@@ -49,6 +49,10 @@ const vendorSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
     resetOtp: {
       type: String,
       default: "",

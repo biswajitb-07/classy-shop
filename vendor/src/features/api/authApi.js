@@ -6,6 +6,7 @@ const VENDOR_API = `${BASE_URL}/api/v1/vendor/`;
 
 export const authApi = createApi({
   reducerPath: "authApi",
+  tagTypes: ["VendorNotifications"],
   baseQuery: fetchBaseQuery({
     baseUrl: VENDOR_API,
     credentials: "include",
@@ -70,6 +71,7 @@ export const authApi = createApi({
           dispatch(userLoggedIn({ vendor: result.data.vendor }));
         } catch (error) {
           console.log(error);
+          dispatch(userLoggedOut());
         }
       },
     }),
@@ -87,6 +89,91 @@ export const authApi = createApi({
         method: "GET",
       }),
     }),
+    getUsers: builder.query({
+      query: () => ({
+        url: "users",
+        method: "GET",
+      }),
+    }),
+    getVendors: builder.query({
+      query: () => ({
+        url: "vendors",
+        method: "GET",
+      }),
+    }),
+    updateUserById: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `users/${id}`,
+        method: "PUT",
+        body,
+      }),
+    }),
+    deleteUserById: builder.mutation({
+      query: (id) => ({
+        url: `users/${id}`,
+        method: "DELETE",
+      }),
+    }),
+    toggleUserBlock: builder.mutation({
+      query: ({ id, isBlocked }) => ({
+        url: `users/${id}/block`,
+        method: "PATCH",
+        body: { isBlocked },
+      }),
+    }),
+    updateVendorById: builder.mutation({
+      query: ({ id, ...body }) => ({
+        url: `vendors/${id}`,
+        method: "PUT",
+        body,
+      }),
+    }),
+    deleteVendorById: builder.mutation({
+      query: (id) => ({
+        url: `vendors/${id}`,
+        method: "DELETE",
+      }),
+    }),
+    toggleVendorBlock: builder.mutation({
+      query: ({ id, isBlocked }) => ({
+        url: `vendors/${id}/block`,
+        method: "PATCH",
+        body: { isBlocked },
+      }),
+    }),
+    getVendorNotifications: builder.query({
+      query: () => ({
+        url: "notifications",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result?.notifications
+          ? [
+              ...result.notifications.map((notification) => ({
+                type: "VendorNotifications",
+                id: notification._id,
+              })),
+              { type: "VendorNotifications", id: "LIST" },
+            ]
+          : [{ type: "VendorNotifications", id: "LIST" }],
+    }),
+    deleteVendorNotification: builder.mutation({
+      query: (id) => ({
+        url: `notifications/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "VendorNotifications", id },
+        { type: "VendorNotifications", id: "LIST" },
+      ],
+    }),
+    clearVendorNotifications: builder.mutation({
+      query: () => ({
+        url: "notifications",
+        method: "DELETE",
+      }),
+      invalidatesTags: [{ type: "VendorNotifications", id: "LIST" }],
+    }),
   }),
 });
 
@@ -100,4 +187,15 @@ export const {
   useResetPasswordMutation,
   useChangePasswordMutation,
   useGetDashboardSummaryQuery,
+  useGetUsersQuery,
+  useGetVendorsQuery,
+  useUpdateUserByIdMutation,
+  useDeleteUserByIdMutation,
+  useToggleUserBlockMutation,
+  useUpdateVendorByIdMutation,
+  useDeleteVendorByIdMutation,
+  useToggleVendorBlockMutation,
+  useGetVendorNotificationsQuery,
+  useDeleteVendorNotificationMutation,
+  useClearVendorNotificationsMutation,
 } = authApi;

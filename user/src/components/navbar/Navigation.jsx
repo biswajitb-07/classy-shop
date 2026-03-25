@@ -3,9 +3,11 @@ import { LiaAngleDownSolid } from "react-icons/lia";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { GoRocket } from "react-icons/go";
 import { useEffect } from "react";
+import { useTheme } from "../../context/ThemeContext.jsx";
 
 const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
   const location = useLocation();
+  const { isDark } = useTheme();
 
   useEffect(() => {
     const root = document.documentElement;
@@ -24,6 +26,15 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
   const isPathActive = (path) =>
     currentPath === normalizePath(path) ||
     currentPath.startsWith(`${normalizePath(path)}/`);
+  const dropdownSurface = isDark
+    ? "bg-slate-900 text-slate-100 border border-slate-700 shadow-2xl"
+    : "bg-white text-slate-900 shadow-md";
+  const dropdownItem =
+    "block px-4 py-2 transition-colors duration-200";
+  const dropdownHover = isDark
+    ? "hover:bg-slate-800 hover:text-white"
+    : "hover:bg-gray-200 hover:text-slate-900";
+  const dropdownActive = "bg-red-500 text-white";
 
   return (
     <>
@@ -78,7 +89,7 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                         {cat.name}
                       </NavLink>
                       {hasSub && (
-                        <div className="dropdown-menu hidden lg:block absolute top-0 mt-10 left-0 min-w-[200px] bg-white shadow-md z-10">
+                        <div className={`dropdown-menu hidden lg:block absolute top-0 mt-10 left-0 min-w-[200px] rounded-b-xl z-10 ${dropdownSurface}`}>
                           <ul className="list-none">
                             {cat.subCategories.map((sub) => {
                               const subSlug = getSlug(sub.name);
@@ -97,17 +108,17 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                                   <NavLink
                                     to={`/${slug}/${subSlug}`}
                                     className={() =>
-                                      `block px-4 py-2 ${
+                                      `${dropdownItem} ${
                                         isPathActive(`/${slug}/${subSlug}`)
-                                          ? "bg-red-500 text-white"
-                                          : "hover:bg-gray-200"
+                                          ? dropdownActive
+                                          : dropdownHover
                                       }`
                                     }
                                   >
                                     {sub.name}
                                   </NavLink>
                                   {hasThirdLevel && (
-                                    <div className="third-level-menu absolute top-0 left-full min-w-[200px] bg-white shadow-md z-10">
+                                    <div className={`third-level-menu absolute top-0 left-full min-w-[200px] rounded-b-xl z-10 ${dropdownSurface}`}>
                                       <ul className="list-none">
                                         {sub.thirdLevelSubCategories.map(
                                           (third) => {
@@ -119,12 +130,12 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                                                 <NavLink
                                                   to={`/${slug}/${subSlug}/${thirdSlug}`}
                                                   className={() =>
-                                                    `block px-4 py-2 ${
+                                                    `${dropdownItem} ${
                                                       isPathActive(
                                                         `/${slug}/${subSlug}/${thirdSlug}`
                                                       )
-                                                        ? "bg-red-500 text-white"
-                                                        : "hover:bg-gray-200"
+                                                        ? dropdownActive
+                                                        : dropdownHover
                                                     }`
                                                   }
                                                 >

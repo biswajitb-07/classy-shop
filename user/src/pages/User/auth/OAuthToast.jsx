@@ -7,14 +7,29 @@ export default function OAuthToast() {
 
   useEffect(() => {
     const status = searchParams.get("google");
+    const blocked = searchParams.get("blocked");
     const msg = searchParams.get("message");
+    const hasAuthParams = status || blocked || msg;
 
     if (status === "success") {
       toast.success(decodeURIComponent(msg || "Welcome to Classy Shop!"));
     } else if (status === "error") {
       toast.error(decodeURIComponent(msg || "Google login failed"));
+    } else if (blocked === "1" || status === "blocked") {
+      toast.error(
+        decodeURIComponent(
+          msg || "Your account has been blocked plz contact customer care"
+        )
+      );
     }
-    setSearchParams({}, { replace: true });
+
+    if (!hasAuthParams) return;
+
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.delete("google");
+    nextParams.delete("blocked");
+    nextParams.delete("message");
+    setSearchParams(nextParams, { replace: true });
   }, [searchParams, setSearchParams]);
 
   return null;

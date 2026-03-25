@@ -6,59 +6,70 @@ import {
   PublicRoute,
   UserRoute,
 } from "./components/protectRoute/ProtectedRoutes.jsx";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 
 const MainLayout = lazy(() => import("./layout/MainLayout.jsx"));
 const Home = lazy(() => import("./pages/Home.jsx"));
 const Login = lazy(() => import("./pages/User/auth/Login.jsx"));
 const Profile = lazy(() => import("./pages/user/profile/Profile.jsx"));
-const ForgotPassword = lazy(() => import("./pages/user/auth/ForgetPassword.jsx"));
+const Settings = lazy(() => import("./pages/User/Settings.jsx"));
+const ForgotPassword = lazy(
+  () => import("./pages/user/auth/ForgetPassword.jsx"),
+);
 const Bag = lazy(() => import("./pages/User/product/bag/Bag.jsx"));
 const Grocery = lazy(() => import("./pages/User/product/grocery/Grocery.jsx"));
 const Beauty = lazy(() => import("./pages/User/product/beauty/Beauty.jsx"));
-const Jewellery = lazy(() =>
-  import("./pages/User/product/jewellery/Jewellery.jsx")
+const Jewellery = lazy(
+  () => import("./pages/User/product/jewellery/Jewellery.jsx"),
 );
 const Fashion = lazy(() => import("./pages/User/product/fashion/Fashion.jsx"));
-const Footwear = lazy(() =>
-  import("./pages/User/product/footwear/Footwear.jsx")
+const Footwear = lazy(
+  () => import("./pages/User/product/footwear/Footwear.jsx"),
 );
-const Wellness = lazy(() =>
-  import("./pages/User/product/wellness/Wellness.jsx")
+const Wellness = lazy(
+  () => import("./pages/User/product/wellness/Wellness.jsx"),
 );
 const Error = lazy(() => import("./components/error/Error.jsx"));
-const BagProductDetails = lazy(() =>
-  import("./pages/User/product/bag/BagProductDetails.jsx")
+const BagProductDetails = lazy(
+  () => import("./pages/User/product/bag/BagProductDetails.jsx"),
 );
-const GroceryProductDetails = lazy(() =>
-  import("./pages/User/product/grocery/GroceryProductDetails.jsx")
+const GroceryProductDetails = lazy(
+  () => import("./pages/User/product/grocery/GroceryProductDetails.jsx"),
 );
-const BeautyProductDetails = lazy(() =>
-  import("./pages/User/product/beauty/BeautyProductDetails.jsx")
+const BeautyProductDetails = lazy(
+  () => import("./pages/User/product/beauty/BeautyProductDetails.jsx"),
 );
-const JewelleryProductDetails = lazy(() =>
-  import("./pages/User/product/jewellery/JewelleryProductDetails.jsx")
+const JewelleryProductDetails = lazy(
+  () => import("./pages/User/product/jewellery/JewelleryProductDetails.jsx"),
 );
-const FashionProductDetails = lazy(() =>
-  import("./pages/User/product/fashion/FashionProductDetails.jsx")
+const FashionProductDetails = lazy(
+  () => import("./pages/User/product/fashion/FashionProductDetails.jsx"),
 );
-const FootwearProductDetails = lazy(() =>
-  import("./pages/User/product/footwear/FootwearProductDetails.jsx")
+const FootwearProductDetails = lazy(
+  () => import("./pages/User/product/footwear/FootwearProductDetails.jsx"),
 );
-const WellnessProductDetails = lazy(() =>
-  import("./pages/User/product/wellness/WellnessProductDetails.jsx")
+const WellnessProductDetails = lazy(
+  () => import("./pages/User/product/wellness/WellnessProductDetails.jsx"),
 );
-const WishlistPage = lazy(() => import("./components/products/WishlistPage.jsx"));
+const WishlistPage = lazy(
+  () => import("./components/products/WishlistPage.jsx"),
+);
 const CartPage = lazy(() => import("./components/shipping/CartPage.jsx"));
-const Electronics = lazy(() =>
-  import("./pages/User/product/electronic/Electronics.jsx")
+const Electronics = lazy(
+  () => import("./pages/User/product/electronic/Electronics.jsx"),
 );
-const ElectronicsProductDetails = lazy(() =>
-  import("./pages/User/product/electronic/ElectronicsProductDetails.jsx")
+const ElectronicsProductDetails = lazy(
+  () => import("./pages/User/product/electronic/ElectronicsProductDetails.jsx"),
 );
 const CheckoutPage = lazy(() => import("./pages/User/order/CheckOutPage.jsx"));
-const OrderListPage = lazy(() => import("./pages/User/order/OrderListPage.jsx"));
-const OrderDetailsPage = lazy(() =>
-  import("./pages/User/order/OrderDetailsPage.jsx")
+const OrderListPage = lazy(
+  () => import("./pages/User/order/OrderListPage.jsx"),
+);
+const OrderDetailsPage = lazy(
+  () => import("./pages/User/order/OrderDetailsPage.jsx"),
+);
+const SearchResultsPage = lazy(
+  () => import("./pages/User/SearchResultsPage.jsx"),
 );
 
 const appRouter = createBrowserRouter([
@@ -83,12 +94,24 @@ const appRouter = createBrowserRouter([
     ),
   },
   {
+    path: "/reset-password",
+    element: <ForgotPassword />,
+  },
+  {
     path: "/",
     element: <MainLayout />,
     children: [
       {
         path: "/",
         element: <Home />,
+      },
+      {
+        path: "/settings",
+        element: <Settings />,
+      },
+      {
+        path: "/search",
+        element: <SearchResultsPage />,
       },
       {
         path: "/product-wishlist",
@@ -292,10 +315,6 @@ const appRouter = createBrowserRouter([
       },
     ],
   },
-  {
-    path: "/reset-password",
-    element: <ForgotPassword />,
-  },
 ]);
 
 const App = () => {
@@ -323,30 +342,32 @@ const App = () => {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 2000,
-        }}
-      />
-      {isOnline ? (
-        <RouterProvider router={appRouter} />
-      ) : (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
-          <WifiOff
-            className="w-28 h-28 text-sky-400 animate-pulse"
-            strokeWidth={0.5}
-          />
-          <h1 className="mt-6 text-3xl font-bold tracking-tight">
-            You're offline
-          </h1>
-          <p className="mt-2 text-slate-300 text-center max-w-xs">
-            Check your connection to continue using the site.
-          </p>
-        </div>
-      )}
-    </main>
+    <ThemeProvider>
+      <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 2000,
+          }}
+        />
+        {isOnline ? (
+          <RouterProvider router={appRouter} />
+        ) : (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
+            <WifiOff
+              className="w-28 h-28 text-sky-400 animate-pulse"
+              strokeWidth={0.5}
+            />
+            <h1 className="mt-6 text-3xl font-bold tracking-tight">
+              You're offline
+            </h1>
+            <p className="mt-2 text-slate-300 text-center max-w-xs">
+              Check your connection to continue using the site.
+            </p>
+          </div>
+        )}
+      </main>
+    </ThemeProvider>
   );
 };
 

@@ -1,6 +1,5 @@
 import { User } from "../../models/user/user.model.js";
 import bcrypt from "bcryptjs";
-import { generateToken } from "../../utils/generateToken.js";
 import {
   registerSchema,
   loginSchema,
@@ -10,6 +9,10 @@ import {
   uploadMedia,
 } from "../../utils/cloudinary.js";
 import transporter from "../../utils/nodemailer.js";
+import {
+  clearUserAuthCookies,
+  setUserAuthCookies,
+} from "../../utils/authCookies.js";
 
 export const register = async (req, res) => {
   try {
@@ -135,6 +138,13 @@ export const login = async (req, res) => {
       });
     }
 
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked plz contact customer care",
+      });
+    }
+
     const isPasswordMatch = await bcrypt.compare(password, user.password);
     if (!isPasswordMatch) {
       return res.status(401).json({
@@ -143,20 +153,20 @@ export const login = async (req, res) => {
       });
     }
 
-    generateToken(res, user, `Welcome back ${user.name}`);
+    setUserAuthCookies(res, user._id);
+    return res.status(200).json({
+      success: true,
+      message: `Welcome back ${user.name}`,
+      user,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const logout = async (req, res) => {
-  const isProd = process.env.NODE_ENV === "production";
   try {
-    res.clearCookie("token", {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-    });
+    clearUserAuthCookies(res);
     return res.status(204).json({
       success: true,
       message: "Logged out successfully",

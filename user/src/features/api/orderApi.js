@@ -9,11 +9,24 @@ export const orderApi = createApi({
     baseUrl: ORDER_API,
     credentials: "include",
   }),
-  tagTypes: ["Order"],
+  tagTypes: ["Order", "UserNotification"],
   endpoints: (builder) => ({
     getUserOrders: builder.query({
       query: () => `/`,
       providesTags: ["Order"],
+    }),
+    getUserNotifications: builder.query({
+      query: () => `/notifications`,
+      providesTags: (result) =>
+        result?.notifications
+          ? [
+              "UserNotification",
+              ...result.notifications.map((notification) => ({
+                type: "UserNotification",
+                id: notification._id,
+              })),
+            ]
+          : ["UserNotification"],
     }),
     createOrder: builder.mutation({
       query: (body) => ({
@@ -37,14 +50,35 @@ export const orderApi = createApi({
         method: "PUT",
         body,
       }),
-      invalidatesTags: ["Order"],
+      invalidatesTags: ["Order", "UserNotification"],
+    }),
+    deleteUserNotification: builder.mutation({
+      query: (id) => ({
+        url: `/notifications/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (result, error, id) => [
+        "UserNotification",
+        { type: "UserNotification", id },
+      ],
+    }),
+    clearUserNotifications: builder.mutation({
+      query: () => ({
+        url: `/notifications`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["UserNotification"],
     }),
   }),
 });
 
 export const {
   useGetUserOrdersQuery,
+  useGetUserNotificationsQuery,
   useCreateOrderMutation,
   useConfirmPaymentMutation,
   useUpdateOrderStatusMutation
+  ,
+  useDeleteUserNotificationMutation,
+  useClearUserNotificationsMutation,
 } = orderApi;

@@ -46,7 +46,7 @@ const LoadingSpinner = () => {
                 key={index}
                 cx={x}
                 cy={y}
-                r="7" 
+                r="7"
                 fill={fillColor}
                 className="transition-all duration-200 ease-in-out"
               />

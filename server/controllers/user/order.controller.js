@@ -10,6 +10,9 @@ import Beauty from "../../models/vendor/beauty/beauty.model.js";
 import Wellness from "../../models/vendor/wellness/wellness.model.js";
 import Jewellery from "../../models/vendor/jewellery/jewellery.model.js";
 import Order from "../../models/user/order.model.js";
+import { User } from "../../models/user/user.model.js";
+import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
+import { UserNotification } from "../../models/user/userNotification.model.js";
 
 const productModels = {
   Fashion,
@@ -26,6 +29,95 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+
+const formatStatusLabel = (status) =>
+  status
+    ?.replace(/_/g, " ")
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const adjustInventoryForOrderItems = async (
+  items,
+  direction = "decrease"
+) => {
+  for (const item of items) {
+    const Model = productModels[item.productType];
+    if (!Model) continue;
+
+    const delta = direction === "increase" ? Number(item.quantity) : -Number(item.quantity);
+    await Model.findByIdAndUpdate(item.productId, {
+      $inc: { inStock: delta },
+    });
+  }
+};
+
+const createVendorNotificationsForOrder = async (order, userId) => {
+  const orderingUser = await User.findById(userId).select("name email").lean();
+  const userLabel = orderingUser?.name || orderingUser?.email || "A customer";
+
+  const grouped = new Map();
+  for (const item of order.items || []) {
+    const key = String(item.vendorId);
+    const current = grouped.get(key) || [];
+    current.push(item);
+    grouped.set(key, current);
+  }
+
+  const notifications = Array.from(grouped.entries()).map(([vendorId, items]) => {
+    const itemSummary = items
+      .slice(0, 2)
+      .map((item) => item.productName || item.productType)
+      .join(", ");
+    const extraCount = Math.max(items.length - 2, 0);
+
+    return {
+      vendorId,
+      userId,
+      orderId: order._id,
+      type: "order",
+      title: "New order received",
+      message: `${userLabel} placed order ${order.orderId} for ${
+        items.length
+      } item(s)${itemSummary ? `: ${itemSummary}` : ""}${
+        extraCount ? ` +${extraCount} more` : ""
+      }.`,
+    };
+  });
+
+  if (notifications.length) {
+    await VendorNotification.insertMany(notifications);
+  }
+};
+
+const createUserNotificationForOrderStatus = async ({
+  order,
+  status,
+  reason,
+  previousStatus,
+  vendorId,
+}) => {
+  if (!order?.userId || previousStatus === status) return;
+
+  const previewItems = (order.items || [])
+    .slice(0, 2)
+    .map((item) => item.productName || item.productType)
+    .filter(Boolean)
+    .join(", ");
+  const extraCount = Math.max((order.items || []).length - 2, 0);
+
+  await UserNotification.create({
+    userId: order.userId,
+    vendorId,
+    orderId: order._id,
+    type: "order_status",
+    status,
+    title: `Order ${formatStatusLabel(status)}`,
+    message: `Your order ${order.orderId} is now ${formatStatusLabel(
+      status
+    )}.${previewItems ? ` Items: ${previewItems}` : ""}${
+      extraCount ? ` +${extraCount} more.` : ""
+    }${reason ? ` Note: ${reason}` : ""}`,
+  });
+};
 
 const computeOrderDetailsFromCart = async (userId) => {
   const cart = await Cart.findOne({ userId });
@@ -55,11 +147,16 @@ const computeOrderDetailsFromCart = async (userId) => {
     for (const variant of item.variants) {
       const qty = variant.quantity;
       if (!qty || qty < 1) continue;
+      if (Number(product.inStock || 0) < Number(qty)) {
+        throw new Error(`${product.name} does not have enough stock`);
+      }
       const subtotal = price * qty;
       totalAmount += subtotal;
       orderItems.push({
         productId: item.productId,
+        vendorId: product.vendorId,
         productType: item.productType,
+        productName: product.name || "",
         variant: variant.variant,
         quantity: qty,
         price,
@@ -106,6 +203,11 @@ export const createOrder = async (req, res) => {
         orderId,
       });
       await order.save();
+      await adjustInventoryForOrderItems(order.items, "decrease");
+      order.stockAdjusted = true;
+      order.stockRestored = false;
+      await order.save();
+      await createVendorNotificationsForOrder(order, userId);
       cart.items = [];
       await cart.save();
       return res
@@ -195,6 +297,11 @@ export const confirmPayment = async (req, res) => {
       razorpayPaymentId: razorpay_payment_id,
     });
     await order.save();
+    await adjustInventoryForOrderItems(order.items, "decrease");
+    order.stockAdjusted = true;
+    order.stockRestored = false;
+    await order.save();
+    await createVendorNotificationsForOrder(order, userId);
     cart.items = [];
     await cart.save();
     return res.status(200).json({
@@ -330,6 +437,8 @@ export const orderStatusUpdate = async (req, res) => {
         .json({ success: false, message: "Order not found" });
     }
 
+    const previousStatus = order.orderStatus;
+
     console.log(req.role);
 
     if (role === "user") {
@@ -397,6 +506,10 @@ export const orderStatusUpdate = async (req, res) => {
           at: new Date(),
         });
 
+        if (order.stockAdjusted && !order.stockRestored) {
+          await adjustInventoryForOrderItems(order.items, "increase");
+          order.stockRestored = true;
+        }
         order.orderStatus = "cancelled";
         order.updatedAt = Date.now();
         await order.save();
@@ -512,6 +625,10 @@ export const orderStatusUpdate = async (req, res) => {
           reason: reason || "",
           at: new Date(),
         });
+        if (order.stockAdjusted && !order.stockRestored) {
+          await adjustInventoryForOrderItems(order.items, "increase");
+          order.stockRestored = true;
+        }
         order.orderStatus = "return_completed";
       } else if (status === "cancelled") {
         if (order.orderStatus === "delivered") {
@@ -536,6 +653,10 @@ export const orderStatusUpdate = async (req, res) => {
           reason: reason || "",
           at: new Date(),
         });
+        if (order.stockAdjusted && !order.stockRestored) {
+          await adjustInventoryForOrderItems(order.items, "increase");
+          order.stockRestored = true;
+        }
         order.orderStatus = "cancelled";
       } else {
         order.statusHistory = order.statusHistory || [];
@@ -552,6 +673,13 @@ export const orderStatusUpdate = async (req, res) => {
 
       order.updatedAt = Date.now();
       await order.save();
+      await createUserNotificationForOrderStatus({
+        order,
+        status: order.orderStatus,
+        reason,
+        previousStatus,
+        vendorId: req.id,
+      });
 
       return res
         .status(200)
@@ -565,6 +693,66 @@ export const orderStatusUpdate = async (req, res) => {
       success: false,
       message: "Failed to update order status",
       error: error.message,
+    });
+  }
+};
+
+export const getUserNotifications = async (req, res) => {
+  try {
+    const notifications = await UserNotification.find({ userId: req.id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return res.status(200).json({
+      success: true,
+      notifications,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load notifications",
+    });
+  }
+};
+
+export const deleteUserNotification = async (req, res) => {
+  try {
+    const notification = await UserNotification.findOneAndDelete({
+      _id: req.params.id,
+      userId: req.id,
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification deleted",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete notification",
+    });
+  }
+};
+
+export const clearUserNotifications = async (req, res) => {
+  try {
+    await UserNotification.deleteMany({ userId: req.id });
+
+    return res.status(200).json({
+      success: true,
+      message: "All notifications cleared",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to clear notifications",
     });
   }
 };

@@ -14,6 +14,8 @@ import {
   FiLogOut,
   FiLock,
   FiCheck,
+  FiBell,
+  FiTrash2,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -24,7 +26,13 @@ import {
   useSetPasswordMutation,
   useChangePasswordMutation,
 } from "../../../features/api/authApi.js";
+import {
+  useGetUserNotificationsQuery,
+  useDeleteUserNotificationMutation,
+  useClearUserNotificationsMutation,
+} from "../../../features/api/orderApi.js";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
+import { useTheme } from "../../../context/ThemeContext.jsx";
 
 const ProfileSkeleton = () => (
   <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-100 p-4">
@@ -97,6 +105,7 @@ const Profile = () => {
   });
 
   const navigate = useNavigate();
+  const { isDark, resetTheme } = useTheme();
 
   const { data, isLoading: isUserLoading, error, refetch } = useLoadUserQuery();
   const [setPwd, { isLoading: pwdLoading }] = useSetPasswordMutation();
@@ -104,6 +113,15 @@ const Profile = () => {
   const [updateUser, { isLoading: updateIsLoading }] =
     useUpdateUserProfileMutation();
   const [changePwd, { isLoading: changeLoading }] = useChangePasswordMutation();
+  const { data: notificationData, isFetching: notificationsFetching } =
+    useGetUserNotificationsQuery(undefined, {
+      pollingInterval: 5000,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
+    });
+  const [deleteUserNotification] = useDeleteUserNotificationMutation();
+  const [clearUserNotifications, { isLoading: clearNotificationsLoading }] =
+    useClearUserNotificationsMutation();
 
   const [profile, setProfile] = useState({
     name: "",
@@ -219,6 +237,7 @@ const Profile = () => {
   const handleLogout = async () => {
     try {
       await logoutUser().unwrap();
+      resetTheme();
       toast.success("Logged out successfully");
       navigate("/");
     } catch (err) {
@@ -275,31 +294,69 @@ const Profile = () => {
 
   if (isUserLoading) return <ProfileSkeleton />;
 
+  const notifications = notificationData?.notifications || [];
+  const accentGradient = isDark
+    ? "from-cyan-400 to-blue-500"
+    : "from-red-500 to-pink-500";
+  const accentButtonGradient = isDark
+    ? "from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 shadow-cyan-500/20"
+    : "from-red-500 to-pink-600 hover:from-red-400 hover:to-pink-500 shadow-red-500/20";
+  const pageClass = isDark
+    ? "min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-[#140f1f] pb-10"
+    : "min-h-screen bg-gradient-to-br from-rose-50 via-white to-orange-50 pb-10";
+  const titleClass = isDark ? "text-white" : "text-slate-900";
+  const subtitleClass = isDark ? "text-slate-300" : "text-slate-600";
+  const mainCardClass = isDark
+    ? "bg-slate-900 rounded-3xl shadow-[0_24px_60px_rgba(2,6,23,0.55)] border border-slate-800 overflow-hidden transition-all duration-500"
+    : "bg-white rounded-3xl shadow-[0_24px_60px_rgba(15,23,42,0.12)] border border-slate-200 overflow-hidden transition-all duration-500";
+  const rightPanelClass = isDark
+    ? "lg:w-3/5 p-8 md:p-12 bg-slate-950"
+    : "lg:w-3/5 p-8 md:p-12 bg-white";
+  const sectionTitleClass = isDark ? "text-white" : "text-slate-900";
+  const labelClass = isDark ? "text-slate-400" : "text-slate-500";
+  const valueClass = isDark ? "text-white" : "text-slate-900";
+  const inputClass = isDark
+    ? "w-full px-4 py-3 bg-slate-900 border border-slate-700 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+    : "w-full px-4 py-3 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base";
+  const addressInputClass = isDark
+    ? "px-4 py-3 bg-slate-900 border border-slate-700 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+    : "px-4 py-3 bg-slate-50 border border-slate-200 text-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base";
+  const passwordPanelClass = isDark
+    ? "mt-8 p-6 border border-slate-700 rounded-3xl bg-slate-900"
+    : "mt-8 p-6 border border-slate-200 rounded-3xl bg-slate-50";
+  const passwordInputClass = isDark
+    ? "w-full px-4 py-3 bg-slate-950 border border-slate-700 text-white rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+    : "w-full px-4 py-3 bg-white border border-slate-200 text-slate-900 rounded-2xl focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all duration-300 text-sm sm:text-base";
+  const notificationsCardClass = isDark
+    ? "mt-8 bg-slate-900 rounded-3xl border border-slate-800 shadow-[0_18px_45px_rgba(2,6,23,0.45)] overflow-hidden"
+    : "mt-8 bg-white rounded-3xl border border-slate-200 shadow-[0_18px_45px_rgba(15,23,42,0.08)] overflow-hidden";
+  const notificationsBorderClass = isDark ? "border-slate-800" : "border-slate-200";
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-600 via-pink-600 to-amber-600 pb-8">
+    <div className={pageClass}>
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="text-center mb-5 pt-5">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-r from-red-600 to-pink-600 rounded-full mb-4">
+          <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 shadow-lg ${isDark ? "bg-gradient-to-r from-cyan-400 to-blue-500 shadow-cyan-500/20" : "bg-gradient-to-r from-red-500 to-pink-500 shadow-red-500/20"}`}>
             <FiUser className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white">
+          <h1 className={`text-3xl sm:text-4xl md:text-5xl font-bold ${titleClass}`}>
             My Profile
           </h1>
-          <p className="text-base sm:text-lg text-white font-medium">
+          <p className={`text-base sm:text-lg font-medium ${subtitleClass}`}>
             Manage your personal information and settings
           </p>
-          <div className="mt-6 mx-auto w-32 h-1 rounded-full bg-gradient-to-r from-white to-pink-800"></div>
+          <div className={`mt-6 mx-auto h-1 w-32 rounded-full bg-gradient-to-r ${accentGradient}`}></div>
         </div>
 
         {/* Main Profile Card */}
-        <div className="bg-white/70 backdrop-blur-lg rounded-3xl shadow-2xl border border-white/20 overflow-hidden hover:shadow-3xl transition-all duration-500">
+        <div className={mainCardClass}>
           <div className="lg:flex">
-            <div className="lg:w-2/5 bg-gradient-to-br from-red-400  to-pink-500 p-8 relative overflow-hidden">
-              <div className="absolute inset-0 opacity-20">
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.1)_0%,transparent_50%)]"></div>
-                <div className="absolute top-0 left-0 w-40 h-40 bg-white/10 rounded-full -translate-x-20 -translate-y-20"></div>
-                <div className="absolute bottom-0 right-0 w-60 h-60 bg-white/5 rounded-full translate-x-20 translate-y-20"></div>
+            <div className={`lg:w-2/5 p-8 relative overflow-hidden ${isDark ? "bg-gradient-to-br from-cyan-500 via-blue-600 to-indigo-700" : "bg-gradient-to-br from-red-500 via-pink-500 to-orange-400"}`}>
+              <div className="absolute inset-0 opacity-25">
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(255,255,255,0.18)_0%,transparent_52%)]"></div>
+                <div className="absolute top-0 left-0 w-40 h-40 bg-white/15 rounded-full -translate-x-20 -translate-y-20"></div>
+                <div className="absolute bottom-0 right-0 w-60 h-60 bg-white/10 rounded-full translate-x-20 translate-y-20"></div>
               </div>
 
               <div className="relative z-10 flex flex-col items-center text-center h-full justify-center">
@@ -341,7 +398,7 @@ const Profile = () => {
 
                 {/* Bio Section */}
                 <div className="w-full max-w-sm">
-                  <label className="block text-white/90 font-semibold mb-3 text-base sm:text-lg">
+                  <label className="block text-white font-semibold mb-3 text-base sm:text-lg">
                     About Me
                   </label>
                   {isEditing ? (
@@ -354,7 +411,7 @@ const Profile = () => {
                       placeholder="Tell us about yourself..."
                     />
                   ) : (
-                    <p className="text-white/90 text-sm sm:text-base leading-relaxed bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/20">
+                    <p className="text-white text-sm sm:text-base leading-relaxed bg-white/15 backdrop-blur-sm rounded-2xl p-4 border border-white/20 shadow-inner">
                       {profile.bio || "No bio provided"}
                     </p>
                   )}
@@ -362,18 +419,18 @@ const Profile = () => {
               </div>
             </div>
 
-            <div className="lg:w-3/5 p-8 md:p-12">
+            <div className={rightPanelClass}>
               <div className="flex justify-between items-center mb-8">
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 flex items-center">
-                  <div className="w-2 h-8 bg-gradient-to-b from-red-500 to-pink-500 rounded-full mr-3"></div>
+                <h3 className={`text-xl sm:text-2xl font-bold flex items-center ${sectionTitleClass}`}>
+                  <div className={`mr-3 h-8 w-2 rounded-full bg-gradient-to-b ${accentGradient}`}></div>
                   Personal Information
                 </h3>
                 <button
                   onClick={toggleEdit}
                   className={`flex items-center space-x-2 px-4 py-2 sm:px-6 sm:py-3 rounded-2xl font-semibold transition-all duration-300 transform hover:scale-105 cursor-pointer text-sm sm:text-base ${
                     isEditing
-                      ? "bg-red-100 text-red-600 hover:bg-red-200"
-                      : "bg-gradient-to-r from-red-500 to-pink-500 text-white hover:from-red-600 hover:to-pink-600 shadow-lg"
+                      ? "bg-slate-800 text-cyan-300 hover:bg-slate-700"
+                      : `bg-gradient-to-r ${accentButtonGradient} text-white shadow-lg`
                   }`}
                 >
                   {isEditing ? (
@@ -393,7 +450,7 @@ const Profile = () => {
                       <FiUser className="w-6 h-6 text-red-600" />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                      <label className={`block text-xs sm:text-sm font-semibold mb-2 uppercase tracking-wide ${labelClass}`}>
                         Full Name
                       </label>
                       {isEditing ? (
@@ -402,11 +459,11 @@ const Profile = () => {
                           name="name"
                           value={profile.name}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                          className={inputClass}
                           required
                         />
                       ) : (
-                        <p className="text-base sm:text-lg font-medium text-gray-800">
+                        <p className={`text-base sm:text-lg font-medium ${valueClass}`}>
                           {profile.name || "Not provided"}
                         </p>
                       )}
@@ -421,7 +478,7 @@ const Profile = () => {
                       <FiMail className="w-6 h-6 text-pink-600" />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                      <label className={`block text-xs sm:text-sm font-semibold mb-2 uppercase tracking-wide ${labelClass}`}>
                         Email Address
                       </label>
                       {isEditing ? (
@@ -430,11 +487,11 @@ const Profile = () => {
                           name="email"
                           value={profile.email}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                          className={inputClass}
                           required
                         />
                       ) : (
-                        <p className="text-base sm:text-lg font-medium text-gray-800">
+                        <p className={`text-base sm:text-lg font-medium ${valueClass}`}>
                           {profile.email || "Not provided"}
                         </p>
                       )}
@@ -449,7 +506,7 @@ const Profile = () => {
                       <FiPhone className="w-6 h-6 text-amber-600" />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                      <label className={`block text-xs sm:text-sm font-semibold mb-2 uppercase tracking-wide ${labelClass}`}>
                         Phone Number
                       </label>
                       {isEditing ? (
@@ -458,10 +515,10 @@ const Profile = () => {
                           name="phone"
                           value={profile.phone}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                          className={inputClass}
                         />
                       ) : (
-                        <p className="text-base sm:text-lg font-medium text-gray-800">
+                        <p className={`text-base sm:text-lg font-medium ${valueClass}`}>
                           {profile.phone || "Not provided"}
                         </p>
                       )}
@@ -476,7 +533,7 @@ const Profile = () => {
                       <FiCalendar className="w-6 h-6 text-red-600" />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                      <label className={`block text-xs sm:text-sm font-semibold mb-2 uppercase tracking-wide ${labelClass}`}>
                         Date of Birth
                       </label>
                       {isEditing ? (
@@ -485,10 +542,10 @@ const Profile = () => {
                           name="dob"
                           value={profile.dob}
                           onChange={handleInputChange}
-                          className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                          className={inputClass}
                         />
                       ) : (
-                        <p className="text-base sm:text-lg font-medium text-gray-800">
+                        <p className={`text-base sm:text-lg font-medium ${valueClass}`}>
                           {profile.dob
                             ? new Date(profile.dob).toLocaleDateString(
                                 "en-GB",
@@ -512,7 +569,7 @@ const Profile = () => {
                       <FiMapPin className="w-6 h-6 text-pink-600" />
                     </div>
                     <div className="flex-1">
-                      <label className="block text-xs sm:text-sm font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                      <label className={`block text-xs sm:text-sm font-semibold mb-2 uppercase tracking-wide ${labelClass}`}>
                         Address
                       </label>
                       {isEditing ? (
@@ -523,7 +580,7 @@ const Profile = () => {
                             value={profile.address.village}
                             onChange={handleAddressChange}
                             placeholder="Village"
-                            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                            className={addressInputClass}
                           />
                           <input
                             type="text"
@@ -531,7 +588,7 @@ const Profile = () => {
                             value={profile.address.city}
                             onChange={handleAddressChange}
                             placeholder="City"
-                            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                            className={addressInputClass}
                           />
                           <input
                             type="text"
@@ -539,7 +596,7 @@ const Profile = () => {
                             value={profile.address.district}
                             onChange={handleAddressChange}
                             placeholder="District"
-                            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                            className={addressInputClass}
                           />
                           <input
                             type="text"
@@ -547,7 +604,7 @@ const Profile = () => {
                             value={profile.address.state}
                             onChange={handleAddressChange}
                             placeholder="State"
-                            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                            className={addressInputClass}
                           />
                           <input
                             type="text"
@@ -555,7 +612,7 @@ const Profile = () => {
                             value={profile.address.postalCode}
                             onChange={handleAddressChange}
                             placeholder="Postal Code"
-                            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                            className={addressInputClass}
                           />
                           <input
                             type="text"
@@ -563,11 +620,11 @@ const Profile = () => {
                             value={profile.address.country}
                             onChange={handleAddressChange}
                             placeholder="Country"
-                            className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-pink-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                            className={addressInputClass}
                           />
                         </div>
                       ) : (
-                        <p className="text-base sm:text-lg font-medium text-gray-800 leading-relaxed">
+                        <p className={`text-base sm:text-lg font-medium leading-relaxed ${valueClass}`}>
                           {profile.address.village
                             ? `${profile.address.village}, ${profile.address.city}, ${profile.address.district}, ${profile.address.state}, ${profile.address.postalCode}, ${profile.address.country}`
                             : "Not provided"}
@@ -580,16 +637,16 @@ const Profile = () => {
 
               {/* Google Password Setting */}
               {data?.user?.isGoogleUser === false && data?.user?.googleId ? (
-                <div className="mt-8 p-6 border-2 border-amber-200 rounded-3xl bg-gradient-to-r from-amber-50 to-yellow-50">
+                <div className={passwordPanelClass}>
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center">
                       <FiLock className="w-6 h-6 text-amber-600" />
                     </div>
                     <div className="flex-1">
-                      <h4 className="text-base sm:text-lg font-bold text-amber-800 mb-2">
+                      <h4 className={`text-base sm:text-lg font-bold mb-2 ${sectionTitleClass}`}>
                         Set Account Password
                       </h4>
-                      <p className="text-amber-700 mb-4 text-xs sm:text-sm">
+                      <p className={`mb-4 text-xs sm:text-sm ${subtitleClass}`}>
                         Add a password to enable email login for your account
                       </p>
                       <form
@@ -602,14 +659,14 @@ const Profile = () => {
                             value={newPwd}
                             onChange={(e) => setNewPwd(e.target.value)}
                             placeholder="Enter new password"
-                            className="w-full px-4 py-3 bg-white border border-amber-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all duration-300 text-sm sm:text-base"
+                            className={passwordInputClass}
                             minLength={6}
                             disabled={pwdLoading}
                           />
                           <button
                             type="button"
                             onClick={togglePasswordVisibility}
-                            className="absolute inset-y-0 right-0 flex items-center pr-4 text-amber-600 hover:text-amber-700"
+                            className={`absolute inset-y-0 right-0 flex items-center pr-4 ${isDark ? "text-slate-300 hover:text-cyan-300" : "text-slate-500 hover:text-red-500"}`}
                           >
                             {showPassword ? (
                               <FiEyeOff className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -621,7 +678,7 @@ const Profile = () => {
                         <button
                           type="submit"
                           disabled={pwdLoading}
-                          className="px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-amber-500 to-yellow-500 text-white font-semibold rounded-2xl hover:from-amber-600 hover:to-yellow-600 transition-all duration-300 transform hover:scale-105 disabled:opacity-50 text-sm sm:text-base"
+                          className={`px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r ${accentButtonGradient} text-white font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 text-sm sm:text-base shadow-lg`}
                         >
                           {pwdLoading ? <AuthButtonLoader /> : "Set Password"}
                         </button>
@@ -633,7 +690,7 @@ const Profile = () => {
                 <div className="mt-8 flex justify-end">
                   <button
                     onClick={() => setChangeModal(true)}
-                    className="flex items-center space-x-2 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-2xl hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer text-sm sm:text-base"
+                    className={`flex items-center space-x-2 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r ${accentButtonGradient} text-white font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer text-sm sm:text-base`}
                   >
                     <FiLock className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>Change Password</span>
@@ -646,7 +703,7 @@ const Profile = () => {
                 <button
                   onClick={confirmLogout}
                   disabled={logoutIsLoading || updateIsLoading}
-                  className="flex items-center space-x-2 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-red-500 to-pink-500 text-white font-semibold rounded-2xl hover:from-red-600 hover:to-pink-600 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 cursor-pointer text-sm sm:text-base"
+                  className="flex items-center space-x-2 px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r from-rose-500 to-orange-500 text-white font-semibold rounded-2xl hover:from-rose-400 hover:to-orange-400 transition-all duration-300 transform hover:scale-105 shadow-lg shadow-rose-500/20 disabled:opacity-50 cursor-pointer text-sm sm:text-base"
                 >
                   <FiLogOut className="w-4 h-4 sm:w-5 sm:h-5" />
                   <span>
@@ -658,7 +715,7 @@ const Profile = () => {
                   <button
                     onClick={handleSaveChanges}
                     disabled={updateIsLoading || logoutIsLoading}
-                    className="flex items-center space-x-2 px-6 py-2 sm:px-8 sm:py-3 bg-gradient-to-r from-red-600 to-pink-600 text-white font-semibold rounded-2xl hover:from-red-700 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 cursor-pointer text-sm sm:text-base"
+                    className={`flex items-center space-x-2 px-6 py-2 sm:px-8 sm:py-3 bg-gradient-to-r ${accentButtonGradient} text-white font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 shadow-lg disabled:opacity-50 cursor-pointer text-sm sm:text-base`}
                   >
                     <FiSave className="w-4 h-4 sm:w-5 sm:h-5" />
                     <span>
@@ -669,6 +726,106 @@ const Profile = () => {
               </div>
             </div>
           </div>
+        </div>
+
+        <div className={notificationsCardClass}>
+          <div className={`flex items-center justify-between gap-4 border-b px-6 py-5 ${notificationsBorderClass}`}>
+            <div className="flex items-center gap-3">
+              <div className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${isDark ? "from-cyan-500 to-blue-600 shadow-cyan-500/20" : "from-red-500 to-pink-600 shadow-red-500/20"} text-white shadow-lg`}>
+                <FiBell className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className={`text-lg sm:text-xl font-bold ${sectionTitleClass}`}>
+                  Order Notifications
+                </h3>
+                <p className={`text-sm ${subtitleClass}`}>
+                  Vendor order status updates appear here automatically
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={clearUserNotifications}
+              disabled={!notifications.length || clearNotificationsLoading}
+              className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                notifications.length
+                  ? `bg-gradient-to-r ${accentButtonGradient} text-white`
+                  : isDark
+                    ? "bg-slate-800 text-slate-500"
+                    : "bg-slate-100 text-slate-400"
+              }`}
+            >
+              Clear all
+            </button>
+          </div>
+
+          <div className="max-h-[28rem] overflow-y-auto">
+            {notifications.length ? (
+              notifications.map((notification) => (
+                <div
+                  key={notification._id}
+                  className={`flex items-start justify-between gap-4 border-b px-6 py-5 last:border-b-0 transition ${notificationsBorderClass} ${isDark ? "hover:bg-slate-800/70" : "hover:bg-slate-50"}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      notification.orderId && navigate(`/order/${notification.orderId}`)
+                    }
+                    className="flex min-w-0 flex-1 items-start gap-4 text-left"
+                  >
+                    <div className={`mt-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${isDark ? "from-cyan-500 to-blue-600" : "from-red-500 to-pink-600"} text-white`}>
+                      <FiBell className="w-4 h-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className={`text-sm font-bold ${sectionTitleClass}`}>
+                        {notification.title}
+                      </p>
+                      <p className={`mt-1 text-sm leading-6 ${subtitleClass}`}>
+                        {notification.message}
+                      </p>
+                      <p className={`mt-2 text-xs font-medium ${labelClass}`}>
+                        {new Date(notification.createdAt).toLocaleString(
+                          "en-IN",
+                          {
+                            day: "2-digit",
+                            month: "short",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )}
+                      </p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => deleteUserNotification(notification._id)}
+                    className="rounded-full bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 transition"
+                  >
+                    <FiTrash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              ))
+            ) : (
+              <div className="px-6 py-14 text-center">
+                <div className={`mx-auto flex h-16 w-16 items-center justify-center rounded-3xl bg-gradient-to-br ${isDark ? "from-cyan-500 to-blue-600 shadow-cyan-500/20" : "from-red-500 to-pink-600 shadow-red-500/20"} text-white shadow-lg`}>
+                  <FiBell className="w-6 h-6" />
+                </div>
+                <h4 className="mt-5 text-lg font-bold text-white">
+                  No notifications yet
+                </h4>
+                <p className="mt-2 text-sm text-slate-400">
+                  When a vendor marks your order as processing, shipped, delivered,
+                  cancelled, or handles a return, you will see it here.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {notificationsFetching ? (
+            <div className="border-t border-slate-800 px-6 py-3 text-center text-xs font-medium text-slate-500">
+              Refreshing notifications...
+            </div>
+          ) : null}
         </div>
 
         {/* Change Password Modal */}

@@ -45,7 +45,7 @@ const Features = () => {
           {features.map((feature, index) => (
             <div
               key={index}
-              className="flex flex-col items-center text-center p-4 hover:bg-white rounded-lg cursor-pointer"
+              className="flex flex-col items-center text-center p-4 rounded-lg cursor-pointer"
               onMouseEnter={() => setHoveredIndex(index)}
               onMouseLeave={() => setHoveredIndex(null)}
             >

@@ -1,23 +1,23 @@
-import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { User } from "../../models/user/user.model.js";
 import transporter from "../../utils/nodemailer.js";
+import { setUserAuthCookies } from "../../utils/authCookies.js";
+
+const getUserFrontendUrl = () =>
+  process.env.USER_URL || process.env.FRONTEND_URL || "http://localhost:3000";
 
 export const googleAuth = async (req, res) => {
   try {
     if (!req.user) throw new Error("No user returned from Google");
 
     const freshUser = await User.findById(req.user._id);
+    if (freshUser?.isBlocked) {
+      return res.redirect(
+        `${getUserFrontendUrl()}/login?blocked=1&google=blocked&message=${encodeURIComponent("Your account has been blocked plz contact customer care")}`
+      );
+    }
 
-    const token = jwt.sign({ userId: freshUser._id }, process.env.SECRET_KEY, {
-      expiresIn: "1d",
-    });
-
-    res.cookie("token", token, {
-      httpOnly: true,
-      sameSite: "strict",
-      maxAge: 24 * 60 * 60 * 1000,
-    });
+    setUserAuthCookies(res, freshUser._id);
 
     if (!freshUser.welcomeMailSent) {
       try {
@@ -71,11 +71,11 @@ export const googleAuth = async (req, res) => {
       }
     }
 
-    return res.redirect(`${process.env.USER_URL}/`);
+    return res.redirect(`${getUserFrontendUrl()}/`);
   } catch (error) {
     console.error("Google Auth Error:", error);
     return res.redirect(
-      `${process.env.FRONTEND_URL}/?google=error&message=Google%20login%20failed`
+      `${getUserFrontendUrl()}/?google=error&message=Google%20login%20failed`
     );
   }
 };
@@ -91,6 +91,12 @@ export const googlePassword = async (req, res) => {
     const user = await User.findById(req.id);
     if (!user)
       return res.status(403).json({ success: false, message: "Forbidden" });
+    if (user.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked plz contact customer care",
+      });
+    }
 
     user.password = await bcrypt.hash(password, 10);
     user.isGoogleUser = true;

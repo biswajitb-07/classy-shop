@@ -7,11 +7,13 @@ import {
   FaChevronUp,
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTheme } from "../../context/ThemeContext.jsx";
 
 const Contact = () => {
   const [isChecked, setIsChecked] = useState(false);
   const [openAccordion, setOpenAccordion] = useState(null);
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
+  const { isDark } = useTheme();
 
   useEffect(() => {
     const handleResize = () => {
@@ -139,14 +141,14 @@ const Contact = () => {
                   </div>
                 </div>
 
-                <div className="mt-8 bg-blue-50 rounded-lg">
+                <div className={`mt-8 rounded-lg ${isDark ? "bg-slate-900 border border-slate-700" : "bg-blue-50"}`}>
                   <div className="flex items-start">
                     <FaCommentDots className="mr-2 text-red-600" />
                     <span className="font-medium text-red-600">
                       Online Chat
                     </span>
                   </div>
-                  <p className="mt-2 font-semibold text-black">
+                  <p className={`mt-2 font-semibold ${isDark ? "text-white" : "text-black"}`}>
                     Get Expert Help
                   </p>
                 </div>

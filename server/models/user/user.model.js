@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema(
       type: String,
       default: "",
     },
+    isBlocked: {
+      type: Boolean,
+      default: false,
+    },
     isGoogleUser: {
       type: Boolean,
       default: false,

@@ -5,6 +5,7 @@ import {
   FaClipboardList,
   FaUser,
 } from "react-icons/fa";
+import { FiSettings } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import { useNavigate } from "react-router-dom";
 
@@ -42,6 +43,15 @@ const BottomNav = () => {
       <button onClick={() => navigate("/orders")} className="flex flex-col items-center text-gray-600 cursor-pointer hover:scale-105 active:scale-75 transition-all duration-300 ease-in-out hover:text-red-500">
         <FaClipboardList size={22} />
         <span className="text-xs mt-1">Orders</span>
+      </button>
+
+      {/* Settings */}
+      <button
+        onClick={() => navigate("/settings")}
+        className="flex flex-col items-center text-gray-600 cursor-pointer hover:scale-105 active:scale-75 transition-all duration-300 ease-in-out hover:text-red-500"
+      >
+        <FiSettings size={22} />
+        <span className="text-xs mt-1">Settings</span>
       </button>
 
       {/* Account */}

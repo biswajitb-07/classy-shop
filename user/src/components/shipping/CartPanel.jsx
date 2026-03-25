@@ -16,10 +16,12 @@ import {
   useUpdateCartQuantityMutation,
 } from "../../features/api/cartApi";
 import { toast } from "react-hot-toast";
+import { useTheme } from "../../context/ThemeContext.jsx";
 
 const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState({});
+  const { isDark } = useTheme();
 
   const { data: cartData, isLoading, isError } = useGetCartQuery();
   const [removeFromCart] = useRemoveFromCartMutation();
@@ -138,10 +140,10 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
       {/* Cart Panel */}
       <aside
         className={`fixed top-0 right-0 z-50 h-full w-full md:w-[28rem]
-          bg-gradient-to-br from-white via-gray-50 to-gray-100
+          ${isDark ? "bg-[#0b1020] text-white" : "bg-gradient-to-br from-white via-gray-50 to-gray-100 text-slate-900"}
           shadow-2xl transform transition-all duration-500 ease-out overflow-hidden
           ${isOpenCartPanel ? "translate-x-0" : "translate-x-full"}
-          border-l border-gray-200`}
+          ${isDark ? "border-l border-slate-700" : "border-l border-gray-200"}`}
       >
         <div className="flex flex-col h-full">
           {/* Header */}
@@ -177,17 +179,17 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
               <PageLoader message="Loading cart item" />
             </div>
           ) : cart.length === 0 ? (
-            <div className="flex flex-col items-center justify-center flex-1 px-4 sm:px-6 py-6 sm:py-8 bg-gradient-to-br from-gray-50 to-gray-100">
-              <div className="p-6 sm:p-8 bg-white rounded-full shadow-lg mb-4 sm:mb-6">
+            <div className={`flex flex-col items-center justify-center flex-1 px-4 sm:px-6 py-6 sm:py-8 ${isDark ? "bg-[#0f172a]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
+              <div className={`p-6 sm:p-8 rounded-full shadow-lg mb-4 sm:mb-6 ${isDark ? "bg-slate-800" : "bg-white"}`}>
                 <ShoppingCart
                   size={40}
-                  className="sm:w-12 sm:h-12 text-gray-400"
+                  className={`sm:w-12 sm:h-12 ${isDark ? "text-slate-300" : "text-gray-400"}`}
                 />
               </div>
-              <h3 className="text-lg sm:text-xl font-bold text-gray-700 mb-2 text-center">
+              <h3 className={`text-lg sm:text-xl font-bold mb-2 text-center ${isDark ? "text-white" : "text-gray-700"}`}>
                 Your cart is empty
               </h3>
-              <p className="text-sm sm:text-base text-gray-500 text-center mb-6 sm:mb-8 leading-relaxed px-2">
+              <p className={`text-sm sm:text-base text-center mb-6 sm:mb-8 leading-relaxed px-2 ${isDark ? "text-slate-300" : "text-gray-500"}`}>
                 Discover amazing products and add them to your cart
               </p>
               <button
@@ -205,14 +207,12 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
           ) : (
             <>
               {/* Cart Items */}
-              <div className="flex-1 overflow-y-auto bg-gradient-to-br from-gray-50 to-gray-100 scrollbar-hide">
+              <div className={`flex-1 overflow-y-auto scrollbar-hide ${isDark ? "bg-[#0f172a]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
                 <div className="p-2 sm:p-3 md:p-4 space-y-3 sm:space-y-4">
                   {cart.map((group) => (
                     <div
                       key={group.product._id}
-                      className="bg-white rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all duration-300 
-                               overflow-hidden border border-gray-200 hover:border-purple-200
-                               transform hover:-translate-y-1 cursor-pointer"
+                      className={`${isDark ? "bg-slate-900 border border-slate-700" : "bg-white border border-gray-200"} rounded-lg sm:rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden hover:border-purple-200 transform hover:-translate-y-1 cursor-pointer`}
                       onClick={() => {
                         navigate(
                           `/${group.productType.toLowerCase()}/${group.productType.toLowerCase()}-product-details/${
@@ -243,7 +243,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
 
                           <div className="flex-1 min-w-0">
                             {/* Product Name */}
-                            <h4 className="font-semibold text-gray-800 mb-2 leading-tight line-clamp-2 text-sm sm:text-base">
+                            <h4 className={`font-semibold mb-2 leading-tight line-clamp-2 text-sm sm:text-base ${isDark ? "text-white" : "text-gray-800"}`}>
                               {group.product.name}
                             </h4>
 
@@ -269,8 +269,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                 >
                                   {variantDisplay && (
                                     <div
-                                      className="inline-flex px-2 sm:px-3 py-0.5 sm:py-1 bg-gradient-to-r from-purple-100 to-pink-100 
-                                                  text-purple-700 text-xs font-medium rounded-full"
+                                      className={`inline-flex px-2 sm:px-3 py-0.5 sm:py-1 text-xs font-medium rounded-full ${isDark ? "bg-slate-800 text-purple-200" : "bg-gradient-to-r from-purple-100 to-pink-100 text-purple-700"}`}
                                     >
                                       {variantDisplay}
                                     </div>
@@ -279,7 +278,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                   <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:justify-between">
                                     <div className="flex items-center justify-between sm:justify-start sm:gap-4">
                                       {/* Quantity controls */}
-                                      <div className="flex items-center gap-1 sm:gap-2 bg-gray-100 rounded-lg p-0.5 sm:p-1">
+                                      <div className={`flex items-center gap-1 sm:gap-2 rounded-lg p-0.5 sm:p-1 ${isDark ? "bg-slate-800" : "bg-gray-100"}`}>
                                         <button
                                           onClick={(e) => {
                                             e.stopPropagation();
@@ -295,9 +294,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                             v.quantity <= 1 || loading[minusKey]
                                           }
                                           aria-label="Decrease quantity"
-                                          className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-white rounded-md
-                                                   hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed
-                                                   transition-colors duration-200 hover:text-red-600 shadow-sm cursor-pointer"
+                                          className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 hover:text-red-600 shadow-sm cursor-pointer ${isDark ? "bg-slate-700 text-slate-100 hover:bg-slate-600" : "bg-white text-slate-700"}`}
                                         >
                                           {loading[minusKey] ? (
                                             <AuthButtonLoader />
@@ -309,7 +306,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                           )}
                                         </button>
 
-                                        <span className="w-6 sm:w-8 text-center font-semibold text-gray-700 text-sm sm:text-base">
+                                        <span className={`w-6 sm:w-8 text-center font-semibold text-sm sm:text-base ${isDark ? "text-white" : "text-gray-700"}`}>
                                           {v.quantity}
                                         </span>
 
@@ -326,9 +323,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                           }}
                                           disabled={loading[plusKey]}
                                           aria-label="Increase quantity"
-                                          className="w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center bg-white rounded-md
-                                                   hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed
-                                                   transition-colors duration-200 hover:text-green-600 shadow-sm cursor-pointer"
+                                          className={`w-7 h-7 sm:w-8 sm:h-8 flex items-center justify-center rounded-md hover:bg-green-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 hover:text-green-600 shadow-sm cursor-pointer ${isDark ? "bg-slate-700 text-slate-100 hover:bg-slate-600" : "bg-white text-slate-700"}`}
                                         >
                                           {loading[plusKey] ? (
                                             <AuthButtonLoader />
@@ -353,7 +348,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                             v.quantity
                                           ).toLocaleString()}
                                         </p>
-                                        <p className="text-xs text-gray-500">
+                                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                                           ₹
                                           {group.product.discountedPrice.toLocaleString()}{" "}
                                           each
@@ -374,9 +369,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                         }}
                                         disabled={loading[removeKey]}
                                         aria-label="Remove from cart"
-                                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 
-                                                 rounded-lg transition-all duration-200 disabled:cursor-not-allowed
-                                                 hover:scale-110 cursor-pointer"
+                                        className={`p-2 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 disabled:cursor-not-allowed hover:scale-110 cursor-pointer ${isDark ? "text-slate-400" : "text-gray-400"}`}
                                       >
                                         {loading[removeKey] ? (
                                           <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
@@ -400,9 +393,9 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                 </div>
 
                 {/* Bottom section */}
-                <div className="bg-white border-t border-gray-200 p-3 sm:p-4 md:p-5 pb-6 sm:pb-4">
-                  <div className="flex justify-between items-center mb-4 sm:mb-6 p-3 sm:p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl">
-                    <span className="text-base sm:text-lg font-semibold text-gray-700">
+                <div className={`p-3 sm:p-4 md:p-5 pb-6 sm:pb-4 border-t ${isDark ? "bg-[#0b1020] border-slate-700" : "bg-white border-gray-200"}`}>
+                  <div className={`flex justify-between items-center mb-4 sm:mb-6 p-3 sm:p-4 rounded-xl ${isDark ? "bg-slate-800" : "bg-gradient-to-r from-gray-50 to-gray-100"}`}>
+                    <span className={`text-base sm:text-lg font-semibold ${isDark ? "text-white" : "text-gray-700"}`}>
                       Subtotal
                     </span>
                     <span

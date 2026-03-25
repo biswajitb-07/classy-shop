@@ -1,15 +1,69 @@
-const LoadingSpinner = () => {
+import { useEffect, useRef } from "react";
+
+/*
+  Full-page loader used while the vendor app resolves the authenticated session
+  before we render the dashboard shell. Message stays configurable for reuse.
+*/
+const LoadingSpinner = ({ message = "Loading Vendor Workspace..." }) => {
+  const spinnerRef = useRef(null);
+
+  useEffect(() => {
+    const spinner = spinnerRef.current;
+    let animationFrameId;
+    let start;
+
+    const rotate = (timestamp) => {
+      if (!start) start = timestamp;
+      const progress = timestamp - start;
+      const rotation = (progress / 4) % 360;
+      if (spinner) {
+        spinner.style.transform = `rotate(${rotation}deg)`;
+      }
+      animationFrameId = requestAnimationFrame(rotate);
+    };
+
+    animationFrameId = requestAnimationFrame(rotate);
+
+    return () => cancelAnimationFrame(animationFrameId);
+  }, []);
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-neutral-900 via-red-950 to-neutral-900 px-4">
-      <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 lg:w-36 lg:h-36">
-        <div className="absolute inset-0 rounded-full border-[3px] sm:border-4 border-transparent border-t-red-500 animate-spin"></div>
-        <div className="absolute inset-[6px] sm:inset-2 rounded-full border-[2px] border-transparent border-l-rose-400 animate-pulse border-dashed"></div>
-        <div className="absolute inset-[12px] sm:inset-4 rounded-full bg-gradient-to-r from-red-500 to-rose-600 shadow-[0_0_25px_4px_rgba(239,68,68,0.5)] sm:shadow-[0_0_30px_5px_rgba(239,68,68,0.5)] animate-pulse"></div>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4">
+      <div className="relative h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20">
+        <svg
+          ref={spinnerRef}
+          className="absolute inset-0 h-full w-full drop-shadow-[0_0_18px_rgba(56,189,248,0.28)]"
+          viewBox="0 0 100 100"
+          role="img"
+          aria-label="Loading spinner"
+        >
+          {[...Array(8)].map((_, index) => {
+            const angle = (index / 8) * 360;
+            const radius = 35;
+            const x = 50 + radius * Math.cos((angle * Math.PI) / 180);
+            const y = 50 + radius * Math.sin((angle * Math.PI) / 180);
+            const opacity = 1 - index / 8;
+            const fillColor = `rgba(56, 189, 248, ${opacity})`;
+
+            return (
+              <circle
+                key={index}
+                cx={x}
+                cy={y}
+                r="7"
+                fill={fillColor}
+                className="transition-all duration-200 ease-in-out"
+              />
+            );
+          })}
+        </svg>
       </div>
 
-      <p className="mt-4 text-lg sm:text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-red-400 to-rose-300 animate-pulse">
-        Loading, please wait...
-      </p>
+      <div className="mt-4 text-center">
+        <p className="bg-gradient-to-r from-sky-300 via-cyan-200 to-indigo-300 bg-clip-text text-xs font-bold text-transparent drop-shadow-md sm:text-sm md:text-base">
+          {message}
+        </p>
+      </div>
     </div>
   );
 };

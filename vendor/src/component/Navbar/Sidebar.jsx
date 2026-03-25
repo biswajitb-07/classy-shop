@@ -6,10 +6,12 @@ import { AiOutlineLogout, AiOutlineClose } from "react-icons/ai";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { IoBagCheckOutline } from "react-icons/io5";
 import { FiUsers } from "react-icons/fi";
+import { FiSettings } from "react-icons/fi";
 import { HiOutlineBuildingStorefront } from "react-icons/hi2";
 import { useDispatch, useSelector } from "react-redux";
 import { toggleSidebar } from "../../features/authSlice";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useTheme } from "../../context/ThemeContext";
 import {
   useGetDashboardSummaryQuery,
   useLogoutUserMutation,
@@ -23,7 +25,9 @@ const Sidebar = () => {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
+  const { isDark, resetTheme } = useTheme();
 
   const [logoutUser, { isLoading: logoutIsLoading }] = useLogoutUserMutation();
   const { data: summaryData } = useGetDashboardSummaryQuery();
@@ -37,9 +41,46 @@ const Sidebar = () => {
     dispatch(toggleSidebar());
   };
 
+  const navigateTo = (path) => {
+    navigate(path);
+  };
+
+  const isActivePath = (...paths) => paths.includes(location.pathname);
+  const activeItemClass = (active) =>
+    active
+      ? "bg-black text-white shadow-md"
+      : isDark
+        ? "bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white"
+        : "text-gray-700 hover:text-gray-900 hover:bg-gray-200";
+  const activeSubItemClass = (active) =>
+    active
+      ? "bg-black text-white border border-black shadow-sm"
+      : isDark
+        ? "border border-slate-800 bg-slate-900/70 text-slate-300 hover:bg-slate-800 hover:border-slate-700 hover:text-white"
+        : "border-sky-100 bg-sky-50 hover:bg-sky-100";
+  const communityCardClass = (active, kind) => {
+    if (active) return "bg-black text-white border-black";
+    if (isDark) {
+      return kind === "users"
+        ? "border-slate-700 bg-slate-900/80 hover:bg-slate-800"
+        : "border-slate-700 bg-slate-900/80 hover:bg-slate-800";
+    }
+    return kind === "users"
+      ? "border-sky-100 bg-sky-50 hover:bg-sky-100"
+      : "border-rose-100 bg-rose-50 hover:bg-rose-100";
+  };
+  const communityCardTextClass = (active, kind) => {
+    if (active) return "text-white/80";
+    if (isDark) return kind === "users" ? "text-sky-300" : "text-rose-300";
+    return kind === "users" ? "text-sky-600" : "text-rose-600";
+  };
+  const communityValueClass = (active) =>
+    active ? "text-white" : isDark ? "text-slate-100" : "text-slate-900";
+
   const handleLogout = async () => {
     try {
       await logoutUser().unwrap();
+      resetTheme();
       toast.success("Logged out successfully");
       navigate("/login");
     } catch (err) {
@@ -50,8 +91,12 @@ const Sidebar = () => {
   return (
     <>
       <div
-        className={`bg-white shadow-md h-screen fixed top-0 left-0 z-50 transition-all duration-300 overflow-y-auto ${
-          isOpen ? "w-[18rem] px-5 py-5" : "w-0 px-0"
+        className={`vendor-sidebar-scrollbar fixed top-0 left-0 z-50 h-screen w-[18rem] overflow-y-auto transform-gpu transition-transform duration-300 ease-out will-change-transform ${
+          isDark
+            ? "bg-[linear-gradient(180deg,#050816_0%,#0f172a_50%,#111827_100%)] shadow-[0_20px_60px_rgba(0,0,0,0.45)]"
+            : "bg-white shadow-md"
+        } ${
+          isOpen ? "translate-x-0 px-5 py-5" : "-translate-x-full px-5 py-5"
         }`}
       >
         <div
@@ -60,7 +105,11 @@ const Sidebar = () => {
           }`}
         >
           <div className="flex items-center justify-between">
-            <img src="./logo.jpg" alt="logo" className="w-28 md:w-40" />
+            <img
+              src={isDark ? "/logo-dark.png" : "/logo-light.png"}
+              alt="logo"
+              className="w-28 md:w-40"
+            />
             <AiOutlineClose
               onClick={closeSidebar}
               size={23}
@@ -70,8 +119,10 @@ const Sidebar = () => {
 
           <ul className="flex flex-col gap-4">
             <li
-              onClick={() => navigate("/")}
-              className="flex items-center gap-4 text-gray-700 font-bold text-sm hover:text-gray-900 cursor-pointer hover:bg-gray-200 px-2 py-2 rounded"
+              onClick={() => navigateTo("/")}
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                location.pathname === "/"
+              )}`}
             >
               <MdOutlineDashboard size={20} />
               Dashboard
@@ -81,9 +132,11 @@ const Sidebar = () => {
             <li className="flex flex-col">
               <button
                 onClick={() => toggleAccordion("category")}
-                className="flex items-center justify-between gap-2 hover:bg-gray-200 px-2 py-2 rounded w-full cursor-pointer"
+                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
+                  isActivePath("/category", "/category-list")
+                )}`}
               >
-                <div className="flex items-center gap-4 text-gray-700 font-bold text-sm">
+                <div className="flex items-center gap-4 text-sm font-bold">
                   <TbCategoryPlus size={20} />
                   Category
                 </div>
@@ -101,16 +154,20 @@ const Sidebar = () => {
                 }`}
               >
                 <div className="overflow-hidden">
-                  <ul className="ml-16 mt-2 mb-2 flex flex-col gap-4 text-gray-600 text-sm font-semibold list-disc">
+                  <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
                     <li
                       onClick={() => navigate("/category-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/category-list"
+                      )}`}
                     >
                       Category List
                     </li>
                     <li
                       onClick={() => navigate("/category")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/category"
+                      )}`}
                     >
                       Add Category
                     </li>
@@ -123,9 +180,20 @@ const Sidebar = () => {
             <li className="flex flex-col">
               <button
                 onClick={() => toggleAccordion("brands")}
-                className="flex items-center justify-between gap-2 hover:bg-gray-200 px-2 py-2 rounded w-full cursor-pointer"
+                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
+                  isActivePath(
+                    "/fashion-brand-list",
+                    "/electronic-brand-list",
+                    "/bag-brand-list",
+                    "/grocery-brand-list",
+                    "/footwear-brand-list",
+                    "/beauty-brand-list",
+                    "/wellness-brand-list",
+                    "/jewellery-brand-list"
+                  )
+                )}`}
               >
-                <div className="flex items-center gap-4 text-gray-700 font-bold text-sm">
+                <div className="flex items-center gap-4 text-sm font-bold">
                   <TbBrandSnapchat size={20} />
                   Brands
                 </div>
@@ -143,52 +211,68 @@ const Sidebar = () => {
                 }`}
               >
                 <div className="overflow-hidden">
-                  <ul className="ml-16 mt-2 mb-2 flex flex-col gap-4 text-gray-600 text-sm font-semibold list-disc">
+                  <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
                     <li
                       onClick={() => navigate("/fashion-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/fashion-brand-list"
+                      )}`}
                     >
                       Fashion Brands
                     </li>
                     <li
                       onClick={() => navigate("/electronic-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/electronic-brand-list"
+                      )}`}
                     >
                       Electronic Brands
                     </li>
                     <li
                       onClick={() => navigate("/bag-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/bag-brand-list"
+                      )}`}
                     >
                       Bag Brands
                     </li>
                     <li
                       onClick={() => navigate("/grocery-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/grocery-brand-list"
+                      )}`}
                     >
                       Grocery Brands
                     </li>
                     <li
                       onClick={() => navigate("/footwear-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/footwear-brand-list"
+                      )}`}
                     >
                       Footwear Brands
                     </li>
                     <li
                       onClick={() => navigate("/beauty-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/beauty-brand-list"
+                      )}`}
                     >
                       Beauty Brands
                     </li>
                     <li
                       onClick={() => navigate("/wellness-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/wellness-brand-list"
+                      )}`}
                     >
                       Wellness Brands
                     </li>
                     <li
                       onClick={() => navigate("/jewellery-brand-list")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/jewellery-brand-list"
+                      )}`}
                     >
                       Jewellerey Brands
                     </li>
@@ -201,9 +285,20 @@ const Sidebar = () => {
             <li className="flex flex-col">
               <button
                 onClick={() => toggleAccordion("product")}
-                className="flex items-center justify-between gap-2 hover:bg-gray-200 px-2 py-2 rounded w-full cursor-pointer"
+                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
+                  isActivePath(
+                    "/fashion-products",
+                    "/electronic-products",
+                    "/bag-products",
+                    "/grocery-products",
+                    "/footwear-products",
+                    "/beauty-products",
+                    "/wellness-products",
+                    "/jewellery-products"
+                  )
+                )}`}
               >
-                <div className="flex items-center gap-4 text-gray-700 font-bold text-sm">
+                <div className="flex items-center gap-4 text-sm font-bold">
                   <RiProductHuntLine size={20} />
                   Product
                 </div>
@@ -221,52 +316,68 @@ const Sidebar = () => {
                 }`}
               >
                 <div className="overflow-hidden">
-                  <ul className="ml-16 mt-2 mb-2 flex flex-col gap-4 text-gray-600 text-sm font-semibold list-disc">
+                  <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
                     <li
                       onClick={() => navigate("/fashion-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/fashion-products"
+                      )}`}
                     >
                       Fashion Product
                     </li>
                     <li
                       onClick={() => navigate("/electronic-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/electronic-products"
+                      )}`}
                     >
                       Electronic Product
                     </li>
                     <li
                       onClick={() => navigate("/grocery-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/grocery-products"
+                      )}`}
                     >
                       Grocery Product
                     </li>
                     <li
                       onClick={() => navigate("/footwear-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/footwear-products"
+                      )}`}
                     >
                       Footwear Product
                     </li>
                     <li
                       onClick={() => navigate("/bag-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/bag-products"
+                      )}`}
                     >
                       Bag Product
                     </li>
                     <li
                       onClick={() => navigate("/beauty-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/beauty-products"
+                      )}`}
                     >
                       Beauty Product
                     </li>
                     <li
                       onClick={() => navigate("/wellness-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/wellness-products"
+                      )}`}
                     >
                       Wellness Product
                     </li>
                     <li
                       onClick={() => navigate("/jewellery-products")}
-                      className="cursor-pointer hover:text-gray-800"
+                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
+                        location.pathname === "/jewellery-products"
+                      )}`}
                     >
                       Jewellery Product
                     </li>
@@ -277,18 +388,32 @@ const Sidebar = () => {
 
             <li
               onClick={() => navigate("/orders")}
-              className="flex items-center gap-4 text-gray-700 font-bold text-sm hover:text-gray-900 cursor-pointer hover:bg-gray-200 px-2 py-2 rounded"
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                location.pathname === "/orders"
+              )}`}
             >
               <IoBagCheckOutline size={20} />
               Orders
             </li>
 
+            <li
+              onClick={() => navigateTo("/settings")}
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                location.pathname === "/settings"
+              )}`}
+            >
+              <FiSettings size={20} />
+              Settings
+            </li>
+
             <li className="flex flex-col">
               <button
                 onClick={() => toggleAccordion("community")}
-                className="flex items-center justify-between gap-2 hover:bg-gray-200 px-2 py-2 rounded w-full cursor-pointer"
+                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
+                  isActivePath("/community/users", "/community/vendors")
+                )}`}
               >
-                <div className="flex items-center gap-4 text-gray-700 font-bold text-sm">
+                <div className="flex items-center gap-4 text-sm font-bold">
                   <FiUsers size={20} />
                   Community
                 </div>
@@ -307,31 +432,43 @@ const Sidebar = () => {
               >
                 <div className="overflow-hidden">
                   <div className="mt-3 grid gap-3">
-                    <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3">
+                    <div 
+                      onClick={() => navigateTo("/community/users")}
+                      className={`rounded-2xl border px-4 py-3 cursor-pointer transition-colors ${communityCardClass(
+                        location.pathname === "/community/users",
+                        "users"
+                      )}`}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="rounded-xl bg-white p-2 text-sky-600 shadow-sm">
+                        <div className={`rounded-xl p-2 shadow-sm bg-white ${location.pathname === "/community/users" ? "text-black" : isDark ? "text-slate-200" : "text-sky-600"}`}>
                           <FiUsers size={18} />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-sky-600">
+                          <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${communityCardTextClass(location.pathname === "/community/users", "users")}`}>
                             Users
                           </p>
-                          <p className="text-lg font-black text-slate-900">
+                          <p className={`text-lg font-black ${communityValueClass(location.pathname === "/community/users")}`}>
                             {summary?.totalUsers ?? 0}
                           </p>
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3">
+                    <div 
+                      onClick={() => navigateTo("/community/vendors")}
+                      className={`rounded-2xl border px-4 py-3 cursor-pointer transition-colors ${communityCardClass(
+                        location.pathname === "/community/vendors",
+                        "vendors"
+                      )}`}
+                    >
                       <div className="flex items-center gap-3">
-                        <div className="rounded-xl bg-white p-2 text-rose-600 shadow-sm">
+                        <div className={`rounded-xl p-2 shadow-sm bg-white ${location.pathname === "/community/vendors" ? "text-black" : isDark ? "text-slate-200" : "text-rose-600"}`}>
                           <HiOutlineBuildingStorefront size={18} />
                         </div>
                         <div>
-                          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-rose-600">
+                          <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${communityCardTextClass(location.pathname === "/community/vendors", "vendors")}`}>
                             Vendors
                           </p>
-                          <p className="text-lg font-black text-slate-900">
+                          <p className={`text-lg font-black ${communityValueClass(location.pathname === "/community/vendors")}`}>
                             {summary?.totalVendors ?? 0}
                           </p>
                         </div>
@@ -344,7 +481,7 @@ const Sidebar = () => {
 
             <li
               onClick={() => setShowLogoutConfirm(true)}
-              className="flex items-center gap-4 text-red-500 font-bold text-sm hover:text-red-400 cursor-pointer hover:bg-gray-200 px-2 py-2 rounded"
+              className={`flex items-center gap-4 font-bold text-sm cursor-pointer px-2 py-2 rounded transition ${isDark ? "text-rose-300 hover:text-rose-200 hover:bg-slate-800" : "text-red-500 hover:text-red-400 hover:bg-gray-200"}`}
             >
               <AiOutlineLogout size={20} />
               Logout
@@ -357,17 +494,17 @@ const Sidebar = () => {
       {showLogoutConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
           <div className="absolute inset-0 bg-black opacity-50" />
-          <div className="relative bg-white rounded-xl p-6 w-full max-w-md shadow-2xl z-10">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
+          <div className={`relative rounded-xl p-6 w-full max-w-md shadow-2xl z-10 ${isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}`}>
+            <h3 className="text-lg font-semibold mb-4">
               Confirm Logout
             </h3>
-            <p className="text-gray-600 mb-6">
+            <p className={`mb-6 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
               Are you sure you want to log out?
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-800 rounded-xl hover:bg-gray-300 transition cursor-pointer"
+                className={`px-4 py-2 rounded-xl transition cursor-pointer ${isDark ? "bg-slate-800 text-slate-100 hover:bg-slate-700" : "bg-gray-200 text-gray-800 hover:bg-gray-300"}`}
               >
                 Cancel
               </button>

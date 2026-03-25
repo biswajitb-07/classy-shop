@@ -4,6 +4,7 @@ import { FaBoxOpen, FaChevronRight } from "react-icons/fa";
 import { useGetUserOrdersQuery } from "../../../features/api/orderApi.js";
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
+import { useTheme } from "../../../context/ThemeContext.jsx";
 
 const OrderListPage = () => {
   const navigate = useNavigate();
@@ -14,6 +15,7 @@ const OrderListPage = () => {
     refetch,
   } = useGetUserOrdersQuery();
   const orders = ordersData?.orders || [];
+  const { isDark } = useTheme();
 
   const [isAnimated, setIsAnimated] = useState(false);
 
@@ -28,7 +30,7 @@ const OrderListPage = () => {
 
   if (isLoading) {
     return (
-      <div className="h-[26rem] grid place-items-center bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className={`h-[26rem] grid place-items-center ${isDark ? "bg-[#050816]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
         <PageLoader message="Loading your orders..." />
       </div>
     );
@@ -36,16 +38,16 @@ const OrderListPage = () => {
 
   if (!orders.length) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className={`min-h-screen ${isDark ? "bg-[#050816]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
         <div className="container mx-auto px-4">
-          <div className="max-w-md mx-auto text-center bg-white rounded-2xl shadow-xl p-8">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center">
+          <div className={`max-w-md mx-auto text-center rounded-2xl shadow-xl p-8 ${isDark ? "bg-slate-900 text-white" : "bg-white text-slate-900"}`}>
+            <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${isDark ? "bg-slate-800" : "bg-gradient-to-r from-red-100 to-pink-100"}`}>
               <FaBoxOpen className="w-12 h-12 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className={`text-2xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"}`}>
               No Orders Yet
             </h2>
-            <p className="text-gray-600 mb-8">
+            <p className={`mb-8 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
               Start shopping to place your first order!
             </p>
             <button
@@ -180,10 +182,10 @@ const OrderListPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-[2rem]">
+    <div className={`min-h-screen pb-[2rem] ${isDark ? "bg-[#050816] text-white" : "bg-gradient-to-br from-gray-50 to-gray-100 text-slate-900"}`}>
       <div className="container">
         <div className="mb-8">
-          <h1 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center gap-3">
+          <h1 className={`text-lg md:text-2xl font-bold flex items-center gap-3 ${isDark ? "text-white" : "text-gray-800"}`}>
             <FaBoxOpen className="text-red-500" />
             My Orders
           </h1>
@@ -206,15 +208,15 @@ const OrderListPage = () => {
             return (
               <div
                 key={order._id}
-                className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-300"
+                className={`rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-300 ${isDark ? "bg-slate-900 border border-slate-700" : "bg-white"}`}
                 onClick={() => navigate(`/order/${order._id}`)}
               >
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h3 className="font-bold text-gray-800">
+                    <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                       Order #{order.orderId}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                       {new Date(order.createdAt).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
@@ -328,17 +330,17 @@ const OrderListPage = () => {
                 {/* Order Details Grid */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <p className="text-sm text-gray-600">Items</p>
+                    <p className={`${isDark ? "text-slate-300" : "text-gray-600"} text-sm`}>Items</p>
                     <p className="font-medium">{order.items.length}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Total</p>
+                    <p className={`${isDark ? "text-slate-300" : "text-gray-600"} text-sm`}>Total</p>
                     <p className="font-medium text-red-500">
                       ₹{order.totalAmount.toLocaleString()}
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
-                    <p className="text-sm text-red-600 font-bold">Payment - </p>
+                    <p className="text-sm text-red-500 font-bold">Payment - </p>
                     {order.paymentMethod === "razorpay" ? (
                       <div>
                         <img
@@ -358,8 +360,8 @@ const OrderListPage = () => {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Shipping</p>
-                    <p className="font-medium">
+                    <p className={`${isDark ? "text-slate-300" : "text-gray-600"} text-sm`}>Shipping</p>
+                    <p className={`font-medium ${isDark ? "text-white" : ""}`}>
                       {order.shippingAddress.city},{" "}
                       {order.shippingAddress.district},{" "}
                       {order.shippingAddress.state}
@@ -369,7 +371,7 @@ const OrderListPage = () => {
 
                 {/* View Details Button */}
                 <div className="flex justify-end">
-                  <button className="flex items-center gap-2 text-red-500 hover:text-red-600 font-medium transition-colors duration-200">
+                  <button className="flex items-center gap-2 text-red-500 hover:text-red-400 font-medium transition-colors duration-200">
                     View Details <FaChevronRight size={14} />
                   </button>
                 </div>

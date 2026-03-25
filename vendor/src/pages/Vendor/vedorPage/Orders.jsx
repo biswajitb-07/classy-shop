@@ -4,9 +4,11 @@ import { FaBoxOpen, FaChevronRight } from "react-icons/fa";
 import { useGetVendorOrdersQuery } from "../../../features/api/orderApi";
 import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
+import { useTheme } from "../../../context/ThemeContext";
 
 const Orders = () => {
   const navigate = useNavigate();
+  const { isDark } = useTheme();
   const {
     data: ordersData,
     isLoading,
@@ -29,7 +31,7 @@ const Orders = () => {
 
   if (isLoading) {
     return (
-      <div className="h-[26rem] grid place-items-center bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className={`h-[26rem] grid place-items-center ${isDark ? "bg-[linear-gradient(180deg,#050816_0%,#0f172a_100%)]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
         <PageLoader message="Loading your orders..." />
       </div>
     );
@@ -37,16 +39,16 @@ const Orders = () => {
 
   if (!orders.length) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className={`min-h-screen ${isDark ? "bg-[linear-gradient(180deg,#050816_0%,#0f172a_100%)]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
         <div className="container mx-auto px-4">
-          <div className="max-w-md mx-auto text-center bg-white rounded-2xl shadow-xl p-8">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center">
+          <div className={`max-w-md mx-auto text-center rounded-2xl shadow-xl p-8 ${isDark ? "bg-slate-900 text-slate-100" : "bg-white"}`}>
+            <div className={`w-24 h-24 mx-auto mb-6 rounded-full flex items-center justify-center ${isDark ? "bg-slate-800" : "bg-gradient-to-r from-red-100 to-pink-100"}`}>
               <FaBoxOpen className="w-12 h-12 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className={`text-2xl font-bold mb-4 ${isDark ? "text-white" : "text-gray-800"}`}>
               No Orders Yet
             </h2>
-            <p className="text-gray-600 mb-8">
+            <p className={`mb-8 ${isDark ? "text-slate-300" : "text-gray-600"}`}>
               Start shopping to place your first order!
             </p>
             <button
@@ -188,10 +190,10 @@ const Orders = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-[2rem]">
+    <div className={`min-h-screen pb-[2rem] ${isDark ? "bg-[linear-gradient(180deg,#050816_0%,#0f172a_100%)]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
       <div className="container">
         <div className="mb-8">
-          <h1 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center gap-3">
+          <h1 className={`text-lg md:text-2xl font-bold flex items-center gap-3 ${isDark ? "text-white" : "text-gray-800"}`}>
             <FaBoxOpen className="text-red-500" />
             My Orders
           </h1>
@@ -215,15 +217,15 @@ const Orders = () => {
             return (
               <div
                 key={order._id}
-                className="bg-white rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-300"
+                className={`rounded-2xl shadow-lg p-6 cursor-pointer transition-shadow duration-300 hover:shadow-xl ${isDark ? "bg-slate-900 border border-slate-800" : "bg-white"}`}
                 onClick={() => navigate(`/order/${order._id}`)}
               >
                 <div className="flex justify-between items-center mb-6">
                   <div>
-                    <h3 className="font-bold text-gray-800">
+                    <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                       Order #{order.orderId}
                     </h3>
-                    <p className="text-sm text-gray-500">
+                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                       {new Date(order.createdAt).toLocaleDateString("en-IN", {
                         day: "2-digit",
                         month: "short",
@@ -246,7 +248,7 @@ const Orders = () => {
                   <div className="flex items-center justify-between relative">
                     {/* Static gray background line */}
                     <div
-                      className="absolute top-4 left-0 right-0 h-0.5 bg-gray-200"
+                      className={`absolute top-4 left-0 right-0 h-0.5 ${isDark ? "bg-slate-700" : "bg-gray-200"}`}
                       style={{
                         left: "1rem",
                         right: "1rem",
@@ -278,9 +280,9 @@ const Orders = () => {
                           className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 ease-in-out transform ${
                             step.status === "completed"
                               ? "bg-green-500 border-green-500 scale-110"
-                              : step.status === "current"
+                            : step.status === "current"
                               ? `${theme.fillBg} ${theme.border} scale-105`
-                              : "bg-white border-gray-300 scale-100"
+                              : `${isDark ? "bg-slate-900 border-slate-500" : "bg-white border-gray-300"} scale-100`
                           } ${isAnimated ? "opacity-100" : "opacity-0"}`}
                           style={{
                             transitionDelay: `${index * 100}ms`, // Staggered entrance
@@ -316,8 +318,8 @@ const Orders = () => {
                         <span
                           className={`text-xs mt-2 text-center max-w-[80px] transition-opacity duration-500 ${
                             step.status === "pending"
-                              ? "text-gray-400"
-                              : "text-gray-700 font-medium"
+                              ? isDark ? "text-slate-500" : "text-gray-400"
+                              : isDark ? "text-slate-200 font-medium" : "text-gray-700 font-medium"
                           } ${isAnimated ? "opacity-100" : "opacity-0"}`}
                           style={{
                             transitionDelay: `${
@@ -334,11 +336,11 @@ const Orders = () => {
 
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
-                    <p className="text-sm text-gray-600">Items</p>
-                    <p className="font-medium">{order.items.length}</p>
+                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Items</p>
+                    <p className={`${isDark ? "font-medium text-white" : "font-medium"}`}>{order.items.length}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Total</p>
+                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Total</p>
                     <p className="font-medium text-red-500">
                       ₹{order.totalAmount.toLocaleString()}
                     </p>
@@ -364,8 +366,8 @@ const Orders = () => {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600">Shipping</p>
-                    <p className="font-medium">
+                    <p className={`text-sm ${isDark ? "text-slate-400" : "text-gray-600"}`}>Shipping</p>
+                    <p className={`${isDark ? "font-medium text-white" : "font-medium"}`}>
                       {order.shippingAddress.city},{" "}
                       {order.shippingAddress.district},{" "}
                       {order.shippingAddress.state}
@@ -374,7 +376,7 @@ const Orders = () => {
                 </div>
 
                 <div className="flex justify-end">
-                  <button className="flex items-center gap-2 text-red-500 hover:text-red-600 font-medium transition-colors duration-200">
+                  <button className="flex items-center gap-2 text-red-500 hover:text-red-400 font-medium transition-colors duration-200">
                     View Details <FaChevronRight size={14} />
                   </button>
                 </div>

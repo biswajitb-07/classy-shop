@@ -1,13 +1,17 @@
 import { Vendor } from "../../models/vendor/vendor.model.js";
 import { User } from "../../models/user/user.model.js";
 import bcrypt from "bcryptjs";
-import { generateTokenVendor } from "../../utils/generateTokenVendor.js";
 import { loginSchema } from "../../validation/vendor/vendor.validation.js";
 import {
   deleteMediaFromCloudinary,
   uploadMediaVendor,
 } from "../../utils/cloudinary.js";
 import transporter from "../../utils/nodemailer.js";
+import {
+  clearVendorAuthCookies,
+  setVendorAuthCookies,
+} from "../../utils/authCookies.js";
+import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
 
 // export const register = async (req, res) => {
 //   try {
@@ -71,6 +75,13 @@ export const login = async (req, res) => {
       });
     }
 
+    if (vendor.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked plz contact customer care",
+      });
+    }
+
     const isPasswordMatch = await bcrypt.compare(password, vendor.password);
     if (!isPasswordMatch) {
       return res.status(401).json({
@@ -79,20 +90,20 @@ export const login = async (req, res) => {
       });
     }
 
-    generateTokenVendor(res, vendor, `Welcom back ${vendor.name}`);
+    setVendorAuthCookies(res, vendor._id);
+    return res.status(200).json({
+      success: true,
+      message: `Welcom back ${vendor.name}`,
+      vendor,
+    });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
 export const logout = async (req, res) => {
-  const isProd = process.env.NODE_ENV === "production";
   try {
-    res.clearCookie("token1", {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: isProd ? "none" : "lax",
-    });
+    clearVendorAuthCookies(res);
 
     return res.status(204).json({
       success: true,
@@ -528,5 +539,201 @@ export const resetPassword = async (req, res) => {
     res
       .status(500)
       .json({ success: false, message: "Server error during password reset" });
+  }
+};
+
+export const getAllUsers = async (req, res) => {
+  try {
+    const users = await User.find().select("-password").sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, users });
+  } catch (error) {
+    console.error("Failed to load users:", error);
+    return res.status(500).json({ success: false, message: "Failed to load users" });
+  }
+};
+
+export const getAllVendors = async (req, res) => {
+  try {
+    const vendors = await Vendor.find().select("-password").sort({ createdAt: -1 });
+    return res.status(200).json({ success: true, vendors });
+  } catch (error) {
+    console.error("Failed to load vendors:", error);
+    return res.status(500).json({ success: false, message: "Failed to load vendors" });
+  }
+};
+
+const buildUpdatePayload = (body) => {
+  const payload = {};
+  const fields = ["name", "email", "phone", "bio", "dob"];
+  for (const field of fields) {
+    if (body[field] !== undefined) {
+      payload[field] = body[field];
+    }
+  }
+  if (body.isBlocked !== undefined) {
+    payload.isBlocked = body.isBlocked === true || body.isBlocked === "true";
+  }
+  return payload;
+};
+
+const setBlockState = async (Model, id, isBlocked) => {
+  const record = await Model.findByIdAndUpdate(
+    id,
+    { isBlocked },
+    { new: true }
+  ).select("-password");
+  return record;
+};
+
+export const updateUserById = async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.params.id,
+      buildUpdatePayload(req.body),
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+
+    return res.status(200).json({ success: true, user, message: "User updated successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to update user" });
+  }
+};
+
+export const deleteUserById = async (req, res) => {
+  try {
+    const user = await User.findByIdAndDelete(req.params.id);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    return res.status(200).json({ success: true, message: "User deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to delete user" });
+  }
+};
+
+export const toggleUserBlock = async (req, res) => {
+  try {
+    const { isBlocked } = req.body;
+    const user = await setBlockState(User, req.params.id, isBlocked);
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    return res.status(200).json({
+      success: true,
+      user,
+      message: isBlocked ? "User blocked successfully" : "User unblocked successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to update user block status" });
+  }
+};
+
+export const updateVendorById = async (req, res) => {
+  try {
+    const vendor = await Vendor.findByIdAndUpdate(
+      req.params.id,
+      buildUpdatePayload(req.body),
+      { new: true }
+    ).select("-password");
+
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: "Vendor not found" });
+    }
+
+    return res.status(200).json({ success: true, vendor, message: "Vendor updated successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to update vendor" });
+  }
+};
+
+export const deleteVendorById = async (req, res) => {
+  try {
+    const vendor = await Vendor.findByIdAndDelete(req.params.id);
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: "Vendor not found" });
+    }
+    return res.status(200).json({ success: true, message: "Vendor deleted successfully" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to delete vendor" });
+  }
+};
+
+export const toggleVendorBlock = async (req, res) => {
+  try {
+    const { isBlocked } = req.body;
+    const vendor = await setBlockState(Vendor, req.params.id, isBlocked);
+    if (!vendor) {
+      return res.status(404).json({ success: false, message: "Vendor not found" });
+    }
+    return res.status(200).json({
+      success: true,
+      vendor,
+      message: isBlocked ? "Vendor blocked successfully" : "Vendor unblocked successfully",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to update vendor block status" });
+  }
+};
+
+export const getVendorNotifications = async (req, res) => {
+  try {
+    const notifications = await VendorNotification.find({ vendorId: req.id })
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return res.status(200).json({
+      success: true,
+      notifications,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load notifications",
+    });
+  }
+};
+
+export const deleteVendorNotification = async (req, res) => {
+  try {
+    const notification = await VendorNotification.findOneAndDelete({
+      _id: req.params.id,
+      vendorId: req.id,
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification deleted",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete notification",
+    });
+  }
+};
+
+export const clearVendorNotifications = async (req, res) => {
+  try {
+    await VendorNotification.deleteMany({ vendorId: req.id });
+    return res.status(200).json({
+      success: true,
+      message: "All notifications cleared",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to clear notifications",
+    });
   }
 };

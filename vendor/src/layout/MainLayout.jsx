@@ -24,25 +24,21 @@ const MainLayout = () => {
   };
 
   return (
-    <div className="relative h-screen w-full overflow-hidden">
+    <div className="relative h-screen w-full overflow-hidden bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
       {/* Sidebar - fixed */}
       <Sidebar />
 
       {/* Overlay */}
       {showOverlay && (
         <div
-          className={`fixed top-0 left-[18rem] right-0 bottom-0 bg-black z-60 lg:hidden transition-opacity duration-300 ${
+          className={`fixed inset-0 bg-black z-40 transition-opacity duration-300 ${
             isOpen ? "opacity-40" : "opacity-0 pointer-events-none"
           }`}
           onClick={handleOverlayClick}
         />
       )}
 
-      <div
-        className={`h-full overflow-y-auto transition-all duration-300 ${
-          isOpen ? "lg:ml-[18rem]" : "ml-0"
-        }`}
-      >
+      <div className="h-full overflow-y-auto">
         <Header />
         <main className="pt-24 px-5">
           <Outlet />

@@ -8,6 +8,7 @@ import Features from "../components/Features.jsx";
 import CategoryPanel from "../components/category/CategoryPanel.jsx";
 import { useEffect, useState } from "react";
 import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
+import ScrollToTop from "../components/router/ScrollToTop.jsx";
 
 const MainLayout = () => {
   const [prevScrollPos, setPrevScrollPos] = useState(0);
@@ -41,7 +42,8 @@ const MainLayout = () => {
 
   return (
     <>
-      <div>
+      <div className="user-shell bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
+        <ScrollToTop />
         <OAuthToast />
         <Header
           visible={visible}
@@ -64,7 +66,7 @@ const MainLayout = () => {
         <Outlet />
       </div>
 
-      <div>
+      <div className="user-shell-muted transition-colors duration-300">
         <Features />
         <Contact />
         <Footer />

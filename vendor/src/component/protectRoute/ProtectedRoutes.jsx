@@ -1,4 +1,4 @@
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 
 export const VendorRoute = ({ children }) => {
@@ -13,8 +13,12 @@ export const VendorRoute = ({ children }) => {
 
 export const PublicRoute = ({ children }) => {
   const { isAuthenticated } = useSelector((store) => store.auth);
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  const allowLoginMessage =
+    params.get("blocked") === "1" || params.get("google") === "blocked";
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !allowLoginMessage) {
     return <Navigate to="/" replace />;
   }
 

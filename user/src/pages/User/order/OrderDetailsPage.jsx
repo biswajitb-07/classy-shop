@@ -16,10 +16,12 @@ import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
 import ConfirmDialog from "../../../components/ConfirmDialog.jsx";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
+import { useTheme } from "../../../context/ThemeContext.jsx";
 
 const OrderDetailsPage = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
+  const { isDark } = useTheme();
 
   const {
     data: ordersData,
@@ -90,7 +92,7 @@ const OrderDetailsPage = () => {
   if (isError) return <ErrorMessage onRetry={refetch} />;
   if (isLoading) {
     return (
-      <div className="h-[26rem] grid place-items-center bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className={`h-[26rem] grid place-items-center ${pageBg}`}>
         <PageLoader message="Loading order details..." />
       </div>
     );
@@ -98,16 +100,16 @@ const OrderDetailsPage = () => {
 
   if (!order) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
+      <div className={`min-h-screen ${pageBg}`}>
         <div className="container mx-auto px-4 py-16">
-          <div className="max-w-md mx-auto text-center bg-white rounded-2xl shadow-xl p-8">
-            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center">
+          <div className={`max-w-md mx-auto text-center ${surface} rounded-2xl shadow-xl p-8`}>
+            <div className="w-24 h-24 mx-auto mb-6 bg-gradient-to-r from-red-100 to-pink-100 rounded-full flex items-center justify-center dark:from-red-950 dark:to-pink-950">
               <FaBoxOpen className="w-12 h-12 text-red-500" />
             </div>
-            <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            <h2 className={`text-2xl font-bold ${headingText} mb-4`}>
               Order Not Found
             </h2>
-            <p className="text-gray-600 mb-8">
+            <p className={`${bodyText} mb-8`}>
               The order you are looking for does not exist.
             </p>
             <button
@@ -150,6 +152,22 @@ const OrderDetailsPage = () => {
 
   const canUserCancel = ["pending", "processing"].includes(order.orderStatus);
   const canUserRequestReturn = order.orderStatus === "delivered";
+  const pageBg = isDark
+    ? "bg-slate-950"
+    : "bg-gradient-to-br from-gray-50 to-gray-100";
+  const surface = isDark
+    ? "bg-slate-900 border border-slate-700"
+    : "bg-white";
+  const headingText = isDark ? "text-white" : "text-gray-800";
+  const bodyText = isDark ? "text-slate-300" : "text-gray-600";
+  const mutedText = isDark ? "text-slate-400" : "text-gray-500";
+  const tableHeadBg = isDark
+    ? "bg-slate-800 border-b border-slate-700"
+    : "bg-gray-50 border-b border-gray-200";
+  const tableRowHover = isDark ? "hover:bg-slate-800/70" : "hover:bg-gray-50";
+  const tableDivide = isDark ? "divide-slate-700" : "divide-gray-100";
+  const progressTrack = isDark ? "bg-slate-700" : "bg-green-200";
+  const summaryRule = isDark ? "border-slate-700" : "border-gray-200";
 
   const openCancelDialog = () => {
     setConfirmMeta({
@@ -203,10 +221,10 @@ const OrderDetailsPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-16">
+    <div className={`min-h-screen ${pageBg} pb-16`}>
       <div className="container px-4 mx-auto">
         <div className="flex items-center justify-between mt-8 mb-6">
-          <h1 className="text-xl md:text-2xl font-bold text-gray-800 flex items-center gap-2">
+          <h1 className={`text-xl md:text-2xl font-bold ${headingText} flex items-center gap-2`}>
             <FaBoxOpen className="text-red-500" />
             Order Details #{order.orderId}
           </h1>
@@ -223,10 +241,10 @@ const OrderDetailsPage = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
           <div className="lg:col-span-4">
-            <div className="bg-white rounded-2xl shadow-md overflow-hidden p-6">
+            <div className={`${surface} rounded-2xl shadow-md overflow-hidden p-6`}>
               <div className="mb-6">
                 <div className="relative mb-2 h-6">
-                  <div className="absolute top-1/2 left-0 w-full h-1 bg-green-200 rounded-full transform -translate-y-1/2"></div>
+                  <div className={`absolute top-1/2 left-0 w-full h-1 ${progressTrack} rounded-full transform -translate-y-1/2`}></div>
                   <div
                     className={`absolute top-1/2 left-0 h-1 rounded-full transform -translate-y-1/2 transition-all duration-700 ease-in-out ${
                       isReturnFlow
@@ -239,7 +257,7 @@ const OrderDetailsPage = () => {
                   ></div>
                 </div>
                 <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">Current status</div>
+                  <div className={`text-sm ${bodyText}`}>Current status</div>
                   <div
                     className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
                       order.orderStatus
@@ -255,27 +273,27 @@ const OrderDetailsPage = () => {
 
               <div className="hidden md:block">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-50 border-b border-gray-200">
+                  <thead className={tableHeadBg}>
                     <tr>
-                      <th className="px-6 py-4 text-left font-semibold text-gray-600 uppercase">
+                      <th className={`px-6 py-4 text-left font-semibold ${bodyText} uppercase`}>
                         Product
                       </th>
-                      <th className="px-6 py-4 text-left font-semibold text-gray-600 uppercase">
+                      <th className={`px-6 py-4 text-left font-semibold ${bodyText} uppercase`}>
                         Variant
                       </th>
-                      <th className="px-6 py-4 text-center font-semibold text-gray-600 uppercase">
+                      <th className={`px-6 py-4 text-center font-semibold ${bodyText} uppercase`}>
                         Qty
                       </th>
-                      <th className="px-6 py-4 text-right font-semibold text-gray-600 uppercase">
+                      <th className={`px-6 py-4 text-right font-semibold ${bodyText} uppercase`}>
                         Price
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-100">
+                  <tbody className={`divide-y ${tableDivide}`}>
                     {order.items.map((item, index) => (
                       <tr
                         key={`${item.productId}_${index}`}
-                        className="hover:bg-gray-50"
+                        className={tableRowHover}
                       >
                         <td className="px-6 py-4">
                           <div
@@ -293,13 +311,13 @@ const OrderDetailsPage = () => {
                                 item.product.image?.[0] || "/fallback-image.jpg"
                               }
                               alt={item.product.name}
-                              className="w-16 h-16 object-cover rounded-lg group-hover:scale-105 transition"
-                            />
-                            <div>
-                              <h4 className="font-semibold text-gray-800 group-hover:text-red-500">
+                            className="w-16 h-16 object-cover rounded-lg group-hover:scale-105 transition"
+                          />
+                          <div>
+                              <h4 className={`font-semibold ${headingText} group-hover:text-red-500`}>
                                 {item.product.name}
                               </h4>
-                              <p className="text-xs text-gray-500 mt-1">
+                              <p className={`text-xs ${mutedText} mt-1`}>
                                 {item.productType}
                               </p>
                             </div>
@@ -310,19 +328,19 @@ const OrderDetailsPage = () => {
                             item.productType,
                             item.variant
                           ) || (
-                            <span className="text-gray-400 text-sm">
+                            <span className={`${mutedText} text-sm`}>
                               Default
                             </span>
                           )}
                         </td>
-                        <td className="px-6 py-4 text-center font-bold text-gray-700">
+                        <td className={`px-6 py-4 text-center font-bold ${headingText}`}>
                           {item.quantity}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <p className="text-red-500 font-bold">
                             ₹{item.subtotal.toLocaleString()}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className={`text-sm ${mutedText}`}>
                             ₹{item.price.toLocaleString()} each
                           </p>
                         </td>
@@ -332,7 +350,7 @@ const OrderDetailsPage = () => {
                 </table>
               </div>
 
-              <div className="md:hidden divide-y divide-gray-100">
+              <div className={`md:hidden divide-y ${tableDivide}`}>
                 {order.items.map((item, index) => (
                   <div
                     key={`${item.productId}_${index}`}
@@ -354,28 +372,28 @@ const OrderDetailsPage = () => {
                         className="w-16 h-16 object-cover rounded-lg group-hover:scale-105 transition"
                       />
                       <div>
-                        <h4 className="font-semibold text-gray-800 group-hover:text-red-500">
+                        <h4 className={`font-semibold ${headingText} group-hover:text-red-500`}>
                           {item.product.name}
                         </h4>
-                        <p className="text-xs text-gray-500">
+                        <p className={`text-xs ${mutedText}`}>
                           {item.productType}
                         </p>
                         {getVariantDisplay(item.productType, item.variant) && (
-                          <p className="text-xs text-blue-600">
+                          <p className={`text-xs ${isDark ? "text-cyan-300" : "text-blue-600"}`}>
                             {getVariantDisplay(item.productType, item.variant)}
                           </p>
                         )}
                       </div>
                     </div>
                     <div className="flex justify-between items-center">
-                      <p className="text-sm text-gray-600">
+                      <p className={`text-sm ${bodyText}`}>
                         Qty: {item.quantity}
                       </p>
                       <div className="text-right">
                         <p className="text-red-500 font-bold">
                           ₹{item.subtotal.toLocaleString()}
                         </p>
-                        <p className="text-xs text-gray-500">
+                        <p className={`text-xs ${mutedText}`}>
                           ₹{item.price.toLocaleString()} each
                         </p>
                       </div>
@@ -387,11 +405,11 @@ const OrderDetailsPage = () => {
           </div>
 
           <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">
+            <div className={`${surface} rounded-2xl shadow-md p-6`}>
+              <h2 className={`text-xl font-bold ${headingText} mb-4`}>
                 Order Summary
               </h2>
-              <div className="space-y-3 text-gray-600 text-sm">
+              <div className={`space-y-3 ${bodyText} text-sm`}>
                 <div className="flex justify-between">
                   <span>Order ID</span>
                   <span>#{order.orderId}</span>
@@ -408,8 +426,8 @@ const OrderDetailsPage = () => {
                   <span>Shipping</span>
                   <span className="text-green-500 font-medium">Free</span>
                 </div>
-                <hr className="border-gray-200 my-2" />
-                <div className="flex justify-between text-base font-bold text-gray-800">
+                <hr className={`${summaryRule} my-2`} />
+                <div className={`flex justify-between text-base font-bold ${headingText}`}>
                   <span>Total</span>
                   <span className="text-red-500">
                     ₹{order.totalAmount.toLocaleString()}
@@ -430,12 +448,12 @@ const OrderDetailsPage = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <div className={`${surface} rounded-2xl shadow-md p-6`}>
+              <h2 className={`text-xl font-bold ${headingText} mb-4 flex items-center gap-2`}>
                 <FaMapMarkerAlt className="text-red-500" />
                 Shipping Address
               </h2>
-              <div className="text-gray-600 text-sm space-y-1">
+              <div className={`text-sm space-y-1 ${bodyText}`}>
                 <p className="font-medium">{order.shippingAddress.fullName}</p>
                 {order.shippingAddress.addressLine1 && (
                   <p>{order.shippingAddress.addressLine1}</p>
@@ -451,8 +469,8 @@ const OrderDetailsPage = () => {
               </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <div className={`${surface} rounded-2xl shadow-md p-6`}>
+              <h2 className={`text-xl font-bold ${headingText} mb-4 flex items-center gap-2`}>
                 {order.paymentMethod === "cod" ? (
                   <FaMoneyBillWave className="text-green-500" />
                 ) : (
@@ -460,7 +478,7 @@ const OrderDetailsPage = () => {
                 )}{" "}
                 Payment Info
               </h2>
-              <div className="text-gray-600 text-sm space-y-2">
+              <div className={`text-sm space-y-2 ${bodyText}`}>
                 <div className="flex justify-between items-center">
                   <span>Method</span>
                   {order.paymentMethod === "razorpay" ? (
@@ -503,7 +521,7 @@ const OrderDetailsPage = () => {
             </div>
 
             {order.orderStatus != "cancelled" && (
-              <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col gap-3">
+              <div className={`${surface} rounded-2xl shadow-md p-6 flex flex-col gap-3`}>
                 {canUserCancel && (
                   <button
                     onClick={openCancelDialog}
@@ -525,7 +543,7 @@ const OrderDetailsPage = () => {
                 )}
 
                 {isReturnFlow && (
-                  <div className="text-sm text-gray-600">
+                  <div className={`text-sm ${bodyText}`}>
                     Current return status:{" "}
                     <span className="font-semibold">
                       {returnLabel(order.orderStatus)}

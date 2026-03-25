@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { IoPerson } from "react-icons/io5";
 import { GoMail } from "react-icons/go";
 import { MdLockOutline } from "react-icons/md";
@@ -19,6 +19,7 @@ const Login = () => {
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState({});
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [signupInput, setSignupInput] = useState({
     name: "",
@@ -52,6 +53,14 @@ const Login = () => {
   };
 
   useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("blocked") === "1" || params.get("google") === "blocked") {
+      toast.error(
+        params.get("message") ||
+          "Your account has been blocked plz contact customer care"
+      );
+    }
+
     const savedEmail = localStorage.getItem("rememberedEmail");
     const savedPassword = localStorage.getItem("rememberedPassword");
     if (savedEmail) {
@@ -61,7 +70,7 @@ const Login = () => {
       setLoginInput((prev) => ({ ...prev, password: savedPassword }));
       setRememberMe(true);
     }
-  }, []);
+  }, [location.search]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -135,7 +144,7 @@ const Login = () => {
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <img
-                src="./logo.jpg"
+                src="/logo-light.png"
                 alt="Logo"
                 className="w-20 h-20 object-contain"
               />

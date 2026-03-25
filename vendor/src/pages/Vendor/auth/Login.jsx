@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLayoutEffect, useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { GoMail } from "react-icons/go";
 import { MdLockOutline } from "react-icons/md";
 import { FiEye, FiEyeOff } from "react-icons/fi";
@@ -10,6 +10,7 @@ import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
 
 const Login = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
@@ -20,7 +21,34 @@ const Login = () => {
 
   const [loginUser, { isLoading }] = useLoginUserMutation();
 
+  useLayoutEffect(() => {
+    document.documentElement.classList.add("auth-light-page");
+    const previousTheme = document.documentElement.dataset.theme;
+    const previousColorScheme = document.documentElement.style.colorScheme;
+    document.documentElement.dataset.theme = "light";
+    document.documentElement.style.colorScheme = "light";
+
+    return () => {
+      document.documentElement.classList.remove("auth-light-page");
+      if (previousTheme) {
+        document.documentElement.dataset.theme = previousTheme;
+      } else {
+        delete document.documentElement.dataset.theme;
+      }
+      document.documentElement.style.colorScheme = previousColorScheme;
+    };
+  }, []);
+
   useEffect(() => {
+
+    const params = new URLSearchParams(location.search);
+    if (params.get("blocked") === "1" || params.get("google") === "blocked") {
+      toast.error(
+        params.get("message") ||
+          "Your account has been blocked plz contact customer care"
+      );
+    }
+
     const savedEmail = localStorage.getItem("rememberedEmail");
     const savedPassword = localStorage.getItem("rememberedPassword");
     if (savedEmail) {
@@ -30,7 +58,7 @@ const Login = () => {
       setLoginInput((prev) => ({ ...prev, password: savedPassword }));
       setRememberMe(true);
     }
-  }, []);
+  }, [location.search]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -63,6 +91,11 @@ const Login = () => {
   };
 
   const togglePasswordVisibility = () => setShowPassword((p) => !p);
+  const authInputStyle = {
+    backgroundColor: "#ffffff",
+    color: "#000000",
+    WebkitTextFillColor: "#000000",
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center p-4">
@@ -84,20 +117,21 @@ const Login = () => {
         </div>
 
         {/* --- Right Form --- */}
-        <div className="lg:w-1/2 p-8 sm:p-12 flex flex-col justify-center">
+        <div className="auth-light-surface lg:w-1/2 p-8 sm:p-12 flex flex-col justify-center text-slate-900">
           <div className="text-center mb-8">
             <div className="flex justify-center mb-4">
               <img
-                src="./logo.jpg"
+                src="/logo-light.png"
                 alt="Logo"
                 className="w-20 h-20 object-contain"
               />
             </div>
-            <h1 className="text-3xl font-bold text-gray-800 mb-2">Sign In</h1>
-            <p className="text-gray-500">Enter your credentials to continue</p>
+            <h1 className="text-3xl font-bold text-[#1f2937] mb-2">Sign In</h1>
+            <p className="text-[#6b7280]">Enter your credentials to continue</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Keep auth inputs on a white surface even when the vendor app runs in dark mode. */}
             {/* Email */}
             <div className="group relative">
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-amber-600 group-focus-within:text-amber-700">
@@ -110,7 +144,8 @@ const Login = () => {
                 required
                 value={loginInput.email}
                 onChange={handleChange}
-                className="w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all duration-200"
+                style={authInputStyle}
+                className="auth-light-input appearance-none w-full pl-10 pr-4 py-3 rounded-lg border border-gray-300 bg-white text-black placeholder:text-gray-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all duration-200"
               />
             </div>
 
@@ -126,7 +161,8 @@ const Login = () => {
                 required
                 value={loginInput.password}
                 onChange={handleChange}
-                className="w-full pl-10 pr-10 py-3 rounded-lg border border-gray-300 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all duration-200"
+                style={authInputStyle}
+                className="auth-light-input appearance-none w-full pl-10 pr-10 py-3 rounded-lg border border-gray-300 bg-white text-black placeholder:text-gray-500 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 outline-none transition-all duration-200"
               />
               <button
                 type="button"
@@ -150,7 +186,7 @@ const Login = () => {
                 />
                 <label
                   htmlFor="remember-me"
-                  className="ml-2 block text-sm text-gray-700"
+                  className="ml-2 block text-sm text-[#374151]"
                 >
                   Remember me
                 </label>

@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { FaStar } from "react-icons/fa";
+import { useTheme } from "../../context/ThemeContext.jsx";
 
 const ProductFilter = ({ initialFilters, onApply, onClear }) => {
+  const { isDark } = useTheme();
   const [categories, setCategories] = useState(initialFilters.categories || []);
   const [minPrice, setMinPrice] = useState(initialFilters.minPrice ?? 0);
   const [maxPrice, setMaxPrice] = useState(initialFilters.maxPrice ?? 60000);
@@ -35,8 +37,21 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
     });
   };
 
+  const panelSurface = isDark
+    ? "bg-slate-900 border-slate-700"
+    : "bg-white border-gray-100";
+  const cardSurface = isDark ? "bg-slate-800/80" : "bg-gray-50";
+  const headingText = isDark ? "text-white" : "text-gray-800";
+  const bodyText = isDark ? "text-slate-300" : "text-gray-600";
+  const valueText = isDark ? "text-slate-100" : "text-gray-700";
+  const mutedText = isDark ? "text-slate-400" : "text-gray-500";
+  const rangeTrack = isDark ? "bg-slate-700" : "bg-gray-200";
+  const summarySurface = isDark
+    ? "bg-slate-950 border-slate-700"
+    : "bg-white border-red-100";
+
   return (
-    <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden w-full">
+    <div className={`${panelSurface} rounded-2xl shadow-xl border overflow-hidden w-full`}>
       {/* Header */}
       <div className="bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 p-4 sm:p-6">
         <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white flex items-center gap-2">
@@ -70,14 +85,14 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
                 />
               </svg>
             </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800">
+            <h3 className={`text-base sm:text-lg md:text-xl font-semibold ${headingText}`}>
               Price Range
             </h3>
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-3 sm:p-4 space-y-3 sm:space-y-4">
+          <div className={`${cardSurface} rounded-xl p-3 sm:p-4 space-y-3 sm:space-y-4`}>
             <div>
-              <label className="text-xs sm:text-sm font-medium text-gray-600 mb-2 block">
+              <label className={`text-xs sm:text-sm font-medium ${bodyText} mb-2 block`}>
                 Minimum Price: ₹{minPrice.toLocaleString()}
               </label>
               <input
@@ -90,12 +105,12 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
                   if (v > maxPrice) setMaxPrice(v);
                   setMinPrice(v);
                 }}
-                className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer accent-red-500"
+                className={`w-full h-2 ${rangeTrack} rounded-lg cursor-pointer accent-red-500`}
               />
             </div>
 
             <div>
-              <label className="text-xs sm:text-sm font-medium text-gray-600 mb-2 block">
+              <label className={`text-xs sm:text-sm font-medium ${bodyText} mb-2 block`}>
                 Maximum Price: ₹{maxPrice.toLocaleString()}
               </label>
               <input
@@ -108,16 +123,16 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
                   if (v < minPrice) setMinPrice(v);
                   setMaxPrice(v);
                 }}
-                className="w-full h-2 bg-gray-200 rounded-lg cursor-pointer accent-red-500"
+                className={`w-full h-2 ${rangeTrack} rounded-lg cursor-pointer accent-red-500`}
               />
             </div>
 
-            <div className="flex items-center justify-between bg-white rounded-lg p-2 sm:p-3 border-2 border-red-100">
-              <span className="text-xs sm:text-sm font-medium text-gray-700">
+            <div className={`flex items-center justify-between ${summarySurface} rounded-lg p-2 sm:p-3 border-2`}>
+              <span className={`text-xs sm:text-sm font-medium ${valueText}`}>
                 ₹{minPrice.toLocaleString()}
               </span>
               <div className="flex-1 mx-2 sm:mx-3 h-px bg-gradient-to-r from-red-500 to-pink-500"></div>
-              <span className="text-xs sm:text-sm font-medium text-gray-700">
+              <span className={`text-xs sm:text-sm font-medium ${valueText}`}>
                 ₹{maxPrice.toLocaleString()}
               </span>
             </div>
@@ -130,19 +145,23 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
             <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
               <FaStar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
             </div>
-            <h3 className="text-base sm:text-lg md:text-xl font-semibold text-gray-800">
+            <h3 className={`text-base sm:text-lg md:text-xl font-semibold ${headingText}`}>
               Customer Rating
             </h3>
           </div>
 
-          <div className="bg-gray-50 rounded-xl p-3 sm:p-4">
+          <div className={`${cardSurface} rounded-xl p-3 sm:p-4`}>
             <div className="space-y-2 sm:space-y-3">
               {[5, 4, 3, 2, 1].map((r) => (
                 <label key={r} className="group cursor-pointer">
                   <div
                     className={`flex items-center gap-3 sm:gap-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${
                       ratings.includes(r)
-                        ? "bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 shadow-sm"
+                        ? isDark
+                          ? "bg-slate-950 border-2 border-yellow-500 shadow-sm"
+                          : "bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 shadow-sm"
+                        : isDark
+                        ? "bg-slate-900 border-2 border-transparent hover:border-yellow-500 hover:shadow-sm"
                         : "bg-white border-2 border-transparent hover:border-yellow-200 hover:shadow-sm"
                     }`}
                   >
@@ -156,7 +175,9 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
                       <div
                         className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
                           ratings.includes(r)
-                            ? "bg-gradient-to-br from-yellow-400 to-orange-500 border-yellow-500"
+                          ? "bg-gradient-to-br from-yellow-400 to-orange-500 border-yellow-500"
+                            : isDark
+                            ? "border-slate-600 group-hover:border-yellow-400"
                             : "border-gray-300 group-hover:border-yellow-400"
                         }`}
                       >
@@ -187,12 +208,12 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
                           />
                         ))}
                       </div>
-                      <span className="text-xs sm:text-sm font-medium text-gray-700">
+                      <span className={`text-xs sm:text-sm font-medium ${valueText}`}>
                         & Up
                       </span>
                     </div>
 
-                    <div className="text-xs font-medium text-gray-500">
+                    <div className={`text-xs font-medium ${mutedText}`}>
                       {r} Star{r !== 1 ? "s" : ""}
                     </div>
                   </div>
@@ -203,11 +224,15 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
         </div>
 
         {/* Action Buttons */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t border-gray-200">
+        <div className={`grid grid-cols-2 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
           <button
             type="button"
             onClick={handleClear}
-            className="relative overflow-hidden bg-white border-2 border-gray-300 text-gray-700 rounded-xl py-2 sm:py-3 px-4 sm:px-6 font-semibold text-xs sm:text-sm transition-all duration-300 hover:border-red-300 hover:text-red-600 hover:shadow-lg transform hover:-translate-y-0.5"
+            className={`relative overflow-hidden border-2 rounded-xl py-2 sm:py-3 px-4 sm:px-6 font-semibold text-xs sm:text-sm transition-all duration-300 hover:border-red-300 hover:text-red-600 hover:shadow-lg transform hover:-translate-y-0.5 ${
+              isDark
+                ? "bg-slate-800 border-slate-600 text-slate-100"
+                : "bg-white border-gray-300 text-gray-700"
+            }`}
           >
             <span className="relative z-10 flex items-center justify-center gap-1 sm:gap-2">
               <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">

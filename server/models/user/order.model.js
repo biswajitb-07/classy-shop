@@ -12,9 +12,18 @@ const orderSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         required: true,
       },
+      vendorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "Vendor",
+        required: true,
+      },
       productType: {
         type: String,
         required: true,
+      },
+      productName: {
+        type: String,
+        default: "",
       },
       variant: {
         type: String,
@@ -135,6 +144,14 @@ const orderSchema = new mongoose.Schema({
   ],
   refundRequestedAt: { type: Date },
   refundCompletedAt: { type: Date },
+  stockAdjusted: {
+    type: Boolean,
+    default: false,
+  },
+  stockRestored: {
+    type: Boolean,
+    default: false,
+  },
   createdAt: {
     type: Date,
     default: Date.now,

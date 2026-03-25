@@ -8,7 +8,10 @@ import { useLoadUserQuery } from "./features/api/authApi.js";
 
 const Custom = ({ children }) => {
   const { isLoading } = useLoadUserQuery();
-  return <>{isLoading ? <LoadingSpinner /> : <>{children}</>}</>;
+
+  // Hold the shell until the vendor session is resolved, so protected routes
+  // do not flash the wrong state during boot.
+  return isLoading ? <LoadingSpinner /> : children;
 };
 
 createRoot(document.getElementById("root")).render(

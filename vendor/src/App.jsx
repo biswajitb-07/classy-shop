@@ -32,6 +32,10 @@ import ShowAllJewelleryProduct from "./pages/Vendor/vedorPage/jewellery/ShowAllJ
 import ShowAllBagProduct from "./pages/Vendor/vedorPage/bag/ShowAllBagProduct";
 import Orders from "./pages/Vendor/vedorPage/Orders";
 import OrderDetailsPage from "./pages/Vendor/vedorPage/OrderDetailsPage";
+import Users from "./pages/Vendor/vedorPage/community/Users";
+import Vendors from "./pages/Vendor/vedorPage/community/Vendors";
+import Settings from "./pages/Vendor/Settings";
+import { ThemeProvider } from "./context/ThemeContext";
 
 const appRouter = createBrowserRouter([
   {
@@ -142,6 +146,18 @@ const appRouter = createBrowserRouter([
         path: "/jewellery-products",
         element: <ShowAllJewelleryProduct />,
       },
+      {
+        path: "/community/users",
+        element: <Users />,
+      },
+      {
+        path: "/community/vendors",
+        element: <Vendors />,
+      },
+      {
+        path: "/settings",
+        element: <Settings />,
+      },
     ],
   },
 ]);
@@ -171,30 +187,32 @@ const App = () => {
   }, []);
 
   return (
-    <main className="min-h-screen bg-gray-100">
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 2000,
-        }}
-      />
-      {isOnline ? (
-        <RouterProvider router={appRouter} />
-      ) : (
-        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
-          <WifiOff
-            className="w-28 h-28 text-sky-400 animate-pulse"
-            strokeWidth={0.5}
-          />
-          <h1 className="mt-6 text-3xl font-bold tracking-tight">
-            You're offline
-          </h1>
-          <p className="mt-2 text-slate-300 text-center max-w-xs">
-            Check your connection to continue using the site.
-          </p>
-        </div>
-      )}
-    </main>
+    <ThemeProvider>
+      <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
+        <Toaster
+          position="top-center"
+          toastOptions={{
+            duration: 2000,
+          }}
+        />
+        {isOnline ? (
+          <RouterProvider router={appRouter} />
+        ) : (
+          <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
+            <WifiOff
+              className="w-28 h-28 text-sky-400 animate-pulse"
+              strokeWidth={0.5}
+            />
+            <h1 className="mt-6 text-3xl font-bold tracking-tight">
+              You're offline
+            </h1>
+            <p className="mt-2 text-slate-300 text-center max-w-xs">
+              Check your connection to continue using the site.
+            </p>
+          </div>
+        )}
+      </main>
+    </ThemeProvider>
   );
 };
 

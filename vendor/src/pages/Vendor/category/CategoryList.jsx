@@ -17,9 +17,11 @@ import {
 import { toast } from "react-hot-toast";
 import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
 import ConfirmDialog from "./ConfirmDialog";
+import { useTheme } from "../../../context/ThemeContext";
 
 const CategoryList = () => {
   const { data, isLoading } = useGetVendorCategoriesQuery();
+  const { isDark } = useTheme();
   const [expandedIndex, setExpandedIndex] = useState(null);
   const [expandedSubIndex, setExpandedSubIndex] = useState(null);
   const [editIndex, setEditIndex] = useState(null);
@@ -208,10 +210,26 @@ const CategoryList = () => {
     setExpandedIndex(null);
     setEditIndex(null);
   };
+  const pageClass = isDark
+    ? "px-2 pb-5 min-h-screen"
+    : "px-2 pb-5 min-h-screen bg-gradient-to-br from-gray-50 to-gray-100";
+  const headingClass = isDark ? "text-white" : "text-gray-900";
+  const cardClass = isDark
+    ? "border border-slate-700 rounded-3xl p-6 shadow-2xl bg-slate-900 hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1"
+    : "border border-gray-200 rounded-3xl p-6 shadow-2xl bg-white hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1";
+  const textMainClass = isDark ? "text-white" : "text-gray-900";
+  const textSubClass = isDark ? "text-slate-100" : "text-gray-800";
+  const mutedTextClass = isDark ? "text-slate-300" : "text-gray-700";
+  const subRowClass = isDark
+    ? "flex justify-between items-center cursor-pointer py-2 px-4 bg-slate-800 rounded-xl hover:bg-slate-700 transition"
+    : "flex justify-between items-center cursor-pointer py-2 px-4 bg-gray-300 rounded-xl hover:bg-gray-400 transition";
+  const inlineInputClass = isDark
+    ? "px-2 py-1 rounded border border-slate-600 bg-slate-950 text-sm text-slate-100 cursor-pointer"
+    : "px-2 py-1 rounded border border-gray-300 bg-white text-sm text-gray-900 cursor-pointer";
 
   return (
-    <div className="px-2 pb-5 bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen">
-      <h1 className="text-xl font-extrabold mb-8 text-gray-900 tracking-tight">
+    <div className={pageClass}>
+      <h1 className={`text-xl font-extrabold mb-8 tracking-tight ${headingClass}`}>
         Category List
       </h1>
 
@@ -238,7 +256,7 @@ const CategoryList = () => {
             {currentCategories?.map((cat, index) => (
               <div
                 key={index}
-                className="border rounded-3xl p-6 shadow-2xl bg-white hover:shadow-3xl transition-all duration-300 transform hover:-translate-y-1"
+                className={cardClass}
               >
                 {/* Header Row */}
                 <div
@@ -249,9 +267,9 @@ const CategoryList = () => {
                     <img
                       src={cat.image}
                       alt={cat.name}
-                      className="w-20 h-20 rounded-full object-cover border-4 border-blue-100 shadow-md"
+                      className={`w-20 h-20 rounded-full object-cover border-4 shadow-md ${isDark ? "border-slate-700" : "border-blue-100"}`}
                     />
-                    <h2 className="text-base font-bold text-gray-900">
+                    <h2 className={`text-base font-bold ${textMainClass}`}>
                       {cat.name}
                     </h2>
                   </div>
@@ -276,9 +294,9 @@ const CategoryList = () => {
                       <AiOutlineDelete />
                     </button>
                     {expandedIndex === index ? (
-                      <AiOutlineUp className="text-gray-700 text-xl" />
+                      <AiOutlineUp className={`text-xl ${isDark ? "text-slate-300" : "text-gray-700"}`} />
                     ) : (
-                      <AiOutlineDown className="text-gray-700 text-xl" />
+                      <AiOutlineDown className={`text-xl ${isDark ? "text-slate-300" : "text-gray-700"}`} />
                     )}
                   </div>
                 </div>
@@ -289,9 +307,9 @@ const CategoryList = () => {
                     {cat.subCategories?.length > 0 ? (
                       <ul className="space-y-4">
                         {cat.subCategories.map((sub, subIndex) => (
-                          <li key={subIndex} className="text-gray-800">
+                          <li key={subIndex} className={textSubClass}>
                             <div
-                              className="flex justify-between items-center cursor-pointer py-2 px-4 bg-gray-300 rounded-xl hover:bg-gray-400 transition"
+                              className={subRowClass}
                               onClick={() => handleToggleSubAccordion(subIndex)}
                             >
                               <span className="text-[0.9rem] font-medium">
@@ -303,7 +321,7 @@ const CategoryList = () => {
                                     onChange={(e) =>
                                       setSubEditName(e.target.value)
                                     }
-                                    className="px-2 py-1 rounded border border-gray-300 text-sm cursor-pointer"
+                                    className={inlineInputClass}
                                   />
                                 ) : (
                                   sub.name
@@ -343,9 +361,9 @@ const CategoryList = () => {
                                 {sub.thirdLevelSubCategories?.length > 0 && (
                                   <>
                                     {expandedSubIndex === subIndex ? (
-                                      <AiOutlineUp className="text-gray-600" />
+                                      <AiOutlineUp className={isDark ? "text-slate-400" : "text-gray-600"} />
                                     ) : (
-                                      <AiOutlineDown className="text-gray-600" />
+                                      <AiOutlineDown className={isDark ? "text-slate-400" : "text-gray-600"} />
                                     )}
                                   </>
                                 )}
@@ -382,7 +400,7 @@ const CategoryList = () => {
                                         sub: null,
                                       })
                                     }
-                                    className="text-white bg-gray-500 px-3 py-1 rounded text-sm hover:bg-gray-600"
+                                    className={`text-white px-3 py-1 rounded text-sm ${isDark ? "bg-slate-700 hover:bg-slate-600" : "bg-gray-500 hover:bg-gray-600"}`}
                                   >
                                     Cancel
                                   </button>
@@ -392,12 +410,12 @@ const CategoryList = () => {
                             {/* Third Level */}
                             {expandedSubIndex === subIndex &&
                               sub.thirdLevelSubCategories?.length > 0 && (
-                                <ul className="ml-8 mt-2 space-y-2 text-sm text-gray-700">
+                                <ul className={`ml-8 mt-2 space-y-2 text-sm ${mutedTextClass}`}>
                                   {sub.thirdLevelSubCategories.map(
                                     (third, thirdIndex) => (
                                       <li
                                         key={thirdIndex}
-                                        className="pl-4 border-l-2 border-blue-200 flex justify-between items-center"
+                                        className={`pl-4 border-l-2 flex justify-between items-center ${isDark ? "border-slate-700" : "border-blue-200"}`}
                                       >
                                         <span>
                                           {thirdEditIndex.category === index &&
@@ -410,7 +428,7 @@ const CategoryList = () => {
                                               onChange={(e) =>
                                                 setThirdEditName(e.target.value)
                                               }
-                                              className="px-2 py-1 rounded border border-gray-300 text-sm"
+                                              className={inlineInputClass}
                                             />
                                           ) : (
                                             third.name
@@ -499,7 +517,7 @@ const CategoryList = () => {
                         ))}
                       </ul>
                     ) : (
-                      <p className="text-gray-500 italic text-center">
+                      <p className={`italic text-center ${isDark ? "text-slate-400" : "text-gray-500"}`}>
                         No subcategories available.
                       </p>
                     )}
@@ -508,12 +526,12 @@ const CategoryList = () => {
 
                 {/* Edit Form */}
                 {editIndex === index && (
-                  <div className="mt-6 bg-gray-50 p-6 rounded-2xl border border-gray-200 shadow-inner">
-                    <h3 className="text-xl font-semibold text-gray-800 mb-4">
+                  <div className={`mt-6 p-6 rounded-2xl border shadow-inner ${isDark ? "bg-slate-950 border-slate-700" : "bg-gray-50 border-gray-200"}`}>
+                    <h3 className={`text-xl font-semibold mb-4 ${isDark ? "text-white" : "text-gray-800"}`}>
                       Edit Category
                     </h3>
                     <div className="mb-5">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
                         Category Name
                       </label>
                       <input
@@ -525,12 +543,12 @@ const CategoryList = () => {
                             newName: e.target.value,
                           })
                         }
-                        className="border border-gray-300 px-4 py-3 w-full rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition bg-white shadow-sm"
+                        className={`border px-4 py-3 w-full rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition shadow-sm ${isDark ? "border-slate-600 bg-slate-900 text-slate-100" : "border-gray-300 bg-white text-gray-900"}`}
                         required
                       />
                     </div>
                     <div className="mb-5">
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                      <label className={`block text-sm font-medium mb-2 ${isDark ? "text-slate-300" : "text-gray-700"}`}>
                         New Photo (optional)
                       </label>
                       <input
@@ -549,11 +567,11 @@ const CategoryList = () => {
                             setPreviewImage(null);
                           }
                         }}
-                        className="w-full text-gray-600 file:mr-4 file:py-3 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200 transition"
+                        className={`w-full file:mr-4 file:py-3 file:px-5 file:rounded-xl file:border-0 file:text-sm file:font-semibold transition ${isDark ? "text-slate-300 file:bg-slate-800 file:text-sky-300 hover:file:bg-slate-700" : "text-gray-600 file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"}`}
                       />
                       {previewImage && (
                         <div className="mt-3">
-                          <p className="text-sm text-gray-600 mb-2">
+                          <p className={`text-sm mb-2 ${isDark ? "text-slate-400" : "text-gray-600"}`}>
                             Image Preview:
                           </p>
                           <img
@@ -599,7 +617,7 @@ const CategoryList = () => {
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl disabled:bg-gray-300 hover:bg-blue-700 transition shadow-md cursor-pointer"
+                className={`px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-md cursor-pointer ${isDark ? "disabled:bg-slate-700 disabled:text-slate-300" : "disabled:bg-gray-300 disabled:text-gray-600"}`}
               >
                 Previous
               </button>
@@ -612,7 +630,9 @@ const CategoryList = () => {
                       className={`px-4 py-2 rounded-xl shadow-md transition cursor-pointer ${
                         currentPage === page
                           ? "bg-blue-600 text-white"
-                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                          : isDark
+                            ? "bg-slate-800 text-slate-100 hover:bg-slate-700"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
                       {page}
@@ -623,7 +643,7 @@ const CategoryList = () => {
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="px-4 py-2 bg-blue-600 text-white rounded-xl disabled:bg-gray-300 hover:bg-blue-700 transition shadow-md cursor-pointer"
+                className={`px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition shadow-md cursor-pointer ${isDark ? "disabled:bg-slate-700 disabled:text-slate-300" : "disabled:bg-gray-300 disabled:text-gray-600"}`}
               >
                 Next
               </button>

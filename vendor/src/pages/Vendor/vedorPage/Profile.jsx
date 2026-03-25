@@ -19,6 +19,7 @@ import {
   useChangePasswordMutation,
 } from "../../../features/api/authApi";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader";
+import { useTheme } from "../../../context/ThemeContext";
 
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
@@ -35,6 +36,7 @@ const Profile = () => {
   });
 
   const navigate = useNavigate();
+  const { resetTheme } = useTheme();
 
   const { data, isLoading: isUserLoading, error, refetch } = useLoadUserQuery();
   const [logoutUser, { isLoading: logoutIsLoading }] = useLogoutUserMutation();
@@ -162,6 +164,7 @@ const Profile = () => {
   const handleLogout = async () => {
     try {
       await logoutUser().unwrap();
+      resetTheme();
       toast.success("Logged out successfully");
       navigate("/");
     } catch (err) {

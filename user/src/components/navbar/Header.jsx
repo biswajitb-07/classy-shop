@@ -1,32 +1,70 @@
 import { Link, useNavigate } from "react-router-dom";
 import { Heart, ShoppingCart } from "lucide-react";
 import { LuMenu } from "react-icons/lu";
-import { IoCartOutline } from "react-icons/io5";
+import { IoCartOutline, IoNotifications } from "react-icons/io5";
 import { FaBagShopping } from "react-icons/fa6";
-import { useState } from "react";
+import { FiBell, FiTrash2 } from "react-icons/fi";
+import { FiSettings } from "react-icons/fi";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import {
   useGetCartQuery,
   useGetWishlistQuery,
 } from "../../features/api/cartApi";
+import {
+  useClearUserNotificationsMutation,
+  useDeleteUserNotificationMutation,
+  useGetUserNotificationsQuery,
+} from "../../features/api/orderApi";
 import Search from "../Search";
 import Navigation from "./Navigation";
 import CartPanel from "../shipping/CartPanel";
+import { useTheme } from "../../context/ThemeContext";
 
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const [isOpenCartPanel, setIsOpenCartPanel] = useState(false);
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const notificationRef = useRef(null);
 
   const navigate = useNavigate();
+  const { isDark } = useTheme();
   const { user } = useSelector((store) => store.auth);
   const { data: cartData } = useGetCartQuery();
   const { data: wishlistData } = useGetWishlistQuery();
+  const { data: notificationData } = useGetUserNotificationsQuery(undefined, {
+    skip: !user,
+    pollingInterval: 5000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
+  const [deleteUserNotification] = useDeleteUserNotificationMutation();
+  const [clearUserNotifications, { isLoading: isClearingNotifications }] =
+    useClearUserNotificationsMutation();
 
   const cartCount = cartData?.cart?.length || 0;
   const wishlistCount = wishlistData?.wishlist?.length || 0;
+  const notifications = useMemo(
+    () => notificationData?.notifications || [],
+    [notificationData?.notifications]
+  );
 
   const openCartPanel = () => {
     setIsOpenCartPanel(!isOpenCartPanel);
   };
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        notificationRef.current &&
+        !notificationRef.current.contains(event.target)
+      ) {
+        setIsNotificationOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <>
@@ -46,7 +84,7 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
               </div>
 
               <div className="col2 flex items-center justify-end">
-                <ul className="flex items-center gap-3 list-none">
+                <ul className="flex items-center gap-4 list-none">
                   <li>
                     <Link
                       to="/help-center"
@@ -55,14 +93,121 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                       Help Center
                     </Link>
                   </li>
-                  <li>
-                    <Link
-                      to="/order-tracking"
-                      className="text-[13px] link font-[500] transition duration-150 ease-linear"
-                    >
-                      Order Tracking
-                    </Link>
-                  </li>
+                  {user && (
+                    <li className="relative" ref={notificationRef}>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setIsNotificationOpen((current) => !current)
+                        }
+                        className="relative flex items-center gap-2 text-[13px] font-[600] text-gray-700 hover:text-red-500 transition duration-150 ease-linear"
+                      >
+                        <IoNotifications className="w-4 h-4" />
+                        <span>Notifications</span>
+                        {notifications.length ? (
+                          <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold">
+                            {notifications.length}
+                          </span>
+                        ) : null}
+                      </button>
+
+                      {isNotificationOpen ? (
+                        <div className="absolute right-0 mt-4 w-[22rem] overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-900 shadow-2xl z-50">
+                          <div className="flex items-center justify-between gap-3 border-b border-slate-100 px-4 py-4">
+                            <div>
+                              <p className="text-sm font-bold">Notifications</p>
+                              <p className="text-xs text-slate-500">
+                                Order status updates from vendors
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={
+                                !notifications.length || isClearingNotifications
+                              }
+                              onClick={clearUserNotifications}
+                              className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                                notifications.length
+                                  ? "bg-red-500 text-white hover:bg-red-600"
+                                  : "bg-slate-100 text-slate-400"
+                              }`}
+                            >
+                              Clear all
+                            </button>
+                          </div>
+
+                          <div className="max-h-[24rem] overflow-y-auto">
+                            {notifications.length ? (
+                              notifications.map((notification) => (
+                                <div
+                                  key={notification._id}
+                                  className="border-b border-slate-100 px-4 py-4 hover:bg-slate-50 transition"
+                                >
+                                  <div className="flex items-start justify-between gap-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setIsNotificationOpen(false);
+                                        if (notification.orderId) {
+                                          navigate(
+                                            `/order/${notification.orderId}`
+                                          );
+                                        }
+                                      }}
+                                      className="flex min-w-0 flex-1 items-start gap-3 text-left"
+                                    >
+                                      <div className="mt-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-pink-500 text-white">
+                                        <FiBell className="text-sm" />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="truncate text-sm font-bold">
+                                          {notification.title}
+                                        </p>
+                                        <p className="mt-1 text-xs leading-5 text-slate-600">
+                                          {notification.message}
+                                        </p>
+                                        <p className="mt-2 text-[11px] text-slate-400">
+                                          {new Date(
+                                            notification.createdAt
+                                          ).toLocaleString("en-IN", {
+                                            day: "2-digit",
+                                            month: "short",
+                                            hour: "2-digit",
+                                            minute: "2-digit",
+                                          })}
+                                        </p>
+                                      </div>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        deleteUserNotification(notification._id)
+                                      }
+                                      className="mt-1 rounded-full p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                                    >
+                                      <FiTrash2 className="text-sm" />
+                                    </button>
+                                  </div>
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-4 py-10 text-center">
+                                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-pink-500 text-white">
+                                  <FiBell className="text-lg" />
+                                </div>
+                                <p className="mt-4 text-sm font-bold">
+                                  No notifications yet
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  Vendor order updates will appear here.
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : null}
+                    </li>
+                  )}
                 </ul>
               </div>
             </div>
@@ -81,7 +226,10 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
 
             <div className="col1 lg:w-[25%]">
               <Link>
-                <img className="w-36 md:w-44 lg:w-48" src="/logo.jpg" />
+                <img
+                  className="w-36 md:w-44 lg:w-48"
+                  src={isDark ? "/logo-dark.png" : "/logo-light.png"}
+                />
               </Link>
             </div>
 
@@ -177,6 +325,16 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                   </span>
                   <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#ff5252] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
                     Cart
+                  </div>
+                </li>
+
+                <li
+                  onClick={() => navigate("/settings")}
+                  className="relative cursor-pointer hover:scale-110 active:scale-90 transition-all duration-200 ease-in-out group"
+                >
+                  <FiSettings className="w-5 h-5 text-gray-600 hover:text-red-500 transition-colors duration-200" />
+                  <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#ff5252] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">
+                    Settings
                   </div>
                 </li>
               </ul>

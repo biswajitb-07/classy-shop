@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { FaChevronLeft, FaChevronRight, FaUserCircle } from "react-icons/fa";
 import { CiClock2 } from "react-icons/ci";
+import { useTheme } from "../../context/ThemeContext.jsx";
 
 const roomData = [
   {
@@ -47,6 +48,7 @@ const roomData = [
 
 const Blog = () => {
   const productScrollRef = useRef(null);
+  const { isDark } = useTheme();
 
   const scroll = (ref, direction) => {
     if (ref.current) {
@@ -65,7 +67,7 @@ const Blog = () => {
   return (
     <section className="container mx-auto px-4 py-10">
       <div className="mb-3 w-full flex items-start md:items-center md:justify-between justify-center">
-        <h1 className="text-xl md:text-2xl font-semibold text-black pl-2">
+        <h1 className={`text-xl md:text-2xl font-semibold pl-2 ${isDark ? "text-white" : "text-black"}`}>
           From The Blog
         </h1>
         <div className="hidden md:flex items-center pr-6 gap-3">
@@ -97,7 +99,7 @@ const Blog = () => {
           {roomData.map((room, index) => (
             <div
               key={index}
-              className="bg-[#fff5f7] p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col snap-start min-w-[300px] md:min-w-[400px]"
+              className={`p-4 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 flex flex-col snap-start min-w-[300px] md:min-w-[400px] ${isDark ? "bg-slate-900 border border-slate-700" : "bg-[#fff5f7]"}`}
             >
               <div className="flex-grow">
                 <img
@@ -114,11 +116,11 @@ const Blog = () => {
 
                 <div className="flex flex-col items-start gap-3 mt-auto">
                   <div>
-                    <h3 className="text-lg font-semibold text-gray-800">
+                    <h3 className={`text-lg font-semibold ${isDark ? "text-white" : "text-gray-800"}`}>
                       {room.name}
                     </h3>
                   </div>
-                  <p className="text-gray-600 mb-6">{room.content}</p>
+                  <p className={`mb-6 ${isDark ? "text-slate-300" : "text-gray-600"}`}>{room.content}</p>
                 </div>
                 <a
                   href="#"
