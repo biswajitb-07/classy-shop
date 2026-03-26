@@ -8,11 +8,16 @@ import {
   deleteMediaFromCloudinary,
   uploadMedia,
 } from "../../utils/cloudinary.js";
-import transporter from "../../utils/nodemailer.js";
 import {
   clearUserAuthCookies,
   setUserAuthCookies,
 } from "../../utils/authCookies.js";
+import { emitVendorSummaryUpdate } from "../../socket/socket.js";
+import {
+  sendPasswordChangedEmail,
+  sendResetOtpEmail,
+  sendWelcomeEmail,
+} from "../../utils/emailService.js";
 
 export const register = async (req, res) => {
   try {
@@ -50,52 +55,13 @@ export const register = async (req, res) => {
     });
 
     await newUser.save();
+    emitVendorSummaryUpdate();
 
     try {
-      await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+      await sendWelcomeEmail({
         to: newUser.email,
-        subject: "🎉 Welcome to Falcon Store!",
-        html: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>Welcome</title>
-            </head>
-            <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
-                <tr>
-                  <td align="center" style="padding:40px 10px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-                      <tr>
-                        <td style="background:#3b82f6;padding:24px 30px;text-align:center;color:#ffffff;font-size:22px;font-weight:bold;">
-                          Welcome to Falcon Store!
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:30px;">
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                            Hi ${name},
-                          </p>
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0;">
-                            Your account has been created successfully. You can now log in and start shopping!
-                          </p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
-                          Need help? <a href="mailto:${process.env.SENDER_EMAIL}" style="color:#3b82f6;text-decoration:none;">Contact Support</a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-          </html>
-        `,
+        name,
+        accountType: "user",
       });
     } catch (mailErr) {
       await User.updateOne(
@@ -306,52 +272,10 @@ export const changePassword = async (req, res) => {
     await user.save();
 
     try {
-      await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+      await sendPasswordChangedEmail({
         to: user.email,
-        subject: "✅ Password Changed Successfully",
-        html: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>Password Changed</title>
-            </head>
-            <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
-                <tr>
-                  <td align="center" style="padding:40px 10px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-                      <tr>
-                        <td style="background:#10b981;padding:24px 30px;text-align:center;color:#ffffff;font-size:22px;font-weight:bold;">
-                          Password Changed
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:30px;">
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                            Hi ${user.name || ""},
-                          </p>
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0;">
-                            Your password has been updated successfully. If you did not make this change, please contact support immediately.
-                          </p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
-                          Need help? <a href="mailto:${
-                            process.env.SENDER_EMAIL
-                          }" style="color:#10b981;text-decoration:none;">Contact Support</a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-          </html>
-        `,
+        name: user.name,
+        accountType: "user",
       });
     } catch (mailErr) {
       console.error("Confirmation mail error:", mailErr);
@@ -391,68 +315,12 @@ export const sendResetOtp = async (req, res) => {
 
     await user.save();
 
-    const mailOption = {
-      from: process.env.SENDER_EMAIL,
+    await sendResetOtpEmail({
       to: user.email,
-      subject: "🔐 Password Reset Request",
-      html: `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Reset Password</title>
-      </head>
-      <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
-          <tr>
-            <td align="center" style="padding:40px 10px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-                <!-- Header -->
-                <tr>
-                  <td style="background:#f59e0b;padding:24px 30px;text-align:center;color:#ffffff;font-size:22px;font-weight:bold;">
-                    Reset Your Password
-                  </td>
-                </tr>
-                <!-- Body -->
-                <tr>
-                  <td style="padding:30px;">
-                    <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                      Hi there,
-                    </p>
-                    <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                      You requested a password reset. Please use the OTP below to proceed:
-                    </p>
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td align="center" style="padding:20px 0;">
-                          <span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:28px;font-weight:bold;padding:12px 24px;border-radius:6px;letter-spacing:4px;">
-                            ${otp}
-                          </span>
-                        </td>
-                      </tr>
-                    </table>
-                    <p style="font-size:14px;color:#666666;line-height:22px;margin:0 0 10px;">
-                      This OTP is valid for <strong>15 minutes</strong>. If you didn’t request this, simply ignore this email.
-                    </p>
-                  </td>
-                </tr>
-                <!-- Footer -->
-                <tr>
-                  <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
-                    Need help? <a href="mailto:support@yourapp.com" style="color:#f59e0b;text-decoration:none;">Contact Support</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `,
-    };
-
-    await transporter.sendMail(mailOption);
+      name: user.name,
+      otp,
+      accountType: "user",
+    });
 
     return res.json({ success: true, message: "OTP sent your email" });
   } catch (error) {
@@ -507,52 +375,10 @@ export const resetPassword = async (req, res) => {
     await user.save();
 
     try {
-      await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+      await sendPasswordChangedEmail({
         to: user.email,
-        subject: "✅ Password Changed Successfully",
-        html: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>Password Changed</title>
-            </head>
-            <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
-                <tr>
-                  <td align="center" style="padding:40px 10px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-                      <tr>
-                        <td style="background:#10b981;padding:24px 30px;text-align:center;color:#ffffff;font-size:22px;font-weight:bold;">
-                          Password Changed
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:30px;">
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                            Hi ${user.name || ""},
-                          </p>
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0;">
-                            Your password has been updated successfully. If you did not make this change, please contact support immediately.
-                          </p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
-                          Need help? <a href="mailto:${
-                            process.env.SENDER_EMAIL
-                          }" style="color:#10b981;text-decoration:none;">Contact Support</a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-          </html>
-        `,
+        name: user.name,
+        accountType: "user",
       });
     } catch (mailErr) {
       console.error("Confirmation mail error:", mailErr);

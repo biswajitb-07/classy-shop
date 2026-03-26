@@ -1,58 +1,88 @@
 import { Vendor } from "../../models/vendor/vendor.model.js";
 import { User } from "../../models/user/user.model.js";
 import bcrypt from "bcryptjs";
-import { loginSchema } from "../../validation/vendor/vendor.validation.js";
+import {
+  loginSchema,
+  registerSchema,
+} from "../../validation/vendor/vendor.validation.js";
 import {
   deleteMediaFromCloudinary,
   uploadMediaVendor,
 } from "../../utils/cloudinary.js";
-import transporter from "../../utils/nodemailer.js";
 import {
   clearVendorAuthCookies,
   setVendorAuthCookies,
 } from "../../utils/authCookies.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
+import { emitVendorSummaryUpdate } from "../../socket/socket.js";
+import {
+  sendPasswordChangedEmail,
+  sendResetOtpEmail,
+  sendWelcomeEmail,
+} from "../../utils/emailService.js";
 
-// export const register = async (req, res) => {
-//   try {
-//     const validatedData = registerSchema.safeParse(req.body);
-//     if (!validatedData.success) {
-//       return res.status(400).json({
-//         success: false,
-//         message: "Validation failed",
-//         errors: validatedData.error.flatten(),
-//       });
-//     }
+export const createVendor = async (req, res) => {
+  try {
+    const payload = {
+      ...req.body,
+      phone: req.body.phone ? Number(req.body.phone) : undefined,
+    };
 
-//     const { name, email, password } = validatedData.data;
+    const validatedData = registerSchema.safeParse(payload);
+    if (!validatedData.success) {
+      return res.status(400).json({
+        success: false,
+        message: "Validation failed",
+        errors: validatedData.error.flatten(),
+      });
+    }
 
-//     const existedVendor = await Vendor.findOne({ email });
-//     if (existedVendor) {
-//       return res.status(409).json({
-//         success: false,
-//         message: "Email already exists",
-//       });
-//     }
+    const { name, email, password, phone } = validatedData.data;
 
-//     const salt = await bcrypt.genSalt(10);
-//     const hashPassword = await bcrypt.hash(password, salt);
+    const existedVendor = await Vendor.findOne({ email });
+    if (existedVendor) {
+      return res.status(409).json({
+        success: false,
+        message: "Email already exists",
+      });
+    }
 
-//     const newVendor = new Vendor({
-//       name,
-//       email,
-//       password: hashPassword,
-//     });
+    const salt = await bcrypt.genSalt(10);
+    const hashPassword = await bcrypt.hash(password, salt);
 
-//     await newVendor.save();
+    const newVendor = new Vendor({
+      name,
+      email,
+      password: hashPassword,
+      phone,
+      bio:
+        typeof req.body.bio === "string" && req.body.bio.trim()
+          ? req.body.bio.trim()
+          : undefined,
+    });
 
-//     return res.status(201).json({
-//       success: true,
-//       message: "Registration successful",
-//     });
-//   } catch (error) {
-//     res.status(500).json({ success: false, message: error.message });
-//   }
-// };
+    await newVendor.save();
+    emitVendorSummaryUpdate();
+
+    try {
+      await sendWelcomeEmail({
+        to: newVendor.email,
+        name,
+        accountType: "vendor",
+      });
+    } catch (mailErr) {
+      console.error("Vendor welcome mail error:", mailErr);
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Vendor created successfully",
+      vendor: newVendor,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 export const login = async (req, res) => {
   try {
@@ -279,52 +309,10 @@ export const changePassword = async (req, res) => {
     await vendor.save();
 
     try {
-      await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+      await sendPasswordChangedEmail({
         to: vendor.email,
-        subject: "✅ Password Changed Successfully",
-        html: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>Password Changed</title>
-            </head>
-            <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
-                <tr>
-                  <td align="center" style="padding:40px 10px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-                      <tr>
-                        <td style="background:#10b981;padding:24px 30px;text-align:center;color:#ffffff;font-size:22px;font-weight:bold;">
-                          Password Changed
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:30px;">
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                            Hi ${vendor.name || ""},
-                          </p>
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0;">
-                            Your password has been updated successfully. If you did not make this change, please contact support immediately.
-                          </p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
-                          Need help? <a href="mailto:${
-                            process.env.SENDER_EMAIL
-                          }" style="color:#10b981;text-decoration:none;">Contact Support</a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-          </html>
-        `,
+        name: vendor.name,
+        accountType: "vendor",
       });
     } catch (mailErr) {
       console.error("Confirmation mail error:", mailErr);
@@ -350,7 +338,7 @@ export const sendResetOtp = async (req, res) => {
       return res.json({ success: false, message: "Email is required" });
     }
 
-    const vendor = await Vendor.findOne(email);
+    const vendor = await Vendor.findOne({ email });
 
     if (!vendor) {
       return res
@@ -365,68 +353,12 @@ export const sendResetOtp = async (req, res) => {
 
     await vendor.save();
 
-    const mailOption = {
-      from: process.env.SENDER_EMAIL,
+    await sendResetOtpEmail({
       to: vendor.email,
-      subject: "🔐 Password Reset Request",
-      html: `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Reset Password</title>
-      </head>
-      <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
-          <tr>
-            <td align="center" style="padding:40px 10px;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-                <!-- Header -->
-                <tr>
-                  <td style="background:#f59e0b;padding:24px 30px;text-align:center;color:#ffffff;font-size:22px;font-weight:bold;">
-                    Reset Your Password
-                  </td>
-                </tr>
-                <!-- Body -->
-                <tr>
-                  <td style="padding:30px;">
-                    <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                      Hi there,
-                    </p>
-                    <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                      You requested a password reset. Please use the OTP below to proceed:
-                    </p>
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td align="center" style="padding:20px 0;">
-                          <span style="display:inline-block;background:#fef3c7;color:#92400e;font-size:28px;font-weight:bold;padding:12px 24px;border-radius:6px;letter-spacing:4px;">
-                            ${otp}
-                          </span>
-                        </td>
-                      </tr>
-                    </table>
-                    <p style="font-size:14px;color:#666666;line-height:22px;margin:0 0 10px;">
-                      This OTP is valid for <strong>15 minutes</strong>. If you didn’t request this, simply ignore this email.
-                    </p>
-                  </td>
-                </tr>
-                <!-- Footer -->
-                <tr>
-                  <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
-                    Need help? <a href="mailto:support@yourapp.com" style="color:#f59e0b;text-decoration:none;">Contact Support</a>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </body>
-    </html>
-  `,
-    };
-
-    await transporter.sendMail(mailOption);
+      name: vendor.name,
+      otp,
+      accountType: "vendor",
+    });
 
     return res.json({ success: true, message: "OTP sent your email" });
   } catch (error) {
@@ -480,52 +412,10 @@ export const resetPassword = async (req, res) => {
     await vendor.save();
 
     try {
-      await transporter.sendMail({
-        from: process.env.SENDER_EMAIL,
+      await sendPasswordChangedEmail({
         to: vendor.email,
-        subject: "✅ Password Changed Successfully",
-        html: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <title>Password Changed</title>
-            </head>
-            <body style="margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#f7f7f7;">
-              <table width="100%" cellpadding="0" cellspacing="0" style="background:#f7f7f7;">
-                <tr>
-                  <td align="center" style="padding:40px 10px;">
-                    <table width="100%" cellpadding="0" cellspacing="0" style="max-width:500px;background:#ffffff;border-radius:8px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.1);">
-                      <tr>
-                        <td style="background:#10b981;padding:24px 30px;text-align:center;color:#ffffff;font-size:22px;font-weight:bold;">
-                          Password Changed
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="padding:30px;">
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0 0 20px;">
-                            Hi ${vendor.name || ""},
-                          </p>
-                          <p style="font-size:16px;color:#333333;line-height:24px;margin:0;">
-                            Your password has been updated successfully. If you did not make this change, please contact support immediately.
-                          </p>
-                        </td>
-                      </tr>
-                      <tr>
-                        <td style="background:#f3f4f6;padding:20px 30px;text-align:center;font-size:12px;color:#888888;">
-                          Need help? <a href="mailto:${
-                            process.env.SENDER_EMAIL
-                          }" style="color:#10b981;text-decoration:none;">Contact Support</a>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-            </body>
-          </html>
-        `,
+        name: vendor.name,
+        accountType: "vendor",
       });
     } catch (mailErr) {
       console.error("Confirmation mail error:", mailErr);
@@ -597,6 +487,7 @@ export const updateUserById = async (req, res) => {
       return res.status(404).json({ success: false, message: "User not found" });
     }
 
+    emitVendorSummaryUpdate();
     return res.status(200).json({ success: true, user, message: "User updated successfully" });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to update user" });
@@ -609,6 +500,7 @@ export const deleteUserById = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
+    emitVendorSummaryUpdate();
     return res.status(200).json({ success: true, message: "User deleted successfully" });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to delete user" });
@@ -622,6 +514,7 @@ export const toggleUserBlock = async (req, res) => {
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
+    emitVendorSummaryUpdate();
     return res.status(200).json({
       success: true,
       user,
@@ -644,6 +537,7 @@ export const updateVendorById = async (req, res) => {
       return res.status(404).json({ success: false, message: "Vendor not found" });
     }
 
+    emitVendorSummaryUpdate();
     return res.status(200).json({ success: true, vendor, message: "Vendor updated successfully" });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to update vendor" });
@@ -656,6 +550,7 @@ export const deleteVendorById = async (req, res) => {
     if (!vendor) {
       return res.status(404).json({ success: false, message: "Vendor not found" });
     }
+    emitVendorSummaryUpdate();
     return res.status(200).json({ success: true, message: "Vendor deleted successfully" });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Failed to delete vendor" });
@@ -669,6 +564,7 @@ export const toggleVendorBlock = async (req, res) => {
     if (!vendor) {
       return res.status(404).json({ success: false, message: "Vendor not found" });
     }
+    emitVendorSummaryUpdate();
     return res.status(200).json({
       success: true,
       vendor,

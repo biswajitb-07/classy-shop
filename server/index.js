@@ -1,4 +1,5 @@
 import express from "express";
+import { createServer } from "node:http";
 import cors from "cors";
 import "dotenv/config";
 import cookieParser from "cookie-parser";
@@ -27,8 +28,10 @@ import wellnessBrandRouter from "./routes/vendor/wellness/wellnessBrand.route.js
 import wellnessRouter from "./routes/vendor/wellness/wellness.route.js";
 import jewelleryBrandRouter from "./routes/vendor/jewellery/jewelleryBrand.route.js";
 import jewelleryRouter from "./routes/vendor/jewellery/jewellery.route.js";
+import { initSocket } from "./socket/socket.js";
 
 const app = express();
+const httpServer = createServer(app);
 const port = process.env.PORT || 5000;
 
 connectDB();
@@ -81,6 +84,8 @@ app.use("/api/v1/product", cartWishlistRouter);
 app.use("/api/v1/vendor/orders", orderRouter);
 app.use("/api/v1/product/order", orderRouter);
 
-app.listen(port, () => {
+initSocket(httpServer);
+
+httpServer.listen(port, () => {
   console.log(`Server running on PORT:${port}`);
 });

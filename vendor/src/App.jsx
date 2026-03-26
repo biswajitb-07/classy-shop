@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 
 import Home from "./pages/Vendor/vedorPage/Home";
 import Login from "./pages/Vendor/auth/Login";
+import ForgotPassword from "./pages/Vendor/auth/ForgetPassword";
 import {
   VendorRoute,
   PublicRoute,
@@ -47,6 +48,14 @@ const appRouter = createBrowserRouter([
     element: (
       <PublicRoute>
         <Login />
+      </PublicRoute>
+    ),
+  },
+  {
+    path: "/reset-password",
+    element: (
+      <PublicRoute>
+        <ForgotPassword />
       </PublicRoute>
     ),
   },

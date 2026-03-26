@@ -9,6 +9,8 @@ import {
   useToggleUserBlockMutation,
   useUpdateUserByIdMutation,
 } from "../../../../features/api/authApi";
+import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
+import PageLoader from "../../../../component/Loader/PageLoader";
 
 const emptyForm = {
   name: "",
@@ -27,6 +29,7 @@ const Users = () => {
   const [editingUser, setEditingUser] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [togglingUserId, setTogglingUserId] = useState(null);
 
   useEffect(() => {
     if (editingUser) {
@@ -41,8 +44,8 @@ const Users = () => {
 
   if (isLoading)
     return (
-      <div className="p-8 text-center font-semibold text-slate-500 animate-pulse">
-        Loading users...
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <PageLoader message={null} />
       </div>
     );
 
@@ -85,6 +88,7 @@ const Users = () => {
 
   const handleBlockToggle = async (user) => {
     try {
+      setTogglingUserId(user._id);
       await toggleUserBlock({
         id: user._id,
         isBlocked: !user.isBlocked,
@@ -95,6 +99,8 @@ const Users = () => {
       refetch();
     } catch (err) {
       toast.error(err?.data?.message || "Failed to update user status");
+    } finally {
+      setTogglingUserId(null);
     }
   };
 
@@ -199,35 +205,40 @@ const Users = () => {
                         <div className="flex flex-wrap gap-2">
                           <button
                             onClick={() => setEditingUser(user)}
-                            className="inline-flex items-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700"
+                            disabled={isDeleting || isSaving || isToggling}
+                            className="inline-flex min-w-[88px] items-center justify-center gap-2 rounded-full bg-emerald-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <FiEdit3 size={14} /> Edit
                           </button>
                           <button
                             onClick={() => setDeleteTarget(user)}
                             disabled={isDeleting || isSaving || isToggling}
-                            className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex min-w-[96px] items-center justify-center gap-2 rounded-full bg-rose-600 px-3 py-2 text-xs font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <FiTrash2 size={14} /> Delete
                           </button>
                           <button
                             onClick={() => handleBlockToggle(user)}
                             disabled={isDeleting || isSaving || isToggling}
-                            className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-bold text-white transition ${
+                            className={`inline-flex min-w-[108px] items-center justify-center gap-2 rounded-full px-3 py-2 text-xs font-bold text-white transition ${
                               user.isBlocked
                                 ? "bg-emerald-600 hover:bg-emerald-700"
                                 : "bg-amber-600 hover:bg-amber-700"
                             } disabled:cursor-not-allowed disabled:opacity-60`}
                           >
-                            {isToggling ? (
-                              <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                            {isToggling && togglingUserId === user._id ? (
+                              <AuthButtonLoader
+                                size="small"
+                                trackClassName="border-white/30"
+                                spinnerClassName="border-white"
+                              />
                             ) : user.isBlocked ? (
                               <FiUnlock size={14} />
                             ) : (
                               <FiLock size={14} />
                             )}
-                            {isToggling
-                              ? "Please wait..."
+                            {isToggling && togglingUserId === user._id
+                              ? "Loading"
                               : user.isBlocked
                               ? "Unblock"
                               : "Block"}
@@ -332,9 +343,16 @@ const Users = () => {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="rounded-full bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
+                className="inline-flex min-w-[150px] items-center justify-center gap-2 rounded-full bg-sky-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-sky-700 disabled:opacity-60"
               >
-                  {isSaving ? "Saving..." : "Save Changes"}
+                  {isSaving ? (
+                    <AuthButtonLoader
+                      size="small"
+                      trackClassName="border-white/30"
+                      spinnerClassName="border-white"
+                    />
+                  ) : null}
+                  {isSaving ? "Saving" : "Save Changes"}
               </button>
             </div>
             </form>
@@ -371,12 +389,16 @@ const Users = () => {
                 type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="inline-flex items-center gap-2 rounded-full bg-rose-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-w-[118px] items-center justify-center gap-2 rounded-full bg-rose-600 px-5 py-3 text-sm font-bold text-white transition hover:bg-rose-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {isDeleting && (
-                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                )}
-                {isDeleting ? "Deleting..." : "Delete"}
+                {isDeleting ? (
+                  <AuthButtonLoader
+                    size="small"
+                    trackClassName="border-white/30"
+                    spinnerClassName="border-white"
+                  />
+                ) : null}
+                {isDeleting ? "Deleting" : "Delete"}
               </button>
             </div>
           </div>

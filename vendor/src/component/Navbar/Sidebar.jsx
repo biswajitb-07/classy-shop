@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { MdOutlineDashboard } from "react-icons/md";
 import { TbBrandSnapchat, TbCategoryPlus } from "react-icons/tb";
 import { RiProductHuntLine } from "react-icons/ri";
@@ -18,6 +18,7 @@ import {
 } from "../../features/api/authApi";
 import { toast } from "react-hot-toast";
 import AuthButtonLoader from "../../component/Loader/AuthButtonLoader";
+import { connectVendorSocket } from "../../lib/socket";
 
 const Sidebar = () => {
   const { isOpen } = useSelector((store) => store.auth);
@@ -30,8 +31,23 @@ const Sidebar = () => {
   const { isDark, resetTheme } = useTheme();
 
   const [logoutUser, { isLoading: logoutIsLoading }] = useLogoutUserMutation();
-  const { data: summaryData } = useGetDashboardSummaryQuery();
+  const { data: summaryData, refetch: refetchSummary } = useGetDashboardSummaryQuery();
   const summary = summaryData?.summary;
+
+  useEffect(() => {
+    const socket = connectVendorSocket();
+    const handleSummaryUpdate = () => {
+      refetchSummary();
+    };
+
+    socket.on("connect", handleSummaryUpdate);
+    socket.on("vendor:summary:update", handleSummaryUpdate);
+
+    return () => {
+      socket.off("connect", handleSummaryUpdate);
+      socket.off("vendor:summary:update", handleSummaryUpdate);
+    };
+  }, [refetchSummary]);
 
   const toggleAccordion = (key) => {
     setOpenAccordion(openAccordion === key ? null : key);

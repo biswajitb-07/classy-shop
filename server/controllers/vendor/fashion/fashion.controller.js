@@ -3,6 +3,7 @@ import {
   deleteMediaFromCloudinary,
   uploadMediaVendor,
 } from "../../../utils/cloudinary.js";
+import { emitVendorDashboardUpdate } from "../../../socket/socket.js";
 
 export const getFashionItemsForUser = async (req, res) => {
   try {
@@ -124,6 +125,7 @@ export const addFashionItem = async (req, res) => {
       thirdLevelCategory: thirdLevelCategory ? thirdLevelCategory.trim() : "",
     });
 
+    emitVendorDashboardUpdate(vendorId);
     res.status(201).json({ success: true, fashion });
   } catch (err) {
     console.log(err);
@@ -219,6 +221,7 @@ export const updateFashionItem = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       fashionItem: updatedFashionItem,
@@ -305,6 +308,7 @@ export const updateFashionImagesByIndex = async (req, res) => {
     fashionItem.image = currentImages;
     await fashionItem.save();
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       message: "Images updated successfully.",
@@ -343,6 +347,7 @@ export const deleteFashionItem = async (req, res) => {
 
     await Fashion.findByIdAndDelete(fashionId);
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       message: "Fashion item deleted successfully.",

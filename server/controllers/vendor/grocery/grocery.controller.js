@@ -3,6 +3,7 @@ import {
   deleteMediaFromCloudinary,
   uploadMediaVendor,
 } from "../../../utils/cloudinary.js";
+import { emitVendorDashboardUpdate } from "../../../socket/socket.js";
 
 export const getGroceryItemsForUser = async (req, res) => {
   try {
@@ -106,6 +107,7 @@ export const addGroceryItem = async (req, res) => {
       thirdLevelCategory: thirdLevelCategory ? thirdLevelCategory.trim() : "",
     });
 
+    emitVendorDashboardUpdate(vendorId);
     res.status(201).json({ success: true, grocery });
   } catch (err) {
     console.log(err);
@@ -189,6 +191,7 @@ export const updateGroceryItem = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       groceryItem: updatedGroceryItem,
@@ -274,6 +277,7 @@ export const updateGroceryImagesByIndex = async (req, res) => {
     groceryItem.image = currentImages;
     await groceryItem.save();
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       message: "Images updated successfully.",
@@ -312,6 +316,7 @@ export const deleteGroceryItem = async (req, res) => {
 
     await Grocery.findByIdAndDelete(groceryId);
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       message: "Grocery item deleted successfully.",

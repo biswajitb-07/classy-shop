@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
@@ -18,6 +18,7 @@ import {
   FiBox,
   FiClock,
   FiPackage,
+  FiRefreshCw,
   FiShoppingBag,
   FiTarget,
   FiTrendingUp,
@@ -36,6 +37,7 @@ import { useGetJewelleryItemsQuery } from "../../../features/api/jewellery-produ
 import { useGetVendorOrdersQuery } from "../../../features/api/orderApi";
 import { useGetDashboardSummaryQuery } from "../../../features/api/authApi";
 import { useTheme } from "../../../context/ThemeContext";
+import { connectVendorSocket } from "../../../lib/socket";
 import ChartTooltip from "../../../component/charts/ChartTooltip";
 import CategoryInventoryBarChart from "../../../component/charts/CategoryInventoryBarChart";
 import CategoryCatalogSharePieChart from "../../../component/charts/CategoryCatalogSharePieChart";
@@ -243,25 +245,49 @@ const TrendChart = ({
 const Home = () => {
   const vendor = useSelector((state) => state.auth.vendor);
   const { isDark } = useTheme();
-  const { data: fashionData, isLoading: fashionLoading } =
-    useGetFashionItemsQuery();
-  const { data: electronicData, isLoading: electronicLoading } =
-    useGetElectronicItemsQuery();
-  const { data: bagData, isLoading: bagLoading } = useGetBagItemsQuery();
-  const { data: groceryData, isLoading: groceryLoading } =
-    useGetGroceryItemsQuery();
-  const { data: footwearData, isLoading: footwearLoading } =
-    useGetFootwearItemsQuery();
-  const { data: beautyData, isLoading: beautyLoading } =
-    useGetBeautyItemsQuery();
-  const { data: wellnessData, isLoading: wellnessLoading } =
-    useGetWellnessItemsQuery();
-  const { data: jewelleryData, isLoading: jewelleryLoading } =
-    useGetJewelleryItemsQuery();
-  const { data: ordersData, isLoading: ordersLoading } =
-    useGetVendorOrdersQuery();
-  const { data: summaryData, isLoading: summaryLoading } =
-    useGetDashboardSummaryQuery();
+  const [liveRefreshCount, setLiveRefreshCount] = useState(0);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date());
+  const dashboardQueryOptions = {
+    pollingInterval: 15000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  };
+  const { data: fashionData, isLoading: fashionLoading, refetch: refetchFashion } =
+    useGetFashionItemsQuery(undefined, dashboardQueryOptions);
+  const {
+    data: electronicData,
+    isLoading: electronicLoading,
+    refetch: refetchElectronic,
+  } =
+    useGetElectronicItemsQuery(undefined, dashboardQueryOptions);
+  const { data: bagData, isLoading: bagLoading, refetch: refetchBag } =
+    useGetBagItemsQuery(undefined, dashboardQueryOptions);
+  const { data: groceryData, isLoading: groceryLoading, refetch: refetchGrocery } =
+    useGetGroceryItemsQuery(undefined, dashboardQueryOptions);
+  const {
+    data: footwearData,
+    isLoading: footwearLoading,
+    refetch: refetchFootwear,
+  } =
+    useGetFootwearItemsQuery(undefined, dashboardQueryOptions);
+  const { data: beautyData, isLoading: beautyLoading, refetch: refetchBeauty } =
+    useGetBeautyItemsQuery(undefined, dashboardQueryOptions);
+  const {
+    data: wellnessData,
+    isLoading: wellnessLoading,
+    refetch: refetchWellness,
+  } =
+    useGetWellnessItemsQuery(undefined, dashboardQueryOptions);
+  const {
+    data: jewelleryData,
+    isLoading: jewelleryLoading,
+    refetch: refetchJewellery,
+  } =
+    useGetJewelleryItemsQuery(undefined, dashboardQueryOptions);
+  const { data: ordersData, isLoading: ordersLoading, refetch: refetchOrders } =
+    useGetVendorOrdersQuery(undefined, dashboardQueryOptions);
+  const { data: summaryData, isLoading: summaryLoading, refetch: refetchSummary } =
+    useGetDashboardSummaryQuery(undefined, dashboardQueryOptions);
 
   const categoryStats = useMemo(
     () => [
@@ -512,6 +538,73 @@ const Home = () => {
     vendor?.storeName ||
     vendor?.name ||
     "Seller";
+  const liveUpdateLabel = useMemo(
+    () =>
+      lastUpdatedAt.toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      }),
+    [lastUpdatedAt],
+  );
+  const refreshDashboard = async () => {
+    await Promise.allSettled([
+      refetchFashion(),
+      refetchElectronic(),
+      refetchBag(),
+      refetchGrocery(),
+      refetchFootwear(),
+      refetchBeauty(),
+      refetchWellness(),
+      refetchJewellery(),
+      refetchOrders(),
+      refetchSummary(),
+    ]);
+    setLiveRefreshCount((count) => count + 1);
+    setLastUpdatedAt(new Date());
+  };
+
+  useEffect(() => {
+    if (!vendor?._id) return undefined;
+
+    const socket = connectVendorSocket();
+    const handleRealtimeRefresh = () => {
+      refreshDashboard();
+    };
+
+    socket.on("connect", handleRealtimeRefresh);
+    socket.on("vendor:dashboard:update", handleRealtimeRefresh);
+    socket.on("vendor:summary:update", handleRealtimeRefresh);
+
+    return () => {
+      socket.off("connect", handleRealtimeRefresh);
+      socket.off("vendor:dashboard:update", handleRealtimeRefresh);
+      socket.off("vendor:summary:update", handleRealtimeRefresh);
+    };
+  }, [
+    refetchBag,
+    refetchBeauty,
+    refetchElectronic,
+    refetchFashion,
+    refetchFootwear,
+    refetchGrocery,
+    refetchJewellery,
+    refetchOrders,
+    refetchSummary,
+    refetchWellness,
+    vendor?._id,
+  ]);
+
+  useEffect(() => {
+    if (!vendor?._id) return undefined;
+
+    const intervalId = window.setInterval(() => {
+      refreshDashboard();
+    }, 30000);
+
+    return () => window.clearInterval(intervalId);
+  }, [vendor?._id]);
+
   if (isInitialLoading) {
     return (
       <div
@@ -613,6 +706,14 @@ const Home = () => {
                   >
                     Manage Products
                   </Link>
+                  <button
+                    type="button"
+                    onClick={refreshDashboard}
+                    className={`inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold backdrop-blur transition duration-300 hover:-translate-y-0.5 ${isDark ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/15" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
+                  >
+                    <FiRefreshCw size={16} />
+                    Refresh Data
+                  </button>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -634,7 +735,7 @@ const Home = () => {
                     },
                   ].map((item, index) => (
                     <div
-                      key={item.label}
+                      key={`${item.label}-${liveRefreshCount}`}
                       className={`rounded-[24px] border px-4 py-4 backdrop-blur transition duration-300 hover:-translate-y-1 ${isDark ? "border-white/10 bg-white/[0.04] shadow-[0_18px_50px_rgba(15,23,42,0.38)]" : "border-white/80 bg-white/80 shadow-[0_14px_40px_rgba(148,163,184,0.15)]"}`}
                       style={{
                         animation: `fadeRise 0.85s ease-out both ${0.08 * (index + 1)}s`,
@@ -689,7 +790,7 @@ const Home = () => {
                     <div
                       className={`rounded-full px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] ${isDark ? "bg-slate-900/80 text-slate-300 ring-1 ring-white/10" : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"}`}
                     >
-                      7 day view
+                      Live {liveUpdateLabel}
                     </div>
                   </div>
 
@@ -709,7 +810,7 @@ const Home = () => {
                       },
                     ].map((stat) => (
                       <div
-                        key={stat.label}
+                        key={`${stat.label}-${liveRefreshCount}`}
                         className={`rounded-[22px] border px-4 py-3 ${isDark ? "border-white/10 bg-slate-950/45" : "border-slate-200 bg-white/90"}`}
                       >
                         <p
@@ -758,6 +859,7 @@ const Home = () => {
                     <div className="h-44 w-full">
                       <ResponsiveContainer width="100%" height="100%">
                         <BarChart
+                          key={`weekly-pulse-${liveRefreshCount}`}
                           data={dashboard.revenueSeries.map((day) => ({
                             name: day.label,
                             orders: day.orders,
@@ -877,6 +979,7 @@ const Home = () => {
           >
             <div className="grid gap-5">
               <TrendChart
+                key={`revenue-trend-${liveRefreshCount}`}
                 dark={isDark}
                 title="Revenue trend"
                 value={formatCurrency(
@@ -892,6 +995,7 @@ const Home = () => {
                 footer="Use this curve to understand short-term earning movement."
               />
               <TrendChart
+                key={`order-velocity-${liveRefreshCount}`}
                 dark={isDark}
                 title="Order velocity"
                 value={formatCompact(
@@ -930,6 +1034,7 @@ const Home = () => {
                 </div>
                 {categoryAnalyticsData.length ? (
                   <CategoryCatalogSharePieChart
+                    key={`catalog-share-${liveRefreshCount}`}
                     dark={isDark}
                     data={categoryAnalyticsData}
                   />
@@ -980,6 +1085,7 @@ const Home = () => {
                 </div>
                 {categoryAnalyticsData.length ? (
                   <CategoryPriceStockChart
+                    key={`price-stock-${liveRefreshCount}`}
                     dark={isDark}
                     data={categoryAnalyticsData}
                   />
@@ -1054,7 +1160,7 @@ const Home = () => {
                   );
                   return (
                     <Link
-                      key={item.label}
+                      key={`${item.label}-${liveRefreshCount}`}
                       to={item.href}
                       className={`block rounded-[22px] border p-4 transition-all duration-300 hover:-translate-y-1 ${isDark ? "border-slate-700 bg-slate-900/80 hover:border-slate-600 hover:bg-slate-900" : "border-slate-100 bg-slate-50/80 hover:bg-white"}`}
                     >
@@ -1117,6 +1223,7 @@ const Home = () => {
               <div className="mt-8 h-56 w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
+                    key={`audience-growth-${liveRefreshCount}`}
                     data={dashboard.audienceSeries.map((item) => ({
                       name: item.label,
                       value: item.value,
@@ -1172,6 +1279,7 @@ const Home = () => {
             style={{ animationDelay: "0.22s" }}
           >
             <StatusFunnelChart
+              key={`status-funnel-${liveRefreshCount}`}
               dark={isDark}
               data={dashboard.orderStatusCounts}
             />
@@ -1185,6 +1293,7 @@ const Home = () => {
           >
             {categoryAnalyticsData.length ? (
               <CategoryInventoryBarChart
+                key={`inventory-value-${liveRefreshCount}`}
                 dark={isDark}
                 data={categoryAnalyticsData}
               />

@@ -35,6 +35,14 @@
 }
 
 @layer base {
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:disabled {
+    cursor: not-allowed;
+  }
+
   .scrollbar-red::-webkit-scrollbar {
     width: 8px;
   }

@@ -1,6 +1,7 @@
 import express from "express";
 
 import {
+  createVendor,
   login,
   logout,
   // register,
@@ -27,7 +28,7 @@ import upload from "../../utils/multer.js";
 
 const vendorRouter = express.Router();
 
-// vendorRouter.post("/register", register);
+vendorRouter.post("/vendors", isAuthenticatedVendor, createVendor);
 vendorRouter.post("/login", login);
 vendorRouter.get("/logout", logout);
 vendorRouter.post("/send-reset-otp", sendResetOtp);

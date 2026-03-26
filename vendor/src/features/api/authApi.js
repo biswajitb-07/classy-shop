@@ -101,6 +101,13 @@ export const authApi = createApi({
         method: "GET",
       }),
     }),
+    createVendor: builder.mutation({
+      query: (body) => ({
+        url: "vendors",
+        method: "POST",
+        body,
+      }),
+    }),
     updateUserById: builder.mutation({
       query: ({ id, ...body }) => ({
         url: `users/${id}`,
@@ -189,6 +196,7 @@ export const {
   useGetDashboardSummaryQuery,
   useGetUsersQuery,
   useGetVendorsQuery,
+  useCreateVendorMutation,
   useUpdateUserByIdMutation,
   useDeleteUserByIdMutation,
   useToggleUserBlockMutation,

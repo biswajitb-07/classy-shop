@@ -7,9 +7,9 @@ import {
 } from "../../../features/api/authApi";
 import { GoMail } from "react-icons/go";
 import { MdLockOutline } from "react-icons/md";
-import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader";
+import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
 
-const ForgotPassword = () => {
+const ForgetPassword = () => {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [otp, setOtp] = useState("");
@@ -23,7 +23,7 @@ const ForgotPassword = () => {
   const handleSendOtp = async (e) => {
     e.preventDefault();
     try {
-      await sendResetOtp({ email }).unwrap();
+      await sendResetOtp(email).unwrap();
       toast.success("OTP sent to your email");
       setStep(2);
     } catch (err) {
@@ -49,11 +49,42 @@ const ForgotPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-400 to-red-500 flex items-center justify-center p-4">
-      <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6 text-center">
-          {step === 1 ? "Forgot Password" : "Reset Password"}
-        </h2>
+    <div className="min-h-screen bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 flex items-center justify-center p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-8">
+        <div className="mb-6 text-center">
+          <div className="mb-4 flex justify-center">
+            <img
+              src="/logo-light.png"
+              alt="Logo"
+              className="w-16 h-16 object-contain"
+            />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-800">
+            {step === 1 ? "Forgot Password" : "Reset Password"}
+          </h2>
+          <p className="mt-2 text-sm text-slate-500">
+            {step === 1
+              ? "Enter your vendor email to receive a verification OTP."
+              : "Use the OTP from your email and set a new password."}
+          </p>
+        </div>
+
+        <div className="mb-6 flex items-center justify-center gap-2">
+          <div
+            className={`h-2 w-20 rounded-full ${
+              step >= 1 ? "bg-amber-500" : "bg-slate-200"
+            }`}
+          />
+          <div
+            className={`h-2 w-20 rounded-full ${
+              step >= 2 ? "bg-amber-500" : "bg-slate-200"
+            }`}
+          />
+        </div>
+
+        <h3 className="mb-4 text-center text-sm font-semibold uppercase tracking-[0.16em] text-amber-600">
+          {step === 1 ? "Step 1: Verify Email" : "Step 2: Set New Password"}
+        </h3>
 
         {step === 1 && (
           <form onSubmit={handleSendOtp} className="space-y-4">
@@ -138,4 +169,4 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword;
+export default ForgetPassword;

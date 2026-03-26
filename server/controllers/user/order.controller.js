@@ -13,6 +13,10 @@ import Order from "../../models/user/order.model.js";
 import { User } from "../../models/user/user.model.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
 import { UserNotification } from "../../models/user/userNotification.model.js";
+import {
+  emitVendorDashboardUpdate,
+  emitVendorNotificationUpdate,
+} from "../../socket/socket.js";
 
 const productModels = {
   Fashion,
@@ -85,6 +89,10 @@ const createVendorNotificationsForOrder = async (order, userId) => {
 
   if (notifications.length) {
     await VendorNotification.insertMany(notifications);
+    notifications.forEach((notification) => {
+      emitVendorNotificationUpdate(notification.vendorId);
+      emitVendorDashboardUpdate(notification.vendorId);
+    });
   }
 };
 
@@ -208,6 +216,9 @@ export const createOrder = async (req, res) => {
       order.stockRestored = false;
       await order.save();
       await createVendorNotificationsForOrder(order, userId);
+      Array.from(new Set(order.items.map((item) => String(item.vendorId)))).forEach(
+        (vendorId) => emitVendorDashboardUpdate(vendorId)
+      );
       cart.items = [];
       await cart.save();
       return res
@@ -680,6 +691,7 @@ export const orderStatusUpdate = async (req, res) => {
         previousStatus,
         vendorId: req.id,
       });
+      emitVendorDashboardUpdate(req.id);
 
       return res
         .status(200)

@@ -3,6 +3,7 @@ import {
   deleteMediaFromCloudinary,
   uploadMediaVendor,
 } from "../../../utils/cloudinary.js";
+import { emitVendorDashboardUpdate } from "../../../socket/socket.js";
 
 export const getElectronicItemsForUser = async (req, res) => {
   try {
@@ -136,6 +137,7 @@ export const addElectronicItem = async (req, res) => {
       thirdLevelCategory: thirdLevelCategory ? thirdLevelCategory.trim() : "",
     });
 
+    emitVendorDashboardUpdate(vendorId);
     res.status(201).json({ success: true, electronic });
   } catch (err) {
     console.log(err);
@@ -244,6 +246,7 @@ export const updateElectronicItem = async (req, res) => {
       { new: true, runValidators: true }
     );
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       electronicItem: updatedElectronicItem,
@@ -332,6 +335,7 @@ export const updateElectronicImagesByIndex = async (req, res) => {
     electronicItem.image = currentImages;
     await electronicItem.save();
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       message: "Images updated successfully.",
@@ -373,6 +377,7 @@ export const deleteElectronicItem = async (req, res) => {
 
     await Electronic.findByIdAndDelete(electronicId);
 
+    emitVendorDashboardUpdate(vendorId);
     return res.status(200).json({
       success: true,
       message: "Electronic item deleted successfully.",

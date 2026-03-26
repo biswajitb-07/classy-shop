@@ -11,6 +11,7 @@ import {
   useDeleteVendorNotificationMutation,
   useGetVendorNotificationsQuery,
 } from "../../features/api/authApi";
+import { connectVendorSocket } from "../../lib/socket";
 
 const Header = () => {
   const { isOpen, vendor } = useSelector((store) => store.auth);
@@ -19,14 +20,14 @@ const Header = () => {
   const { isDark } = useTheme();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const notificationRef = useRef(null);
-  const { data: notificationData, isFetching } = useGetVendorNotificationsQuery(
-    undefined,
-    {
-      pollingInterval: 10000,
-      refetchOnFocus: true,
-      refetchOnReconnect: true,
-    }
-  );
+  const {
+    data: notificationData,
+    isFetching,
+    refetch: refetchNotifications,
+  } = useGetVendorNotificationsQuery(undefined, {
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
   const [deleteVendorNotification, { isLoading: isDeletingNotification }] =
     useDeleteVendorNotificationMutation();
   const [clearVendorNotifications, { isLoading: isClearingNotifications }] =
@@ -50,6 +51,21 @@ const Header = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!vendor?._id) return undefined;
+
+    const socket = connectVendorSocket();
+    const handleNotificationUpdate = () => {
+      refetchNotifications();
+    };
+
+    socket.on("vendor:notifications:update", handleNotificationUpdate);
+
+    return () => {
+      socket.off("vendor:notifications:update", handleNotificationUpdate);
+    };
+  }, [refetchNotifications, vendor?._id]);
 
   const handleDeleteNotification = async (id) => {
     await deleteVendorNotification(id);
