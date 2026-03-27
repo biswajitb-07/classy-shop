@@ -11,10 +11,10 @@ import { ThemeProvider } from "./context/ThemeContext.jsx";
 const MainLayout = lazy(() => import("./layout/MainLayout.jsx"));
 const Home = lazy(() => import("./pages/Home.jsx"));
 const Login = lazy(() => import("./pages/User/auth/Login.jsx"));
-const Profile = lazy(() => import("./pages/user/profile/Profile.jsx"));
+const Profile = lazy(() => import("./pages/User/profile/Profile.jsx"));
 const Settings = lazy(() => import("./pages/User/Settings.jsx"));
 const ForgotPassword = lazy(
-  () => import("./pages/user/auth/ForgetPassword.jsx"),
+  () => import("./pages/User/auth/ForgetPassword.jsx"),
 );
 const Bag = lazy(() => import("./pages/User/product/bag/Bag.jsx"));
 const Grocery = lazy(() => import("./pages/User/product/grocery/Grocery.jsx"));
