@@ -10,6 +10,7 @@ import {
   resetPassword,
   changePassword,
   getUserSocketAuth,
+  firebaseGoogleLogin,
 } from "../../controllers/user/user.controller.js";
 import isAuthenticatedUser from "../../middleware/user/isAuthenticatedUser.js";
 import upload from "../../utils/multer.js";
@@ -42,6 +43,7 @@ userRouter.get(
 userRouter.post("/set-password", isAuthenticatedUser, googlePassword);
 userRouter.post("/register", register);
 userRouter.post("/login", login);
+userRouter.post("/firebase-google-login", firebaseGoogleLogin);
 userRouter.get("/logout", logout);
 userRouter.post("/send-reset-otp", sendResetOtp);
 userRouter.post("/reset-password", resetPassword);

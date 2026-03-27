@@ -19,6 +19,7 @@ import {
   sendResetOtpEmail,
   sendWelcomeEmail,
 } from "../../utils/emailService.js";
+import { verifyFirebaseIdToken } from "../../utils/firebaseAdmin.js";
 
 export const register = async (req, res) => {
   try {
@@ -131,6 +132,96 @@ export const login = async (req, res) => {
   }
 };
 
+export const firebaseGoogleLogin = async (req, res) => {
+  try {
+    const idToken = String(req.body?.idToken || "").trim();
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Firebase idToken is required",
+      });
+    }
+
+    const decodedToken = await verifyFirebaseIdToken(idToken);
+    const email = String(decodedToken.email || "").trim().toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Google account email is required",
+      });
+    }
+
+    let user = await User.findOne({ email });
+    let isNewUser = false;
+
+    if (user?.isBlocked) {
+      return res.status(403).json({
+        success: false,
+        message: "Your account has been blocked plz contact customer care",
+      });
+    }
+
+    if (!user) {
+      user = new User({
+        name: decodedToken.name || email.split("@")[0],
+        email,
+        password: "",
+        role: "user",
+        isGoogleUser: true,
+        googleId: decodedToken.uid,
+        firebaseUid: decodedToken.uid,
+        photoUrl: decodedToken.picture || "",
+      });
+      isNewUser = true;
+    } else {
+      user.name = user.name || decodedToken.name || email.split("@")[0];
+      user.isGoogleUser = true;
+      user.googleId = decodedToken.uid;
+      user.firebaseUid = decodedToken.uid;
+      if (!user.photoUrl && decodedToken.picture) {
+        user.photoUrl = decodedToken.picture;
+      }
+    }
+
+    await user.save();
+    setUserAuthCookies(res, user._id);
+    emitVendorSummaryUpdate();
+
+    if (!user.welcomeMailSent) {
+      try {
+        await sendWelcomeEmail({
+          to: user.email,
+          name: user.name,
+          accountType: "user",
+        });
+
+        await User.updateOne(
+          { _id: user._id },
+          { $set: { welcomeMailSent: true } }
+        );
+      } catch (mailErr) {
+        console.error("Firebase Google welcome mail error:", mailErr);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: isNewUser
+        ? `Welcome to Classy Store, ${user.name}`
+        : `Welcome back ${user.name}`,
+      user,
+    });
+  } catch (error) {
+    console.error("Firebase Google login error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to login with Google",
+    });
+  }
+};
+
 export const logout = async (req, res) => {
   try {
     clearUserAuthCookies(res);
@@ -166,7 +257,7 @@ export const getUserSocketAuth = async (req, res) => {
 export const getUserProfile = async (req, res) => {
   try {
     const userId = req.id;
-    const user = await User.findById(userId).select("-password");
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({
         message: "Profile not found",
@@ -174,9 +265,15 @@ export const getUserProfile = async (req, res) => {
       });
     }
 
+    const userObject = user.toObject();
+
     return res.status(200).json({
       success: true,
-      user,
+      user: {
+        ...userObject,
+        password: undefined,
+        hasPassword: Boolean(user.password),
+      },
     });
   } catch (error) {
     console.log(error);

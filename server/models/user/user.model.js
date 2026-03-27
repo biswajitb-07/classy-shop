@@ -58,6 +58,14 @@ const userSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    googleId: {
+      type: String,
+      default: "",
+    },
+    firebaseUid: {
+      type: String,
+      default: "",
+    },
     welcomeMailSent: {
       type: Boolean,
       default: false,

@@ -93,6 +93,7 @@ const ProfileSkeleton = () => (
 const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedFile, setSelectedFile] = useState(null);
+  const [hasProfileImageError, setHasProfileImageError] = useState(false);
   const [newPwd, setNewPwd] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [changeModal, setChangeModal] = useState(false);
@@ -163,6 +164,7 @@ const Profile = () => {
           country: defaultAddress.country || "India",
         },
       });
+      setHasProfileImageError(false);
     } else if (!isUserLoading) {
       navigate("/login");
     }
@@ -189,6 +191,7 @@ const Profile = () => {
       return;
     }
     setSelectedFile(file);
+    setHasProfileImageError(false);
     const reader = new FileReader();
     reader.onloadend = () =>
       setProfile((prev) => ({ ...prev, photoUrl: reader.result }));
@@ -270,6 +273,7 @@ const Profile = () => {
     if (isEditing) {
       setSelectedFile(null);
       setProfile((prev) => ({ ...prev, photoUrl: data?.user?.photoUrl || "" }));
+      setHasProfileImageError(false);
     }
   };
 
@@ -295,6 +299,8 @@ const Profile = () => {
   if (isUserLoading) return <ProfileSkeleton />;
 
   const notifications = notificationData?.notifications || [];
+  const profileInitial =
+    profile?.name?.trim()?.split(/\s+/)?.[0]?.charAt(0)?.toUpperCase() || "U";
   const accentGradient = isDark
     ? "from-cyan-400 to-blue-500"
     : "from-red-500 to-pink-500";
@@ -363,17 +369,16 @@ const Profile = () => {
                 {/* Profile Image */}
                 <div className="relative group mb-8">
                   <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-full border-4 border-white/30 shadow-2xl overflow-hidden bg-gradient-to-br from-white/20 to-white/10 backdrop-blur-sm">
-                    {profile?.photoUrl ? (
+                    {profile?.photoUrl && !hasProfileImageError ? (
                       <img
                         src={profile.photoUrl}
                         alt="Profile"
                         className="w-full h-full object-cover"
+                        onError={() => setHasProfileImageError(true)}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-white text-4xl sm:text-5xl font-bold">
-                        {profile?.name
-                          ? profile.name.charAt(0).toUpperCase()
-                          : "U"}
+                        {profileInitial}
                       </div>
                     )}
                   </div>
@@ -636,7 +641,7 @@ const Profile = () => {
               </div>
 
               {/* Google Password Setting */}
-              {data?.user?.isGoogleUser === false && data?.user?.googleId ? (
+              {data?.user?.isGoogleUser && !data?.user?.hasPassword ? (
                 <div className={passwordPanelClass}>
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center">

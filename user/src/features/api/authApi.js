@@ -33,6 +33,21 @@ export const authApi = createApi({
         }
       },
     }),
+    firebaseGoogleLogin: builder.mutation({
+      query: (idToken) => ({
+        url: "firebase-google-login",
+        method: "POST",
+        body: { idToken },
+      }),
+      async onQueryStarted(arg, { queryFulfilled, dispatch }) {
+        try {
+          const result = await queryFulfilled;
+          dispatch(userLoggedIn({ user: result.data.user }));
+        } catch (error) {
+          console.error(error);
+        }
+      },
+    }),
     logoutUser: builder.mutation({
       query: () => ({
         url: "logout",
@@ -103,6 +118,7 @@ export const authApi = createApi({
 export const {
   useRegisterUserMutation,
   useLoginUserMutation,
+  useFirebaseGoogleLoginMutation,
   useLogoutUserMutation,
   useLoadUserQuery,
   useUpdateUserProfileMutation,

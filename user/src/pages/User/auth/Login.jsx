@@ -9,8 +9,11 @@ import { toast } from "react-hot-toast";
 import {
   useRegisterUserMutation,
   useLoginUserMutation,
+  useFirebaseGoogleLoginMutation,
 } from "../../../features/api/authApi.js";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
+import { signInWithPopup } from "firebase/auth";
+import { firebaseAuth, googleProvider } from "../../../lib/firebase.js";
 
 const Login = () => {
   const [state, setState] = useState("Login");
@@ -35,6 +38,7 @@ const Login = () => {
   const [registerUser, { isLoading: registerIsLoading }] =
     useRegisterUserMutation();
   const [loginUser, { isLoading: loginIsLoading }] = useLoginUserMutation();
+  const [firebaseGoogleLogin] = useFirebaseGoogleLoginMutation();
 
   const handleSignupChange = (e) => {
     const { name, value } = e.target;
@@ -105,11 +109,22 @@ const Login = () => {
     }
   };
 
-  const handleGoogle = () => {
-    setGoogleLoading(true);
-    window.location.href = `${
-      import.meta.env.VITE_API_URL
-    }/api/v1/user/auth/google`;
+  const handleGoogle = async () => {
+    try {
+      setGoogleLoading(true);
+      const result = await signInWithPopup(firebaseAuth, googleProvider);
+      const idToken = await result.user.getIdToken();
+      const response = await firebaseGoogleLogin(idToken).unwrap();
+      toast.success(response.message || "Google login successful");
+      navigate("/");
+    } catch (error) {
+      console.error(error);
+      toast.error(
+        error?.data?.message || error?.message || "Google login failed"
+      );
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const togglePasswordVisibility = () => {
