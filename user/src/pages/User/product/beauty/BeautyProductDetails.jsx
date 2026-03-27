@@ -11,6 +11,7 @@ import { useGetBeautyItemsQuery } from "../../../../features/api/beautyApi.js";
 import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader.jsx";
 import PageLoader from "../../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
+import { shareProduct } from "../../../../utils/shareProduct.js";
 
 const BeautyProductDetails = () => {
   const { data, isLoading } = useGetBeautyItemsQuery();
@@ -85,26 +86,14 @@ const BeautyProductDetails = () => {
   const handleShare = async () => {
     const productUrl = `${window.location.origin}/beauty/beauty-product-details/${product._id}`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `Check out this amazing product: ${product.name}`,
-          url: productUrl,
-        });
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          console.error("Error sharing:", error);
-        }
+    try {
+      const result = await shareProduct({ product, productUrl });
+      if (result?.mode === "clipboard") {
+        toast.success("Product details copied to clipboard!");
       }
-    } else {
-      try {
-        await navigator.clipboard.writeText(productUrl);
-        toast.success("Product link copied to clipboard!");
-      } catch (error) {
-        console.error("Error copying to clipboard:", error);
-        toast.error("Failed to copy link");
-      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+      toast.error("Failed to share product");
     }
   };
 

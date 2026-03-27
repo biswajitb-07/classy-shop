@@ -1,6 +1,116 @@
 {
   "rewrites": [
     {
+      "source": "/electronics/electronics-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/electronics/electronics-product-details/:productId"
+    },
+    {
+      "source": "/fashion/fashion-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/fashion/fashion-product-details/:productId"
+    },
+    {
+      "source": "/footwear/footwear-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/footwear/footwear-product-details/:productId"
+    },
+    {
+      "source": "/wellness/wellness-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/wellness/wellness-product-details/:productId"
+    },
+    {
+      "source": "/beauty/beauty-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/beauty/beauty-product-details/:productId"
+    },
+    {
+      "source": "/jewellery/jewellery-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/jewellery/jewellery-product-details/:productId"
+    },
+    {
+      "source": "/bag/bag-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/bag/bag-product-details/:productId"
+    },
+    {
+      "source": "/bags/bag-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/bags/bag-product-details/:productId"
+    },
+    {
+      "source": "/grocery/grocery-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/grocery/grocery-product-details/:productId"
+    },
+    {
+      "source": "/groceries/grocery-product-details/:productId",
+      "has": [
+        {
+          "type": "header",
+          "key": "user-agent",
+          "value": "(?i).*(facebookexternalhit|whatsapp|telegrambot|twitterbot|linkedinbot|slackbot|discordbot|googlebot|bingbot|preview).*"
+        }
+      ],
+      "destination": "/api/og?path=/groceries/grocery-product-details/:productId"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

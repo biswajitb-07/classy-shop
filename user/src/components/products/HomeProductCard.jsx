@@ -15,6 +15,7 @@ import AuthButtonLoader from "../Loader/AuthButtonLoader";
 import ProductModal from "./ProductModal";
 import { useSelector } from "react-redux";
 import { recordProductView } from "../../utils/aiShopping.js";
+import { shareProduct } from "../../utils/shareProduct.js";
 
 const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -223,26 +224,14 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
     e.stopPropagation();
     const productUrl = `${window.location.origin}/${product.category.toLowerCase()}/${product.category.toLowerCase()}-product-details/${product._id}`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `Check out this amazing product: ${product.name}`,
-          url: productUrl,
-        });
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          console.error("Error sharing:", error);
-        }
+    try {
+      const result = await shareProduct({ product, productUrl });
+      if (result?.mode === "clipboard") {
+        toast.success("Product details copied to clipboard!");
       }
-    } else {
-      try {
-        await navigator.clipboard.writeText(productUrl);
-        toast.success("Product link copied to clipboard!");
-      } catch (error) {
-        console.error("Error copying to clipboard:", error);
-        toast.error("Failed to copy link");
-      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+      toast.error("Failed to share product");
     }
   };
 
@@ -313,7 +302,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
                     </span>
                   )}
 
-                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-100 lg:opacity-0 transition-opacity group-hover/card:opacity-100">
+                  <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-100 transition-all duration-300 ease-out md:opacity-0 md:pointer-events-none md:translate-y-1 md:scale-95 md:group-hover/card:opacity-100 md:group-hover/card:pointer-events-auto md:group-hover/card:translate-y-0 md:group-hover/card:scale-100">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();

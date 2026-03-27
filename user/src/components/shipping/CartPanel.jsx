@@ -23,7 +23,9 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
   const [loading, setLoading] = useState({});
   const { isDark } = useTheme();
 
-  const { data: cartData, isLoading, isError } = useGetCartQuery();
+  const { data: cartData, isLoading, isError } = useGetCartQuery(undefined, {
+    skip: !isOpenCartPanel,
+  });
   const [removeFromCart] = useRemoveFromCartMutation();
   const [updateCartQuantity] = useUpdateCartQuantityMutation();
 
@@ -174,7 +176,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
             </div>
           </div>
 
-          {isLoading ? (
+          {isOpenCartPanel && isLoading ? (
             <div className="grid place-items-center h-full">
               <PageLoader message="Loading cart item" />
             </div>

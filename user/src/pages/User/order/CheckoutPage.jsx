@@ -174,11 +174,7 @@ const CheckoutPage = () => {
   if (cartError) return <ErrorMessage onRetry={refetchCart} />;
 
   if (cartLoading) {
-    return (
-      <div className="h-[26rem] grid place-items-center bg-gradient-to-br from-gray-50 to-gray-100">
-        <PageLoader message="Loading checkout..." />
-      </div>
-    );
+    return <PageLoader message="Loading checkout..." />;
   }
 
   if (!cart.length) {
@@ -210,17 +206,13 @@ const CheckoutPage = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-[7rem]">
       {(createLoading || loading || redirectLoading) && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/45 backdrop-blur-sm">
-          <div className="rounded-3xl bg-white px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
-            <PageLoader
-              message={
-                redirectLoading
-                  ? "Redirecting to your orders..."
-                  : "Placing your order..."
-              }
-            />
-          </div>
-        </div>
+        <PageLoader
+          message={
+            redirectLoading
+              ? "Redirecting to your orders..."
+              : "Placing your order..."
+          }
+        />
       )}
       <div className="container">
         <div className="mb-8">

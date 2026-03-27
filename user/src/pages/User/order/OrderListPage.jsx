@@ -29,11 +29,7 @@ const OrderListPage = () => {
   if (isError) return <ErrorMessage onRetry={refetch} />;
 
   if (isLoading) {
-    return (
-      <div className={`h-[26rem] grid place-items-center ${isDark ? "bg-[#050816]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
-        <PageLoader message="Loading your orders..." />
-      </div>
-    );
+    return <PageLoader message="Loading your orders..." />;
   }
 
   if (!orders.length) {

@@ -15,6 +15,7 @@ import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader.jsx
 import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import ProductModal from "../../../../components/products/ProductModal.jsx";
 import { useSelector } from "react-redux";
+import { shareProduct } from "../../../../utils/shareProduct.js";
 
 const PAGE_SIZE = 15;
 
@@ -109,26 +110,14 @@ const ElectronicsProductCard = ({ products = [], isLoading = false }) => {
     e.stopPropagation();
     const productUrl = `${window.location.origin}/electronics/electronics-product-details/${product._id}`;
 
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: product.name,
-          text: `Check out this amazing product: ${product.name}`,
-          url: productUrl,
-        });
-      } catch (error) {
-        if (error.name !== "AbortError") {
-          console.error("Error sharing:", error);
-        }
+    try {
+      const result = await shareProduct({ product, productUrl });
+      if (result?.mode === "clipboard") {
+        toast.success("Product details copied to clipboard!");
       }
-    } else {
-      try {
-        await navigator.clipboard.writeText(productUrl);
-        toast.success("Product link copied to clipboard!");
-      } catch (error) {
-        console.error("Error copying to clipboard:", error);
-        toast.error("Failed to copy link");
-      }
+    } catch (error) {
+      console.error("Error sharing:", error);
+      toast.error("Failed to share product");
     }
   };
 
@@ -199,7 +188,7 @@ const ElectronicsProductCard = ({ products = [], isLoading = false }) => {
                     {discount}%
                   </span>
                 )}
-                <div className="absolute top-2 right-2 flex flex-col gap-2 lg:opacity-0 lg:group-hover:opacity-100 transition-all">
+                <div className="absolute top-2 right-2 flex flex-col gap-2 opacity-100 transition-all duration-300 ease-out md:opacity-0 md:pointer-events-none md:translate-y-1 md:scale-95 md:group-hover:opacity-100 md:group-hover:pointer-events-auto md:group-hover:translate-y-0 md:group-hover:scale-100">
                   <button
                     onClick={() => handleToggleWishlist(p)}
                     className={`p-1.5 rounded-full shadow hover:scale-110 hover:bg-red-500 hover:text-white transition cursor-pointer ${

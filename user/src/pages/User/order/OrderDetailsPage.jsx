@@ -91,11 +91,7 @@ const OrderDetailsPage = () => {
 
   if (isError) return <ErrorMessage onRetry={refetch} />;
   if (isLoading) {
-    return (
-      <div className={`h-[26rem] grid place-items-center ${pageBg}`}>
-        <PageLoader message="Loading order details..." />
-      </div>
-    );
+    return <PageLoader message="Loading order details..." />;
   }
 
   if (!order) {

@@ -28,41 +28,42 @@ const LoadingSpinner = ({ message = "Loading Vendor Workspace..." }) => {
   }, []);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 px-4">
-      <div className="relative h-12 w-12 sm:h-16 sm:w-16 md:h-20 md:w-20">
-        <svg
-          ref={spinnerRef}
-          className="absolute inset-0 h-full w-full drop-shadow-[0_0_18px_rgba(56,189,248,0.28)]"
-          viewBox="0 0 100 100"
-          role="img"
-          aria-label="Loading spinner"
-        >
-          {[...Array(8)].map((_, index) => {
-            const angle = (index / 8) * 360;
-            const radius = 35;
-            const x = 50 + radius * Math.cos((angle * Math.PI) / 180);
-            const y = 50 + radius * Math.sin((angle * Math.PI) / 180);
-            const opacity = 1 - index / 8;
-            const fillColor = `rgba(56, 189, 248, ${opacity})`;
+    <div className="flex min-h-screen items-center justify-center bg-slate-950/45 px-4 backdrop-blur-sm">
+      <div className="rounded-3xl bg-white px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+        <div className="flex flex-col items-center justify-center space-y-3">
+          <div className="relative h-12 w-12 sm:h-14 sm:w-14">
+            <svg
+              ref={spinnerRef}
+              className="absolute inset-0 h-full w-full"
+              viewBox="0 0 100 100"
+              role="img"
+              aria-label="Loading spinner"
+            >
+              {[...Array(8)].map((_, index) => {
+                const angle = (index / 8) * 360;
+                const radius = 35;
+                const x = 50 + radius * Math.cos((angle * Math.PI) / 180);
+                const y = 50 + radius * Math.sin((angle * Math.PI) / 180);
+                const opacity = 1 - index / 8;
+                const fillColor = `rgba(239, 68, 68, ${opacity})`;
 
-            return (
-              <circle
-                key={index}
-                cx={x}
-                cy={y}
-                r="7"
-                fill={fillColor}
-                className="transition-all duration-200 ease-in-out"
-              />
-            );
-          })}
-        </svg>
-      </div>
-
-      <div className="mt-4 text-center">
-        <p className="bg-gradient-to-r from-sky-300 via-cyan-200 to-indigo-300 bg-clip-text text-xs font-bold text-transparent drop-shadow-md sm:text-sm md:text-base">
-          {message}
-        </p>
+                return (
+                  <circle
+                    key={index}
+                    cx={x}
+                    cy={y}
+                    r="7"
+                    fill={fillColor}
+                    className="transition-all duration-200 ease-in-out"
+                  />
+                );
+              })}
+            </svg>
+          </div>
+          <p className="text-center text-sm text-gray-600 sm:text-base">
+            {message}
+          </p>
+        </div>
       </div>
     </div>
   );
