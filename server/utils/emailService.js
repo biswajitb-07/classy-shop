@@ -7,28 +7,49 @@ import {
   getWelcomeEmailTemplate,
 } from "./emailTemplates.js";
 
+const cleanEnv = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
+
 const getFromAddress = () => {
   const senderEmail =
-    process.env.SENDER_EMAIL || process.env.SMTP_SENDER || process.env.SMTP_USER;
+    cleanEnv(process.env.SENDER_EMAIL) ||
+    cleanEnv(process.env.SMTP_SENDER) ||
+    cleanEnv(process.env.SMTP_USER);
 
   return senderEmail ? `Classy Store <${senderEmail}>` : undefined;
 };
 
 const sendEmail = async ({ to, subject, html }) => {
   const from = getFromAddress();
+  const smtpUser = cleanEnv(process.env.SMTP_USER);
+  const smtpPass = cleanEnv(process.env.SMTP_PASS);
 
-  if (!from || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+  if (!from || !smtpUser || !smtpPass) {
     throw new Error(
       "Email is not configured. Please set SMTP_USER, SMTP_PASS, and SENDER_EMAIL."
     );
   }
 
-  return transporter.sendMail({
-    from,
-    to,
-    subject,
-    html,
-  });
+  try {
+    const info = await transporter.sendMail({
+      from,
+      to,
+      subject,
+      html,
+    });
+
+    return info;
+  } catch (error) {
+    console.error("Email send failed:", {
+      to,
+      subject,
+      from,
+      message: error?.message,
+      code: error?.code,
+      response: error?.response,
+      responseCode: error?.responseCode,
+    });
+    throw error;
+  }
 };
 
 export const sendWelcomeEmail = async ({ to, name, accountType = "user" }) =>

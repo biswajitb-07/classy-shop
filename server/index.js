@@ -29,6 +29,7 @@ import wellnessRouter from "./routes/vendor/wellness/wellness.route.js";
 import jewelleryBrandRouter from "./routes/vendor/jewellery/jewelleryBrand.route.js";
 import jewelleryRouter from "./routes/vendor/jewellery/jewellery.route.js";
 import { initSocket } from "./socket/socket.js";
+import { verifyEmailTransport } from "./utils/nodemailer.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -126,4 +127,5 @@ initSocket(httpServer);
 
 httpServer.listen(port, () => {
   console.log(`Server running on PORT:${port}`);
+  verifyEmailTransport();
 });
