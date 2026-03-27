@@ -19,7 +19,6 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
 
     return () => root.classList.remove("overflow-hidden");
   }, [isOpenCatPanel]);
-
   const getSlug = (str) => str.toLowerCase().replace(/\s+/g, "-");
   const normalizePath = (path) => path.replace(/\/+$/, "") || "/";
   const currentPath = normalizePath(location.pathname);
@@ -56,6 +55,7 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
               <li className="list-none hover:scale-105 active:scale-75 transition-all duration-300 ease-in-out">
                 <Link
                   to="/"
+                  state={{ showProductPageLoader: true }}
                   className="link font-[500] text-[12px] md:text-[14px] bg-red-500 py-2 px-3 rounded-md !text-white"
                 >
                   Home
@@ -78,6 +78,7 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                     >
                       <NavLink
                         to={`/${slug}`}
+                        state={{ showProductPageLoader: true }}
                         className={() =>
                           `link font-[500] text-[12px] md:text-[14px] p-2 ${
                             isPathActive(`/${slug}`)
@@ -107,6 +108,7 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                                 >
                                   <NavLink
                                     to={`/${slug}/${subSlug}`}
+                                    state={{ showProductPageLoader: true }}
                                     className={() =>
                                       `${dropdownItem} ${
                                         isPathActive(`/${slug}/${subSlug}`)
@@ -129,6 +131,7 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
                                               <li key={third.name}>
                                                 <NavLink
                                                   to={`/${slug}/${subSlug}/${thirdSlug}`}
+                                                  state={{ showProductPageLoader: true }}
                                                   className={() =>
                                                     `${dropdownItem} ${
                                                       isPathActive(

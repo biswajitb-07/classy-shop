@@ -7,6 +7,7 @@ import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import ProductNotAvailable from "../../../../components/products/ProductNotAvailable.jsx";
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi.js";
 import { CgCloseR } from "react-icons/cg";
+import CategoryPageLoader from "../../../../components/Loader/CategoryPageLoader.jsx";
 
 const PAGE_SIZE = 15;
 
@@ -197,6 +198,7 @@ const Footwear = () => {
 
   return (
     <div>
+      <CategoryPageLoader isLoading={isLoading} />
       {showMobileFilters && (
         <div
           className="fixed inset-0 bg-black/50 z-40"

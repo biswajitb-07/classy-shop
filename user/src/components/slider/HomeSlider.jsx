@@ -57,7 +57,7 @@ const HomeSlider = () => {
       className="relative w-full my-2 md:my-4 lg:my-3 overflow-hidden rounded-lg shadow-lg"
     >
       {/* Slides container */}
-      <div className="relative w-full aspect-[16/8.6] sm:aspect-[16/7.2] md:aspect-[16/6] lg:aspect-[16/4.8]">
+      <div className="relative w-full aspect-[16/5.15] sm:aspect-[16/6.1] md:aspect-[16/6] lg:aspect-[16/4.8]">
         <AnimatePresence initial={false} mode="wait">
           <motion.div
             key={current}
@@ -70,7 +70,7 @@ const HomeSlider = () => {
             <img
               src={slides[current]}
               alt={`slide-${current}`}
-              className="block h-full w-full object-cover"
+              className="block h-full w-full object-cover object-center"
             />
           </motion.div>
         </AnimatePresence>
