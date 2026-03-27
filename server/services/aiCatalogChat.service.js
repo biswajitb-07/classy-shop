@@ -9,6 +9,8 @@ import Wellness from "../models/vendor/wellness/wellness.model.js";
 
 const DEFAULT_AI_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
+// Each source describes how a Mongo model maps into a storefront detail URL.
+// The AI service uses this shared metadata to build one combined catalog.
 const PRODUCT_SOURCES = [
   {
     label: "Fashion",
@@ -94,6 +96,8 @@ Rules for JSON:
 - Keep productIds to at most 3 items.
 - Set "needsClarification" to true when the query is too unclear or unsupported for a confident answer.`;
 
+// Lightweight normalization makes retrieval resilient to casing, punctuation,
+// and small formatting differences between query text and catalog text.
 const normalize = (value) =>
   String(value ?? "")
     .toLowerCase()
@@ -302,6 +306,8 @@ const getCandidateScore = (product, query) => {
 
 const pickCatalogCandidates = (catalog, query) => {
   const brandIntent = detectBrandIntent(catalog, query);
+  // When the query clearly points to a brand, we scope results first so the
+  // fallback layer cannot leak unrelated products from other brands.
   const scopedCatalog = brandIntent
     ? catalog.filter((product) => normalize(product.brand) === brandIntent)
     : catalog;
@@ -661,6 +667,8 @@ export const generateAiCatalogReply = async ({
     "If the candidate list is empty or does not contain relevant items, answer without product recommendations.",
   ].join("\n");
   const productMap = new Map(candidates.map((item) => [String(item._id), item]));
+  // Strong direct matches are handled before calling the external model so the
+  // assistant stays fast, cheaper, and more predictable for common queries.
   const deterministicReply = buildDeterministicCatalogReply({
     message,
     catalog,
@@ -722,6 +730,8 @@ export const generateAiCatalogReply = async ({
     };
   } catch (error) {
     console.error("AI provider failed, using catalog fallback:", error.message);
+    // If the provider is down or rate-limited, the chatbot still returns a
+    // grounded answer instead of surfacing a dead generic error to users.
     return buildFallbackReply({
       message,
       catalog,

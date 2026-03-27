@@ -30,6 +30,8 @@ import {
 
 const userRouter = express.Router();
 
+// Legacy Passport Google auth is still kept, while Firebase Google login uses
+// a separate token-based endpoint below.
 userRouter.get(
   "/auth/google",
   passport.authenticate("google", { scope: ["profile", "email"] })
@@ -60,6 +62,8 @@ userRouter.put(
 userRouter.get("/support/conversation", isAuthenticatedUser, getUserSupportConversation);
 userRouter.get("/support/conversations", isAuthenticatedUser, getUserSupportConversations);
 userRouter.post("/support/conversations", isAuthenticatedUser, createUserSupportConversation);
+// Empty draft chats are cleaned separately so a user can open a new support
+// thread UI without permanently storing it until they send a message.
 userRouter.delete(
   "/support/conversations/empty",
   isAuthenticatedUser,

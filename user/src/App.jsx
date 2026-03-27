@@ -76,6 +76,8 @@ const SupportChatPage = lazy(
   () => import("./pages/User/support/SupportChatPage.jsx"),
 );
 
+// The app router keeps public auth pages outside the shared storefront layout,
+// while category/product/order pages live under MainLayout.
 const appRouter = createBrowserRouter([
   {
     path: "*",
@@ -337,6 +339,8 @@ const App = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
+    // We surface browser online/offline state globally so the storefront can
+    // fail gracefully before users hit broken network requests.
     const handleOnline = () => {
       setIsOnline(true);
       toast.success("Back online!", { position: "top-center", duration: 3000 });
@@ -359,6 +363,8 @@ const App = () => {
 
   return (
     <ThemeProvider>
+      {/* ThemeProvider wraps the full user app because page, navbar, profile,
+          support, and product components all read the same theme tokens. */}
       <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
         <Toaster
           position="top-center"

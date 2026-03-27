@@ -34,6 +34,8 @@ const app = express();
 const httpServer = createServer(app);
 const port = process.env.PORT || 5000;
 
+// Connect once during boot so all route handlers and socket events can share
+// the same Mongo connection pool.
 connectDB();
 
 app.use(express.json());
@@ -51,6 +53,8 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Frontend apps are deployed separately, so CORS must explicitly allow both
+// user and vendor origins to send cookies to this backend.
 const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL];
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
@@ -84,6 +88,8 @@ app.use("/api/v1/product", cartWishlistRouter);
 app.use("/api/v1/vendor/orders", orderRouter);
 app.use("/api/v1/product/order", orderRouter);
 
+// Socket.IO shares the same HTTP server so realtime support chat and presence
+// updates live alongside the normal REST API.
 initSocket(httpServer);
 
 httpServer.listen(port, () => {

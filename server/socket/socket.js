@@ -10,6 +10,8 @@ import {
 
 let io;
 
+// Socket auth can come from a short-lived socket token or fallback cookies.
+// This helper normalizes the cookie path for the fallback branch.
 const parseCookies = (cookieHeader = "") =>
   cookieHeader.split(";").reduce((acc, pair) => {
     const [rawKey, ...rawValue] = pair.trim().split("=");
@@ -31,6 +33,8 @@ export const initSocket = (httpServer) => {
       const socketToken = socket.handshake.auth?.socketToken;
 
       if (socketToken) {
+        // Preferred path for production: the frontend fetches a socket-specific
+        // token over authenticated HTTP, then uses it during the handshake.
         const decoded = jwt.verify(socketToken, process.env.SECRET_KEY);
 
         if (decoded?.scope !== "socket") {
@@ -50,6 +54,8 @@ export const initSocket = (httpServer) => {
         }
       }
 
+      // Fallback for environments where normal auth cookies are still present
+      // during the websocket/polling handshake.
       const cookies = parseCookies(socket.handshake.headers.cookie || "");
       const vendorToken = cookies.vendorAccessToken || cookies.token1;
       const userToken = cookies.accessToken;
@@ -83,6 +89,8 @@ export const initSocket = (httpServer) => {
         socket.join(`vendor:${socket.data.vendorId}`);
       }
 
+      // The dedicated support realtime module owns presence, chat-room joins,
+      // and typing events so this bootstrap file stays focused on auth/setup.
       registerSupportRealtime(io, socket);
       return;
     }

@@ -22,6 +22,8 @@ const AIChatbotWidget = () => {
   const messageEndRef = useRef(null);
 
   useEffect(() => {
+    // Abort the in-flight AI request if the widget unmounts so React does not
+    // try to update state after navigation or layout teardown.
     return () => {
       if (requestControllerRef.current) {
         requestControllerRef.current.abort();
@@ -32,6 +34,8 @@ const AIChatbotWidget = () => {
   useEffect(() => {
     if (!isOpen) return;
 
+    // Keep the latest user message and AI reply visible without forcing the
+    // user to manually scroll the chat window after every response.
     messageEndRef.current?.scrollIntoView({
       behavior: "smooth",
       block: "end",
@@ -56,6 +60,8 @@ const AIChatbotWidget = () => {
     setIsTyping(true);
 
     if (requestControllerRef.current) {
+      // Only the latest prompt should win. Cancelling the older request avoids
+      // stale replies appearing after the user sends a new message quickly.
       requestControllerRef.current.abort();
     }
 
@@ -117,6 +123,8 @@ const AIChatbotWidget = () => {
   };
 
   return (
+    // On mobile and tablet the widget sits above the bottom nav; on desktop it
+    // returns to a normal bottom-right floating position.
     <div className="fixed bottom-[5.5rem] right-3 z-40 md:right-4 lg:bottom-5 lg:right-5">
       {isOpen ? (
         <div className="mb-3 w-[min(22rem,calc(100vw-1.25rem))] rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)] lg:mb-4">

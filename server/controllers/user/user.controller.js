@@ -23,6 +23,8 @@ import { verifyFirebaseIdToken } from "../../utils/firebaseAdmin.js";
 
 export const register = async (req, res) => {
   try {
+    // Zod validation keeps the controller small and ensures the frontend gets
+    // field-level errors in a predictable shape.
     const validatedData = registerSchema.safeParse(req.body);
     if (!validatedData.success) {
       const fieldErrors = validatedData.error.issues.reduce((acc, issue) => {
@@ -121,6 +123,8 @@ export const login = async (req, res) => {
       });
     }
 
+    // The frontend uses cookie-based auth, so successful login mainly means
+    // issuing signed cookies rather than returning a token to localStorage.
     setUserAuthCookies(res, user._id);
     return res.status(200).json({
       success: true,
@@ -143,6 +147,8 @@ export const firebaseGoogleLogin = async (req, res) => {
       });
     }
 
+    // Firebase verifies Google ownership; after that we still map the identity
+    // into our own Mongo user document and app session.
     const decodedToken = await verifyFirebaseIdToken(idToken);
     const email = String(decodedToken.email || "").trim().toLowerCase();
 
@@ -164,6 +170,8 @@ export const firebaseGoogleLogin = async (req, res) => {
     }
 
     if (!user) {
+      // First Google login creates a normal user record so profile, orders,
+      // support chat, wishlist, and manual password setup all work uniformly.
       user = new User({
         name: decodedToken.name || email.split("@")[0],
         email,
@@ -239,6 +247,8 @@ export const logout = async (req, res) => {
 
 export const getUserSocketAuth = async (req, res) => {
   try {
+    // Socket auth uses a short-lived signed token so the realtime layer does
+    // not depend only on cross-origin cookies during the handshake.
     return res.status(200).json({
       success: true,
       socketToken: signSocketToken({
@@ -271,6 +281,8 @@ export const getUserProfile = async (req, res) => {
       success: true,
       user: {
         ...userObject,
+        // The client only needs to know whether a password exists; the hash
+        // itself must never be exposed back to the browser.
         password: undefined,
         hasPassword: Boolean(user.password),
       },

@@ -3,6 +3,8 @@ import { SupportConversation } from "../models/support/supportConversation.model
 const SUPPORT_VENDORS_ROOM = "support:vendors";
 const SUPPORT_USERS_ROOM = "support:users";
 
+// We track multiple sockets per entity so refreshes or multiple tabs do not
+// incorrectly mark a user/vendor offline while another tab is still connected.
 const activeUsers = new Map();
 const activeVendors = new Map();
 
@@ -60,6 +62,8 @@ const canJoinSupportChat = async (socket, chatId) => {
   if (!conversation) return false;
 
   if (socket.data.role === "vendor" && socket.data.vendorId) {
+    // Vendors can inspect support threads broadly; user access is restricted
+    // to only their own conversation below.
     return true;
   }
 
@@ -114,6 +118,8 @@ const emitUserPresenceToVendors = (io, userId, online) => {
 const emitStopTypingForActiveRoom = (socket) => {
   if (!socket.data.supportChatId) return;
 
+  // Clear stale typing indicators on disconnect/leave so the UI does not keep
+  // showing "typing..." after the sender disappears.
   socket.to(roomNames.chat(socket.data.supportChatId)).emit("stop_typing", {
     chatId: socket.data.supportChatId,
     senderId: socket.data.userId || socket.data.vendorId,
@@ -124,6 +130,8 @@ const emitStopTypingForActiveRoom = (socket) => {
 
 export const registerSupportRealtime = (io, socket) => {
   const emitPresenceSnapshot = () => {
+    // Newly connected clients need an initial presence snapshot because they
+    // may have joined after the last online/offline broadcast was emitted.
     if (socket.data.role === "vendor" && socket.data.vendorId) {
       socket.emit("user_presence_snapshot", {
         users: getOnlineUserIds(),
@@ -156,6 +164,8 @@ export const registerSupportRealtime = (io, socket) => {
   };
 
   const onTyping = ({ chatId }) => {
+    // Typing is intentionally scoped to the joined chat room so it never leaks
+    // to unrelated conversations.
     if (!chatId || String(chatId) !== String(socket.data.supportChatId)) return;
 
     socket.to(roomNames.chat(chatId)).emit("typing", {

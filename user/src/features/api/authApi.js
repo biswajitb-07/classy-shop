@@ -6,6 +6,8 @@ const USER_API = `${BASE_URL}/api/v1/user/`;
 
 export const authApi = createApi({
   reducerPath: "authApi",
+  // Auth/profile endpoints rely on browser cookies, so we keep credentials
+  // enabled on the shared base query instead of repeating it per request.
   baseQuery: fetchBaseQuery({
     baseUrl: USER_API,
     credentials: "include",
@@ -41,6 +43,8 @@ export const authApi = createApi({
       }),
       async onQueryStarted(arg, { queryFulfilled, dispatch }) {
         try {
+          // Mirror the backend login response into Redux immediately so the UI
+          // switches to the authenticated state without an extra round trip.
           const result = await queryFulfilled;
           dispatch(userLoggedIn({ user: result.data.user }));
         } catch (error) {
@@ -96,6 +100,8 @@ export const authApi = createApi({
       }),
       async onQueryStarted(arg, { queryFulfilled, dispatch }) {
         try {
+          // Refresh or deep-link visits rely on this query to rebuild the
+          // authenticated Redux state from the existing cookie session.
           const result = await queryFulfilled;
 
           dispatch(userLoggedIn({ user: result.data.user }));

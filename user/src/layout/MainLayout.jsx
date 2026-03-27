@@ -24,6 +24,8 @@ const MainLayout = () => {
   };
 
   useEffect(() => {
+    // The header hides on downward scroll after the hero area to give product
+    // pages more room, then reappears when the user scrolls back up.
     const handleScroll = () => {
       const currentScrollPos = window.pageYOffset;
       const isScrollingUp = currentScrollPos < prevScrollPos;
@@ -46,6 +48,8 @@ const MainLayout = () => {
       <div className="user-shell bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
         <ScrollToTop />
         <OAuthToast />
+        {/* Header, bottom nav, and category panel all share the same category
+            payload so navigation stays consistent on desktop and mobile. */}
         <Header
           visible={visible}
           openCategoryPanel={openCategoryPanel}
@@ -64,8 +68,11 @@ const MainLayout = () => {
           visible ? "mt-[5rem] md:mt-[5.5rem] lg:mt-[13.5rem] z-0" : "mt-0"
         } overflow-hidden`}
       >
+        {/* Route content is rendered here under the shared storefront chrome. */}
         <Outlet />
       </div>
+      {/* The AI widget lives outside Outlet so it remains available across most
+          storefront pages without duplicating it in each screen. */}
       <AIChatbotWidget />
 
       <div className="user-shell-muted transition-colors duration-300">
