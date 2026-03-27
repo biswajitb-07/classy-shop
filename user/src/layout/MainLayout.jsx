@@ -6,15 +6,17 @@ import Footer from "../components/footer/Footer.jsx";
 import OAuthToast from "../pages/User/auth/OAuthToast.jsx";
 import Features from "../components/Features.jsx";
 import CategoryPanel from "../components/category/CategoryPanel.jsx";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
 import ScrollToTop from "../components/router/ScrollToTop.jsx";
 import AIChatbotWidget from "../components/ai/AIChatbotWidget.jsx";
 
 const MainLayout = () => {
-  const [prevScrollPos, setPrevScrollPos] = useState(0);
   const [visible, setVisible] = useState(true);
   const [isOpenCatPanel, setIsOpenCatPanel] = useState(false);
+  const lastScrollYRef = useRef(0);
+  const tickingRef = useRef(false);
+  const visibleRef = useRef(true);
 
   const { data } = useGetVendorCategoriesQuery();
   const categoryData = data?.[0]?.categories || [];
@@ -26,24 +28,32 @@ const MainLayout = () => {
   };
 
   useEffect(() => {
-    // The header hides on downward scroll after the hero area to give product
-    // pages more room, then reappears when the user scrolls back up.
+    // On mobile, updating React state on every scroll frame makes the page feel
+    // sticky. We use refs + requestAnimationFrame so header visibility changes
+    // only when the direction actually changes.
     const handleScroll = () => {
       const currentScrollPos = window.pageYOffset;
-      const isScrollingUp = currentScrollPos < prevScrollPos;
 
-      if (currentScrollPos > 200) {
-        setVisible(isScrollingUp);
-      } else {
-        setVisible(true);
-      }
+      if (tickingRef.current) return;
 
-      setPrevScrollPos(currentScrollPos);
+      tickingRef.current = true;
+      window.requestAnimationFrame(() => {
+        const isScrollingUp = currentScrollPos < lastScrollYRef.current;
+        const nextVisible = currentScrollPos <= 200 ? true : isScrollingUp;
+
+        if (visibleRef.current !== nextVisible) {
+          visibleRef.current = nextVisible;
+          setVisible(nextVisible);
+        }
+
+        lastScrollYRef.current = currentScrollPos;
+        tickingRef.current = false;
+      });
     };
 
-    window.addEventListener("scroll", handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
-  }, [prevScrollPos]);
+  }, []);
 
   return (
     <>
@@ -65,13 +75,9 @@ const MainLayout = () => {
           categories={categoryData}
         />
       </div>
-      <div
-        className={`${
-          visible ? "mt-[5rem] md:mt-[5.5rem] lg:mt-[13.5rem] z-0" : "mt-0"
-        } overflow-hidden`}
-      >
-        {/* The top margin compensates for the fixed header stack. When the
-            header hides on scroll we can safely reclaim that vertical space. */}
+      <div className="mt-[5rem] md:mt-[5.5rem] lg:mt-[13.5rem] overflow-hidden">
+        {/* Keep the content offset stable while the fixed header slides in/out.
+            That avoids layout jumps and makes mobile upward scrolling smoother. */}
         {/* Route content is rendered here under the shared storefront chrome. */}
         <Outlet />
       </div>
