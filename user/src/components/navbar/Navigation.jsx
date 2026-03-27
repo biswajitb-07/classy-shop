@@ -1,3 +1,5 @@
+// File guide: Navigation source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { RiMenu2Fill } from "react-icons/ri";
 import { LiaAngleDownSolid } from "react-icons/lia";
 import { Link, NavLink, useLocation } from "react-router-dom";

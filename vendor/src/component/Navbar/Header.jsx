@@ -1,3 +1,5 @@
+// File guide: Header source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AiOutlineMenu } from "react-icons/ai";
 import { IoNotifications } from "react-icons/io5";

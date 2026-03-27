@@ -1,3 +1,5 @@
+// File guide: Home source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import FreeShiping from "../components/shipping/FreeShiping.jsx";
 import HomeCatSlider from "../components/slider/HomeCatSlider.jsx";
 import HomeSlider from "../components/slider/HomeSlider.jsx";

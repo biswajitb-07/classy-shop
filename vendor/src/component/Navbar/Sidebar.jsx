@@ -1,3 +1,5 @@
+// File guide: Sidebar source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useState } from "react";
 import { MdOutlineDashboard } from "react-icons/md";
 import { TbBrandSnapchat, TbCategoryPlus } from "react-icons/tb";

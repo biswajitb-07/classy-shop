@@ -1,3 +1,5 @@
+// File guide: FreeShiping source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 const FreeShiping = () => {
   return (
     <div className="container grid items-center bg-white">

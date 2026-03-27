@@ -1,3 +1,5 @@
+// File guide: aiCatalogChat.service source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import Bag from "../models/vendor/bag/bag.model.js";
 import Beauty from "../models/vendor/beauty/beauty.model.js";
 import Electronic from "../models/vendor/electronic/electronic.model.js";

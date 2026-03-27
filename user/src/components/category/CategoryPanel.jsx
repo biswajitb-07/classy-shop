@@ -1,3 +1,5 @@
+// File guide: CategoryPanel source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { FiX } from "react-icons/fi";
 import CategoryItem from "./CategoryItem.jsx";
 import { useTheme } from "../../context/ThemeContext";

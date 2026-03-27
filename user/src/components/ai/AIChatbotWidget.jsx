@@ -1,3 +1,5 @@
+// File guide: AIChatbotWidget source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useRef, useState } from "react";
 import { Bot, MessageCircle, Send, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";

@@ -1,3 +1,5 @@
+// File guide: passport source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { User } from "../models/user/user.model.js";

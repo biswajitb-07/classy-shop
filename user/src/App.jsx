@@ -1,3 +1,5 @@
+// File guide: App source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import React, { lazy, useState, useEffect } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";

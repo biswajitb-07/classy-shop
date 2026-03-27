@@ -1,3 +1,5 @@
+// File guide: authApi source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { userLoggedIn, userLoggedOut } from "../authSlice";
 

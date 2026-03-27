@@ -1,3 +1,5 @@
+// File guide: MainLayout source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { Outlet } from "react-router-dom";
 import Header from "../components/navbar/Header.jsx";
 import BottomNav from "../components/navbar/BottomNav.jsx";

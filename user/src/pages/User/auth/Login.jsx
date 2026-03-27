@@ -1,3 +1,5 @@
+// File guide: Login source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { IoPerson } from "react-icons/io5";

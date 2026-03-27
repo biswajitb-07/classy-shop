@@ -1,3 +1,5 @@
+// File guide: AuthButtonLoader source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 const AuthButtonLoader = () => (
   <div className="flex justify-center items-center">
     <div className="relative w-5 h-5">

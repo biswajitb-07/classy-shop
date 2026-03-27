@@ -1,3 +1,5 @@
+// File guide: AddFootwearItem source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useState } from "react";
 import { useAddFootwearItemMutation } from "../../../../features/api/footwear-product/footwearApi";
 import {

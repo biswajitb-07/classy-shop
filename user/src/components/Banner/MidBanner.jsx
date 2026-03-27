@@ -1,3 +1,5 @@
+// File guide: MidBanner source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useState, useRef } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 

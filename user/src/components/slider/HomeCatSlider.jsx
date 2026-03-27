@@ -1,3 +1,5 @@
+// File guide: HomeCatSlider source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useRef, useState } from "react";
 import { FaArrowRight, FaArrowLeft } from "react-icons/fa";
 import { useGetVendorCategoriesQuery } from "../../features/api/categoryApi";

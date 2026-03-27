@@ -1,3 +1,5 @@
+// File guide: support.controller source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import mongoose from "mongoose";
 import { SupportConversation } from "../../models/support/supportConversation.model.js";
 import { SupportMessage } from "../../models/support/supportMessage.model.js";

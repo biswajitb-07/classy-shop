@@ -1,3 +1,5 @@
+// File guide: supportRealtime source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { SupportConversation } from "../models/support/supportConversation.model.js";
 
 const SUPPORT_VENDORS_ROOM = "support:vendors";

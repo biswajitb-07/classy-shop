@@ -1,3 +1,5 @@
+// File guide: Orders source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { FaBoxOpen, FaChevronRight } from "react-icons/fa";

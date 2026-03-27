@@ -1,3 +1,5 @@
+// File guide: beauty.controller source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import Beauty from "../../../models/vendor/beauty/beauty.model.js";
 import {
   deleteMediaFromCloudinary,

@@ -1,3 +1,5 @@
+// File guide: vendor.controller source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { Vendor } from "../../models/vendor/vendor.model.js";
 import { User } from "../../models/user/user.model.js";
 import bcrypt from "bcryptjs";

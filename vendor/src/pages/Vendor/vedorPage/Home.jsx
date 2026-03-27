@@ -1,3 +1,5 @@
+// File guide: Home source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";

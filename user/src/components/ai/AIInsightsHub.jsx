@@ -1,3 +1,5 @@
+// File guide: AIInsightsHub source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Sparkles, ShieldCheck, BrainCircuit, ScanSearch, TrendingUp } from "lucide-react";

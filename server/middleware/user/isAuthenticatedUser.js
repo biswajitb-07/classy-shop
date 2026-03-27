@@ -1,3 +1,5 @@
+// File guide: isAuthenticatedUser source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import jwt from "jsonwebtoken";
 import { User } from "../../models/user/user.model.js";
 import { clearUserAuthCookies, setUserAccessCookie } from "../../utils/authCookies.js";

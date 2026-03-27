@@ -1,3 +1,5 @@
+// File guide: PageLoader source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 const PageLoader = ({ message = "Loading products..." }) => {
   return (
     <div className="flex flex-col items-center justify-center space-y-3">

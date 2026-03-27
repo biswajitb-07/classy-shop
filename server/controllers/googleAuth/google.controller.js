@@ -1,3 +1,5 @@
+// File guide: google.controller source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import bcrypt from "bcryptjs";
 import { User } from "../../models/user/user.model.js";
 import transporter from "../../utils/nodemailer.js";

@@ -1,3 +1,5 @@
+// File guide: ProductCard source file.
+// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import React, { useState } from "react";
 import { FaStar, FaStarHalfAlt, FaRegHeart } from "react-icons/fa";
 import { BsArrowsFullscreen } from "react-icons/bs";

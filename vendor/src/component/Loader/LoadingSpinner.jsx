@@ -1,3 +1,5 @@
+// File guide: LoadingSpinner source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useRef } from "react";
 
 /*

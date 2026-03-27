@@ -1,3 +1,5 @@
+// File guide: MainLayout source file.
+// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import Sidebar from "../component/Navbar/Sidebar";
 import Header from "../component/Navbar/Header";
 import { Outlet } from "react-router-dom";
