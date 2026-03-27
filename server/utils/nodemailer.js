@@ -4,6 +4,7 @@ const cleanEnv = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "
 
 const smtpUser = cleanEnv(process.env.SMTP_USER);
 const smtpPass = cleanEnv(process.env.SMTP_PASS);
+const brevoApiKey = cleanEnv(process.env.BREVO_API_KEY || process.env.BREVO_KEY);
 
 const transporter = nodemailer.createTransport({
   host: "smtp-relay.brevo.com",
@@ -23,6 +24,11 @@ const transporter = nodemailer.createTransport({
 });
 
 export const verifyEmailTransport = async () => {
+  if (brevoApiKey) {
+    console.log("Email transport ready via Brevo API.");
+    return true;
+  }
+
   if (!smtpUser || !smtpPass) {
     console.warn("Email transport skipped: SMTP_USER or SMTP_PASS is missing.");
     return false;

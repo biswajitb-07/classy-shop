@@ -8,6 +8,7 @@ import {
 } from "./emailTemplates.js";
 
 const cleanEnv = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
+const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
 
 const getFromAddress = () => {
   const senderEmail =
@@ -18,18 +19,82 @@ const getFromAddress = () => {
   return senderEmail ? `Classy Store <${senderEmail}>` : undefined;
 };
 
+const parseSender = () => {
+  const senderEmail =
+    cleanEnv(process.env.SENDER_EMAIL) ||
+    cleanEnv(process.env.SMTP_SENDER) ||
+    cleanEnv(process.env.SMTP_USER);
+
+  return senderEmail
+    ? {
+        name: "Classy Store",
+        email: senderEmail,
+      }
+    : null;
+};
+
+const sendViaBrevoApi = async ({ to, subject, html }) => {
+  const apiKey = cleanEnv(process.env.BREVO_API_KEY || process.env.BREVO_KEY);
+  const sender = parseSender();
+
+  if (!apiKey || !sender) {
+    throw new Error(
+      "Brevo API email is not configured. Please set BREVO_API_KEY and SENDER_EMAIL."
+    );
+  }
+
+  const response = await fetch(BREVO_API_URL, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "api-key": apiKey,
+    },
+    body: JSON.stringify({
+      sender,
+      to: [{ email: to }],
+      subject,
+      htmlContent: html,
+    }),
+  });
+
+  if (!response.ok) {
+    let details = "";
+
+    try {
+      details = await response.text();
+    } catch {
+      details = "";
+    }
+
+    const error = new Error(
+      `Brevo API request failed with status ${response.status}${details ? `: ${details}` : ""}`
+    );
+    error.responseCode = response.status;
+    error.response = details;
+    throw error;
+  }
+
+  return response.json().catch(() => ({}));
+};
+
 const sendEmail = async ({ to, subject, html }) => {
   const from = getFromAddress();
   const smtpUser = cleanEnv(process.env.SMTP_USER);
   const smtpPass = cleanEnv(process.env.SMTP_PASS);
+  const brevoApiKey = cleanEnv(process.env.BREVO_API_KEY || process.env.BREVO_KEY);
 
-  if (!from || !smtpUser || !smtpPass) {
+  if (!from || (!brevoApiKey && (!smtpUser || !smtpPass))) {
     throw new Error(
-      "Email is not configured. Please set SMTP_USER, SMTP_PASS, and SENDER_EMAIL."
+      "Email is not configured. Please set SENDER_EMAIL and either SMTP_USER/SMTP_PASS or BREVO_API_KEY."
     );
   }
 
   try {
+    if (brevoApiKey) {
+      return await sendViaBrevoApi({ to, subject, html });
+    }
+
     const info = await transporter.sendMail({
       from,
       to,
@@ -48,6 +113,11 @@ const sendEmail = async ({ to, subject, html }) => {
       response: error?.response,
       responseCode: error?.responseCode,
     });
+
+    if (brevoApiKey && (smtpUser || smtpPass)) {
+      throw error;
+    }
+
     throw error;
   }
 };
