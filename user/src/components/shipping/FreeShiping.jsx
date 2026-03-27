@@ -17,13 +17,13 @@ const FreeShiping = () => {
 
         <div>
           <p className="text-gray-600 text-[14px] md:text-[16px] text-center">
-            Free Delivery Now On Your First Order and over $200
+            Free Delivery Now On Your First Order and over 2000
           </p>
         </div>
 
         <div>
           <h1 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-wide text-center">
-            - Only $200*
+            - Only 2000*
           </h1>
         </div>
       </div>

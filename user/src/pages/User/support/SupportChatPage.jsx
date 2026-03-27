@@ -16,7 +16,8 @@ import {
   useGetSupportConversationsQuery,
   useSendSupportMessageMutation,
 } from "../../../features/api/supportApi.js";
-import { connectUserSocket, getUserSocket } from "../../../lib/socket.js";
+import { useTheme } from "../../../context/ThemeContext.jsx";
+import { connectUserSocket } from "../../../lib/socket.js";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api/v1/user`;
@@ -39,6 +40,7 @@ const messageStatusClass = {
 
 const SupportChatPage = () => {
   const { user } = useSelector((state) => state.auth);
+  const { isDark } = useTheme();
   const [draft, setDraft] = useState("");
   const [selectedId, setSelectedId] = useState(null);
   const [supportOnline, setSupportOnline] = useState(false);
@@ -149,7 +151,7 @@ const SupportChatPage = () => {
   }, []);
 
   useEffect(() => {
-    const socket = getUserSocket();
+    const socket = connectUserSocket();
     const syncChatList = () => {
       refetchList();
     };
@@ -184,6 +186,10 @@ const SupportChatPage = () => {
       setSupportOnline(Boolean(payload?.online));
     };
 
+    const handleDisconnect = () => {
+      setSupportOnline(false);
+    };
+
     const handleTyping = (payload) => {
       if (String(payload?.chatId) === String(selectedIdRef.current)) {
         setVendorTyping(true);
@@ -212,18 +218,17 @@ const SupportChatPage = () => {
     socket.on("vendor_offline", handleVendorPresence);
     socket.on("typing", handleTyping);
     socket.on("stop_typing", handleStopTyping);
-    connectUserSocket();
-    socket.emit("sync_presence");
-    if (selectedIdRef.current) {
-      socket.emit("join_support_chat", { chatId: selectedIdRef.current }, (response) => {
-        if (response?.ok) {
-          setJoinedChatId(response.chatId || null);
-        }
-      });
+    socket.on("disconnect", handleDisconnect);
+
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      socket.connect();
     }
 
     return () => {
       socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
       socket.off("support:message");
       socket.off("support:conversation:update");
       socket.off("vendor_presence_snapshot", handleVendorPresence);
@@ -437,11 +442,44 @@ const SupportChatPage = () => {
   const selectedConversation = conversations.find(
     (item) => item._id === selectedId,
   );
+  const shellClass = isDark
+    ? "border-white/10 bg-[linear-gradient(135deg,rgba(10,14,34,0.96),rgba(24,22,58,0.94)_45%,rgba(19,30,54,0.94))] shadow-[0_30px_90px_rgba(0,0,0,0.4)]"
+    : "border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(255,245,252,0.94)_45%,rgba(240,248,255,0.92))] shadow-[0_30px_90px_rgba(106,88,255,0.16)]";
+  const shellGlowClass = isDark
+    ? "bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.18),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(103,196,255,0.14),transparent_26%),radial-gradient(circle_at_top_left,rgba(255,255,255,0.06),transparent_30%)]"
+    : "bg-[radial-gradient(circle_at_top_right,rgba(255,112,166,0.25),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(103,196,255,0.18),transparent_26%),radial-gradient(circle_at_top_left,rgba(255,255,255,0.85),transparent_30%)]";
+  const contentPanelClass = isDark
+    ? "bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(17,24,39,0.8))]"
+    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.62),rgba(255,255,255,0.36))]";
+  const borderSoftClass = isDark ? "border-white/10" : "border-slate-200/70";
+  const headingClass = isDark ? "text-white" : "text-slate-900";
+  const mutedClass = isDark ? "text-slate-400" : "text-slate-500";
+  const incomingBubbleClass = isDark
+    ? "border border-white/10 bg-[linear-gradient(180deg,rgba(30,41,59,0.92),rgba(15,23,42,0.88))] text-slate-100 backdrop-blur-xl"
+    : "border border-white/80 bg-white/85 text-slate-800 backdrop-blur-xl";
+  const emptyCardClass = isDark
+    ? "border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.88),rgba(17,24,39,0.84))] shadow-[0_18px_40px_rgba(0,0,0,0.28)] backdrop-blur-xl"
+    : "border border-white/80 bg-white/75 shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl";
+  const composerWrapClass = isDark
+    ? "border-white/10 bg-slate-950/30"
+    : "border-slate-200/70 bg-white/35";
+  const composerShellClass = isDark
+    ? "border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.95),rgba(30,41,59,0.88))] shadow-[0_18px_45px_rgba(0,0,0,0.28)]"
+    : "border-white/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(245,244,255,0.8))] shadow-[0_18px_45px_rgba(135,102,255,0.12)]";
+  const inputCardClass = isDark
+    ? "border-white/10 bg-slate-950/35"
+    : "border-slate-200/80 bg-white/90";
+  const textareaClass = isDark
+    ? "min-h-[4.5rem] w-full resize-none bg-transparent text-base text-slate-100 outline-none placeholder:text-slate-500"
+    : "min-h-[4.5rem] w-full resize-none bg-transparent text-base text-slate-700 outline-none placeholder:text-slate-400";
+  const attachmentButtonClass = isDark
+    ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
+    : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f3f4ff)] px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50";
 
   return (
     <section className="container mx-auto px-4 pb-10 pt-6 md:px-6 lg:px-8">
-      <div className="relative overflow-hidden rounded-[38px] border border-white/70 bg-[linear-gradient(135deg,rgba(255,255,255,0.92),rgba(255,245,252,0.94)_45%,rgba(240,248,255,0.92))] shadow-[0_30px_90px_rgba(106,88,255,0.16)] backdrop-blur-xl">
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(255,112,166,0.25),transparent_22%),radial-gradient(circle_at_bottom_right,rgba(103,196,255,0.18),transparent_26%),radial-gradient(circle_at_top_left,rgba(255,255,255,0.85),transparent_30%)]" />
+      <div className={`relative overflow-hidden rounded-[38px] border backdrop-blur-xl ${shellClass}`}>
+        <div className={`pointer-events-none absolute inset-0 ${shellGlowClass}`} />
 
         <div className="relative grid min-h-[48rem] gap-0 lg:grid-cols-[19rem_minmax(0,1fr)]">
           <aside className="relative flex flex-col overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(66,153,225,0.34),transparent_18%),radial-gradient(circle_at_bottom_center,rgba(255,72,145,0.16),transparent_28%),linear-gradient(180deg,#121936_0%,#171d40_55%,#1d1736_100%)] p-5 text-white lg:border-b-0 lg:border-r lg:border-r-white/10 lg:p-7">
@@ -565,8 +603,8 @@ const SupportChatPage = () => {
             </div>
           </aside>
 
-          <div className="relative flex min-h-[48rem] flex-col bg-[linear-gradient(180deg,rgba(255,255,255,0.62),rgba(255,255,255,0.36))]">
-            <div className="border-b border-slate-200/70 px-5 py-6 md:px-8">
+          <div className={`relative flex min-h-[48rem] flex-col ${contentPanelClass}`}>
+            <div className={`border-b px-5 py-6 md:px-8 ${borderSoftClass}`}>
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
                   <p className="text-xs font-extrabold uppercase tracking-[0.28em] text-rose-500">
@@ -574,18 +612,18 @@ const SupportChatPage = () => {
                       ? `${user.name.toUpperCase()}'S SUPPORT CHAT`
                       : "SUPPORT CHAT"}
                   </p>
-                  <h2 className="mt-3 text-3xl font-black tracking-[-0.03em] text-slate-900 md:text-[2.6rem]">
+                  <h2 className={`mt-3 text-3xl font-black tracking-[-0.03em] md:text-[2.6rem] ${headingClass}`}>
                     {selectedId
                       ? "Your full chat history"
                       : "Start a support conversation"}
                   </h2>
                 </div>
                 <div className="text-right">
-                  <p className="text-lg font-semibold text-slate-500">
+                  <p className={`text-lg font-semibold ${mutedClass}`}>
                     {conversations.length} chat{conversations.length === 1 ? "" : "s"}
                   </p>
                   {selectedConversation?.lastMessageAt ? (
-                    <p className="mt-1 text-sm text-slate-400">
+                    <p className={`mt-1 text-sm ${mutedClass}`}>
                       Active: {formatTime(selectedConversation.lastMessageAt)}
                     </p>
                   ) : null}
@@ -599,7 +637,7 @@ const SupportChatPage = () => {
             >
               {selectedId ? (
                 isDetailsLoading ? (
-                  <div className="flex h-full items-center justify-center text-slate-500">
+                  <div className={`flex h-full items-center justify-center ${mutedClass}`}>
                     Loading conversation...
                   </div>
                 ) : messages.length ? (
@@ -610,7 +648,7 @@ const SupportChatPage = () => {
                         className={`max-w-[92%] rounded-[30px] px-6 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.08)] md:max-w-[78%] ${
                           message.senderRole === "user"
                             ? "ml-auto bg-[linear-gradient(90deg,#ff8a00_0%,#ff4f68_72%,#ff477e_100%)] text-white"
-                            : "border border-white/80 bg-white/85 text-slate-800 backdrop-blur-xl"
+                            : incomingBubbleClass
                         }`}
                       >
                         {message.text ? (
@@ -646,7 +684,7 @@ const SupportChatPage = () => {
                             className={
                               message.senderRole === "user"
                                 ? "text-white/80"
-                                : "text-slate-500"
+                                : mutedClass
                             }
                           >
                             {formatTime(message.createdAt)}
@@ -656,7 +694,9 @@ const SupportChatPage = () => {
                               message.senderRole === "user"
                                 ? "bg-white/18 text-white"
                                 : messageStatusClass[message.status] ||
-                                  "bg-slate-100 text-slate-600"
+                                  (isDark
+                                    ? "bg-white/10 text-slate-200"
+                                    : "bg-slate-100 text-slate-600")
                             }`}
                           >
                             {message.status}
@@ -665,7 +705,7 @@ const SupportChatPage = () => {
                       </div>
                     ))}
                     {vendorTyping ? (
-                      <div className="max-w-[13rem] rounded-[24px] border border-white/80 bg-white/85 px-5 py-4 shadow-[0_16px_35px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+                      <div className={`max-w-[13rem] rounded-[24px] px-5 py-4 backdrop-blur-xl ${incomingBubbleClass}`}>
                         <div className="flex items-center gap-1.5">
                           {[0, 1, 2].map((dot) => (
                             <span
@@ -680,11 +720,11 @@ const SupportChatPage = () => {
                   </>
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <div className="max-w-md rounded-[30px] border border-white/80 bg-white/75 px-7 py-10 text-center shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-                      <p className="text-xl font-black text-slate-900">
+                    <div className={`max-w-md rounded-[30px] px-7 py-10 text-center ${emptyCardClass}`}>
+                      <p className={`text-xl font-black ${headingClass}`}>
                         No messages in this conversation
                       </p>
-                      <p className="mt-3 text-sm leading-7 text-slate-500">
+                      <p className={`mt-3 text-sm leading-7 ${mutedClass}`}>
                         This chat is ready. Send your first message below.
                       </p>
                     </div>
@@ -692,12 +732,12 @@ const SupportChatPage = () => {
                 )
               ) : (
                 <div className="flex h-full items-center justify-center">
-                  <div className="max-w-md rounded-[30px] border border-white/80 bg-white/75 px-7 py-10 text-center shadow-[0_18px_40px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+                  <div className={`max-w-md rounded-[30px] px-7 py-10 text-center ${emptyCardClass}`}>
                     <MessageSquareText className="mx-auto text-slate-400" size={28} />
-                    <p className="mt-4 text-xl font-black text-slate-900">
+                    <p className={`mt-4 text-xl font-black ${headingClass}`}>
                       Start your first support chat
                     </p>
-                    <p className="mt-3 text-sm leading-7 text-slate-500">
+                    <p className={`mt-3 text-sm leading-7 ${mutedClass}`}>
                       Send a message below and your support conversation will be created automatically.
                     </p>
                   </div>
@@ -705,16 +745,16 @@ const SupportChatPage = () => {
               )}
             </div>
 
-            <div className="border-t border-slate-200/70 bg-white/35 px-4 py-4 backdrop-blur-xl md:px-6 md:py-5">
-              <div className="rounded-[34px] border border-white/90 bg-[linear-gradient(180deg,rgba(255,255,255,0.88),rgba(245,244,255,0.8))] p-3 shadow-[0_18px_45px_rgba(135,102,255,0.12)]">
+            <div className={`border-t px-4 py-4 backdrop-blur-xl md:px-6 md:py-5 ${borderSoftClass} ${composerWrapClass}`}>
+              <div className={`rounded-[34px] border p-3 ${composerShellClass}`}>
                 <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                  <div className="flex-1 rounded-[28px] border border-slate-200/80 bg-white/90 px-5 py-4">
+                  <div className={`flex-1 rounded-[28px] border px-5 py-4 ${inputCardClass}`}>
                     <textarea
                       value={draft}
                       onChange={(event) => handleDraftChange(event.target.value)}
                       onBlur={() => emitTyping(false)}
                       placeholder="Describe your issue, ask for product help, or share order concerns..."
-                      className="min-h-[4.5rem] w-full resize-none bg-transparent text-base text-slate-700 outline-none placeholder:text-slate-400"
+                      className={textareaClass}
                     />
                     {attachmentPreview ? (
                       <div className="relative mt-4 inline-flex overflow-hidden rounded-[20px] border border-slate-200 bg-slate-100 shadow-sm">
@@ -743,7 +783,7 @@ const SupportChatPage = () => {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f3f4ff)] px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50"
+                        className={attachmentButtonClass}
                       >
                         <ImagePlus size={17} />
                         Add image

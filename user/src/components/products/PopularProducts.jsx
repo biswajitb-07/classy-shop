@@ -4,6 +4,40 @@ import HomeProductCard from "./HomeProductCard";
 import { useGetFashionItemsQuery } from "../../features/api/fashionApi";
 import { useGetVendorCategoriesQuery } from "../../features/api/categoryApi";
 import { useGetElectronicItemsQuery } from "../../features/api/electronicApi";
+import { useGetBagItemsQuery } from "../../features/api/bagApi";
+import { useGetFootwearItemsQuery } from "../../features/api/footwearApi";
+import { useGetGroceryItemsQuery } from "../../features/api/groceryApi";
+import { useGetBeautyItemsQuery } from "../../features/api/beautyApi";
+import { useGetWellnessItemsQuery } from "../../features/api/wellnessApi";
+import { useGetJewelleryItemsQuery } from "../../features/api/jewelleryApi";
+
+const CATEGORY_ORDER = [
+  "Fashion",
+  "Electronics",
+  "Bags",
+  "Footwear",
+  "Groceries",
+  "Beauty",
+  "Wellness",
+  "Jewellery",
+];
+
+const normalizeCategoryName = (name = "") => {
+  const normalized = String(name).trim().toLowerCase();
+
+  if (normalized === "bag" || normalized === "bags") return "Bags";
+  if (normalized === "grocery" || normalized === "groceries") return "Groceries";
+  if (normalized === "electronic" || normalized === "electronics") {
+    return "Electronics";
+  }
+  if (normalized === "fashion") return "Fashion";
+  if (normalized === "footwear") return "Footwear";
+  if (normalized === "beauty") return "Beauty";
+  if (normalized === "wellness") return "Wellness";
+  if (normalized === "jewellery" || normalized === "jewelry") return "Jewellery";
+
+  return name;
+};
 
 const PopularProduct = () => {
   const productScrollRef = useRef(null);
@@ -19,29 +53,53 @@ const PopularProduct = () => {
   const { data: categories } = useGetVendorCategoriesQuery();
   const { data: electronicData, isLoading: electronicLoading } =
     useGetElectronicItemsQuery();
+  const { data: bagData, isLoading: bagLoading } = useGetBagItemsQuery();
+  const { data: footwearData, isLoading: footwearLoading } =
+    useGetFootwearItemsQuery();
+  const { data: groceryData, isLoading: groceryLoading } =
+    useGetGroceryItemsQuery();
+  const { data: beautyData, isLoading: beautyLoading } = useGetBeautyItemsQuery();
+  const { data: wellnessData, isLoading: wellnessLoading } =
+    useGetWellnessItemsQuery();
+  const { data: jewelleryData, isLoading: jewelleryLoading } =
+    useGetJewelleryItemsQuery();
 
-  const categoryData = categories?.[0]?.categories || [];
+  const categoryData = CATEGORY_ORDER.filter((categoryName) =>
+    (categories?.[0]?.categories || []).some(
+      (category) => normalizeCategoryName(category?.name) === categoryName,
+    ),
+  );
+
+  const visibleCategories = categoryData.length ? categoryData : CATEGORY_ORDER;
+
+  const categoryProductsMap = {
+    Fashion: fashionData?.fashionItems || [],
+    Electronics: electronicData?.electronicItems || [],
+    Bags: bagData?.bagItems || [],
+    Footwear: footwearData?.footwearItems || [],
+    Groceries: groceryData?.groceryItems || [],
+    Beauty: beautyData?.beautyItems || [],
+    Wellness: wellnessData?.wellnessItems || [],
+    Jewellery: jewelleryData?.jewelleryItems || [],
+  };
+
+  const categoryLoadingMap = {
+    Fashion: fashionLoading,
+    Electronics: electronicLoading,
+    Bags: bagLoading,
+    Footwear: footwearLoading,
+    Groceries: groceryLoading,
+    Beauty: beautyLoading,
+    Wellness: wellnessLoading,
+    Jewellery: jewelleryLoading,
+  };
 
   const getPopularProducts = () => {
-    if (selectedCategory === "Fashion") {
-      return (
-        fashionData?.fashionItems
-          ?.filter((item) => item.rating > 4.5)
-          .slice(-7) || []
-      );
-    } else if (selectedCategory === "Electronics") {
-      return (
-        electronicData?.electronicItems
-          ?.filter((item) => item.rating > 4.5)
-          .slice(-7) || []
-      );
-    }
-    return [];
+    return (categoryProductsMap[selectedCategory] || []).slice(0, 7);
   };
 
   const popularProducts = getPopularProducts();
-  const isLoading =
-    selectedCategory === "Fashion" ? fashionLoading : electronicLoading;
+  const isLoading = categoryLoadingMap[selectedCategory] ?? false;
 
   const checkNavScrollability = () => {
     if (navScrollRef.current) {
@@ -110,6 +168,12 @@ const PopularProduct = () => {
     setSelectedCategory(category);
   };
 
+  useEffect(() => {
+    if (!visibleCategories.includes(selectedCategory)) {
+      setSelectedCategory(visibleCategories[0] || "Fashion");
+    }
+  }, [selectedCategory, visibleCategories]);
+
   return (
     <section className="container mx-auto px-4">
       <div className="mb-8 w-full flex flex-col items-center justify-center text-center md:text-left group">
@@ -123,7 +187,7 @@ const PopularProduct = () => {
         </div>
 
         {/* Nav Tabs with Arrows */}
-        <div className="relative w-full max-w-6xl mt-4 mx-8">
+        <div className="relative mt-4 w-full max-w-6xl">
           <button
             onClick={() => scroll(navScrollRef, "left")}
             className={`absolute left-0 top-1/2 -translate-y-1/2 z-10 p-1 rounded-full bg-red-500 text-white shadow hover:bg-red-400 cursor-pointer hover:scale-105 active:scale-75 transition-all duration-300 ease-in-out hidden md:block ${
@@ -147,19 +211,23 @@ const PopularProduct = () => {
 
           <div
             ref={navScrollRef}
-            className="flex justify-center gap-6 text-sm font-medium text-gray-600 overflow-x-auto scroll-smooth snap-x px-2 scrollbar-hide"
+            className="flex w-full gap-4 overflow-x-auto scroll-smooth px-1 pb-2 text-sm font-medium text-gray-600 scrollbar-hide sm:justify-center sm:gap-6 sm:px-2"
+            style={{
+              WebkitOverflowScrolling: "touch",
+              touchAction: "pan-x",
+            }}
           >
-            {categoryData.map((cat, i) => (
+            {visibleCategories.map((categoryName) => (
               <button
-                key={i}
-                onClick={() => handleCategoryClick(cat.name)}
+                key={categoryName}
+                onClick={() => handleCategoryClick(categoryName)}
                 className={`flex-shrink-0 whitespace-nowrap transition cursor-pointer snap-start text-base ${
-                  selectedCategory === cat.name
+                  selectedCategory === categoryName
                     ? "text-red-600"
-                    : "hover:text-red-500"
+                    : "hover:text-red-500 text-gray-700"
                 }`}
               >
-                {cat.name}
+                {categoryName}
               </button>
             ))}
           </div>

@@ -252,15 +252,22 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
         style={{
           scrollbarWidth: "none",
           WebkitOverflowScrolling: "touch",
+          touchAction: "pan-x",
         }}
       >
-        {isLoading || products.length === 0 ? (
+        {isLoading ? (
           <div className="flex gap-5">
             {Array(5)
               .fill("")
               .map((_, idx) => (
                 <SkeletonCard key={idx} />
               ))}
+          </div>
+        ) : products.length === 0 ? (
+          <div className="flex min-h-[18rem] w-full items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
+            <p className="text-sm font-semibold text-slate-500">
+              No product found
+            </p>
           </div>
         ) : (
           products?.map((p) => {

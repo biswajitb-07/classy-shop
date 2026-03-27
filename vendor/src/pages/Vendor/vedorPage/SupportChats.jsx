@@ -16,6 +16,7 @@ import {
   useSendSupportReplyMutation,
 } from "../../../features/api/supportApi";
 import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
+import { useTheme } from "../../../context/ThemeContext";
 
 const formatTime = (value) =>
   value
@@ -28,6 +29,7 @@ const formatTime = (value) =>
     : "No activity yet";
 
 const SupportChats = () => {
+  const { isDark } = useTheme();
   const [selectedId, setSelectedId] = useState(null);
   const [reply, setReply] = useState("");
   const [userTyping, setUserTyping] = useState(false);
@@ -347,34 +349,77 @@ const SupportChats = () => {
   const isSelectedUserOnline = selectedUserId
     ? onlineMap[selectedUserId] ?? conversation?.userOnline ?? false
     : false;
+  const shellClass = isDark
+    ? "border-violet-400/25 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.18),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.18),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(244,114,182,0.12),transparent_24%),linear-gradient(180deg,#090b1e_0%,#0f1130_45%,#121538_100%)] shadow-[0_28px_90px_rgba(2,6,23,0.58)]"
+    : "border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.12),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.12),transparent_24%),linear-gradient(180deg,#f8fbff_0%,#eef2ff_45%,#fdf2f8_100%)] shadow-[0_24px_80px_rgba(148,163,184,0.22)]";
+  const shellOverlayClass = isDark
+    ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_22%,transparent_76%,rgba(56,189,248,0.04))]"
+    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.45),transparent_22%,transparent_76%,rgba(255,255,255,0.18))]";
+  const headerClass = isDark
+    ? "border-violet-400/20 bg-[linear-gradient(135deg,rgba(35,41,91,0.92),rgba(25,22,60,0.9)_55%,rgba(41,18,63,0.88))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_40px_rgba(0,0,0,0.22)]"
+    : "border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(238,242,255,0.94)_55%,rgba(253,242,248,0.94))] shadow-[0_14px_30px_rgba(148,163,184,0.16)]";
+  const panelClass = isDark
+    ? "border-violet-400/25 bg-[linear-gradient(180deg,rgba(16,18,48,0.96),rgba(19,16,54,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
+    : "border-slate-200 bg-white/90 shadow-[0_16px_40px_rgba(148,163,184,0.16)]";
+  const panelBorderClass = isDark ? "border-violet-400/16" : "border-slate-200";
+  const headingClass = isDark ? "text-white" : "text-slate-900";
+  const mutedClass = isDark ? "text-slate-400" : "text-slate-500";
+  const listCardBaseClass = isDark
+    ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(16,18,44,0.86),rgba(17,15,47,0.84))] hover:border-violet-300/30"
+    : "border-slate-200 bg-white hover:border-slate-300";
+  const listCardSelectedClass = isDark
+    ? "border-sky-400 bg-[linear-gradient(135deg,rgba(17,34,90,0.96),rgba(26,42,96,0.92)_48%,rgba(76,29,149,0.42))] shadow-[0_0_0_1px_rgba(56,189,248,0.18),0_0_24px_rgba(56,189,248,0.38)]"
+    : "border-sky-300 bg-[linear-gradient(135deg,#eff6ff,#eef2ff_55%,#fdf2f8)] shadow-[0_0_0_1px_rgba(125,211,252,0.6),0_18px_35px_rgba(186,230,253,0.35)]";
+  const incomingBubbleClass = isDark
+    ? "border border-violet-400/14 bg-[linear-gradient(180deg,rgba(25,29,66,0.96),rgba(22,25,58,0.92))] text-slate-100"
+    : "border border-slate-200 bg-white text-slate-800";
+  const typingBubbleClass = isDark
+    ? "border border-violet-400/18 bg-[linear-gradient(180deg,rgba(25,29,66,0.96),rgba(22,25,58,0.92))]"
+    : "border border-slate-200 bg-white";
+  const composerWrapClass = isDark ? "bg-slate-950/35" : "bg-slate-50/70";
+  const composerShellClass = isDark
+    ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(22,25,58,0.95),rgba(25,21,62,0.9))]"
+    : "border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)]";
+  const profileStripClass = isDark
+    ? "border-violet-400/14 bg-white/4"
+    : "border-slate-200 bg-slate-50";
+  const replyBoxClass = isDark
+    ? "border-violet-400/18 bg-slate-950/35"
+    : "border-slate-200 bg-white";
+  const replyPlaceholderClass = isDark
+    ? "min-h-[6rem] w-full resize-none bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+    : "min-h-[6rem] w-full resize-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400";
+  const addImageButtonClass = isDark
+    ? "inline-flex items-center gap-2 rounded-full border border-violet-400/24 bg-white/6 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+    : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100";
 
   return (
     <section className="px-4 py-8 md:px-6">
-      <div className="relative overflow-hidden rounded-[34px] border border-violet-400/25 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.18),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.18),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(244,114,182,0.12),transparent_24%),linear-gradient(180deg,#090b1e_0%,#0f1130_45%,#121538_100%)] p-4 shadow-[0_28px_90px_rgba(2,6,23,0.58)] md:p-5">
-        <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_22%,transparent_76%,rgba(56,189,248,0.04))]" />
+      <div className={`relative overflow-hidden rounded-[34px] border p-4 md:p-5 ${shellClass}`}>
+        <div className={`pointer-events-none absolute inset-0 ${shellOverlayClass}`} />
 
-        <div className="relative mb-5 flex flex-col gap-3 rounded-[28px] border border-violet-400/20 bg-[linear-gradient(135deg,rgba(35,41,91,0.92),rgba(25,22,60,0.9)_55%,rgba(41,18,63,0.88))] px-5 py-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_40px_rgba(0,0,0,0.22)] md:flex-row md:items-center md:justify-between">
+        <div className={`relative mb-5 flex flex-col gap-3 rounded-[28px] border px-5 py-5 md:flex-row md:items-center md:justify-between ${headerClass}`}>
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-300">
               Support center
             </p>
-            <h1 className="mt-3 text-3xl font-black text-white md:text-[2.55rem]">
+            <h1 className={`mt-3 text-3xl font-black md:text-[2.55rem] ${headingClass}`}>
               Realtime customer conversations
             </h1>
           </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/8 px-4 py-2 text-sm font-semibold text-slate-100">
+          <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold ${isDark ? "border-white/10 bg-white/8 text-slate-100" : "border-slate-200 bg-white text-slate-700"}`}>
             <Sparkles size={16} />
             {conversations.length} active conversations
           </div>
         </div>
 
         <div className="relative grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
-          <div className="rounded-[28px] border border-violet-400/25 bg-[linear-gradient(180deg,rgba(16,18,48,0.96),rgba(19,16,54,0.92))] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+          <div className={`rounded-[28px] border p-4 ${panelClass}`}>
             <div className="mb-4 flex items-center gap-3">
               <Headset className="text-sky-300" size={18} />
               <div>
-                <p className="text-sm font-bold text-white">User conversations</p>
-                <p className="text-xs text-slate-400">
+                <p className={`text-sm font-bold ${headingClass}`}>User conversations</p>
+                <p className={`text-xs ${mutedClass}`}>
                   Open any chat to review full history
                 </p>
               </div>
@@ -382,7 +427,7 @@ const SupportChats = () => {
 
             <div className="space-y-3">
               {isLoading ? (
-                <div className="rounded-2xl border border-violet-400/20 bg-slate-950/70 px-4 py-6 text-center text-slate-400">
+                  <div className={`rounded-2xl border px-4 py-6 text-center ${isDark ? "border-violet-400/20 bg-slate-950/70 text-slate-400" : "border-slate-200 bg-white text-slate-500"}`}>
                   Loading support chats...
                 </div>
               ) : conversations.length ? (
@@ -399,14 +444,14 @@ const SupportChats = () => {
                       onClick={() => setSelectedId(item._id)}
                       className={`w-full rounded-[24px] border px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition ${
                         selectedId === item._id
-                          ? "border-sky-400 bg-[linear-gradient(135deg,rgba(17,34,90,0.96),rgba(26,42,96,0.92)_48%,rgba(76,29,149,0.42))] shadow-[0_0_0_1px_rgba(56,189,248,0.18),0_0_24px_rgba(56,189,248,0.38)]"
-                          : "border-violet-400/18 bg-[linear-gradient(180deg,rgba(16,18,44,0.86),rgba(17,15,47,0.84))] hover:border-violet-300/30"
+                          ? listCardSelectedClass
+                          : listCardBaseClass
                       }`}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="truncate text-base font-bold text-white">
+                            <p className={`truncate text-base font-bold ${headingClass}`}>
                               {item.user?.name}
                             </p>
                             <span
@@ -415,7 +460,7 @@ const SupportChats = () => {
                               }`}
                             />
                           </div>
-                          <p className="truncate text-xs text-slate-400">
+                          <p className={`truncate text-xs ${mutedClass}`}>
                             {isOnline ? "Online" : "Offline"}
                           </p>
                         </div>
@@ -425,42 +470,42 @@ const SupportChats = () => {
                           </span>
                         ) : null}
                       </div>
-                      <p className="mt-3 line-clamp-2 text-sm text-slate-200">
+                      <p className={`mt-3 line-clamp-2 text-sm ${isDark ? "text-slate-200" : "text-slate-600"}`}>
                         {item.lastMessage || "No messages yet"}
                       </p>
-                      <p className="mt-3 text-xs text-slate-400">
+                      <p className={`mt-3 text-xs ${mutedClass}`}>
                         {formatTime(item.lastMessageAt)}
                       </p>
                     </button>
                   );
                 })
               ) : (
-                <div className="rounded-2xl border border-dashed border-violet-400/20 px-4 py-8 text-center text-slate-400">
+                  <div className={`rounded-2xl border border-dashed px-4 py-8 text-center ${isDark ? "border-violet-400/20 text-slate-400" : "border-slate-300 text-slate-500"}`}>
                   No support conversations yet.
                 </div>
               )}
             </div>
 
-            <div className="mt-14 flex items-center justify-between rounded-[22px] border border-violet-400/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(236,72,153,0.08))] px-4 py-3 text-sm">
-              <div className="flex items-center gap-2 text-slate-300">
+            <div className={`mt-14 flex items-center justify-between rounded-[22px] border px-4 py-3 text-sm ${isDark ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(236,72,153,0.08))]" : "border-slate-200 bg-white/80"}`}>
+              <div className={`flex items-center gap-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                 Online Support
               </div>
-              <span className="text-slate-400">{conversations.length} chats</span>
+              <span className={mutedClass}>{conversations.length} chats</span>
             </div>
           </div>
 
-          <div className="flex min-h-[42rem] flex-col rounded-[28px] border border-violet-400/25 bg-[linear-gradient(180deg,rgba(16,18,48,0.96),rgba(19,16,54,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
-            <div className="border-b border-violet-400/16 px-5 py-4">
+          <div className={`flex min-h-[42rem] flex-col rounded-[28px] border ${panelClass}`}>
+            <div className={`border-b px-5 py-4 ${panelBorderClass}`}>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose-300">
                     Selected chat
                   </p>
-                  <h2 className="mt-2 text-2xl font-black text-white">
+                  <h2 className={`mt-2 text-2xl font-black ${headingClass}`}>
                     {conversation?.user?.name || "Choose a conversation"}
                   </h2>
-                  <div className="mt-1 flex items-center gap-2 text-sm text-slate-400">
+                  <div className={`mt-1 flex items-center gap-2 text-sm ${mutedClass}`}>
                     <span
                       className={`h-2.5 w-2.5 rounded-full ${
                         isSelectedUserOnline ? "bg-emerald-400" : "bg-slate-500"
@@ -501,8 +546,8 @@ const SupportChats = () => {
                       className={`max-w-[88%] rounded-[24px] px-5 py-4 shadow-[0_14px_34px_rgba(2,6,23,0.24)] ${
                         message.senderRole === "vendor"
                           ? "ml-auto bg-[linear-gradient(135deg,#1d4ed8_0%,#2563eb_58%,#7c3aed_100%)] text-white"
-                          : "border border-violet-400/14 bg-[linear-gradient(180deg,rgba(25,29,66,0.96),rgba(22,25,58,0.92))] text-slate-100"
-                      }`}
+                          : incomingBubbleClass
+                        }`}
                     >
                       {message.text ? (
                         <p className="text-sm leading-7">{message.text}</p>
@@ -518,7 +563,9 @@ const SupportChats = () => {
                                 className={`block overflow-hidden rounded-[18px] border ${
                                   message.senderRole === "vendor"
                                     ? "border-white/20 bg-white/10"
-                                    : "border-violet-400/16 bg-slate-950/50"
+                                    : isDark
+                                      ? "border-violet-400/16 bg-slate-950/50"
+                                      : "border-slate-200 bg-slate-50"
                                 }`}
                               >
                                 <img
@@ -534,7 +581,7 @@ const SupportChats = () => {
                         className={`mt-3 text-xs ${
                           message.senderRole === "vendor"
                             ? "text-white/80"
-                            : "text-slate-400"
+                            : mutedClass
                         }`}
                       >
                         {formatTime(message.createdAt)}
@@ -542,7 +589,7 @@ const SupportChats = () => {
                     </div>
                   ))}
                   {userTyping ? (
-                    <div className="max-w-[12rem] rounded-[24px] border border-violet-400/18 bg-[linear-gradient(180deg,rgba(25,29,66,0.96),rgba(22,25,58,0.92))] px-4 py-4 shadow-sm">
+                      <div className={`max-w-[12rem] rounded-[24px] px-4 py-4 shadow-sm ${typingBubbleClass}`}>
                       <div className="flex items-center gap-1.5">
                         {[0, 1, 2].map((dot) => (
                           <span
@@ -557,7 +604,7 @@ const SupportChats = () => {
                   </>
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <div className="rounded-[28px] border border-dashed border-violet-400/20 bg-slate-950/60 px-6 py-10 text-center text-slate-400">
+                    <div className={`rounded-[28px] border border-dashed px-6 py-10 text-center ${isDark ? "border-violet-400/20 bg-slate-950/60 text-slate-400" : "border-slate-300 bg-white text-slate-500"}`}>
                       {selectedId
                         ? "No messages yet in this conversation."
                         : "Choose a conversation to read and reply."}
@@ -566,17 +613,17 @@ const SupportChats = () => {
                 )}
               </div>
 
-            <div className="border-t border-violet-400/16 bg-slate-950/35 px-4 py-4 md:px-5">
-              <div className="rounded-[28px] border border-violet-400/18 bg-[linear-gradient(180deg,rgba(22,25,58,0.95),rgba(25,21,62,0.9))] p-3">
-                <div className="mb-3 flex items-center gap-3 rounded-[22px] border border-violet-400/14 bg-white/4 px-3 py-3">
+            <div className={`border-t px-4 py-4 md:px-5 ${panelBorderClass} ${composerWrapClass}`}>
+              <div className={`rounded-[28px] border p-3 ${composerShellClass}`}>
+                <div className={`mb-3 flex items-center gap-3 rounded-[22px] border px-3 py-3 ${profileStripClass}`}>
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#38bdf8,#8b5cf6)] text-base font-black text-white">
                     {conversation?.user?.name?.charAt(0)?.toUpperCase() || "U"}
                   </div>
                   <div>
-                    <p className="text-lg font-bold text-white">
+                    <p className={`text-lg font-bold ${headingClass}`}>
                       {conversation?.user?.name || "Customer"}
                     </p>
-                    <div className="mt-1 flex items-center gap-2 text-sm text-slate-400">
+                    <div className={`mt-1 flex items-center gap-2 text-sm ${mutedClass}`}>
                       <span
                         className={`h-2.5 w-2.5 rounded-full ${
                           isSelectedUserOnline ? "bg-emerald-400" : "bg-slate-500"
@@ -589,13 +636,13 @@ const SupportChats = () => {
 
                 <div className="flex flex-col gap-3 md:flex-row">
                   <div className="flex-1">
-                    <div className="rounded-[24px] border border-violet-400/18 bg-slate-950/35 px-4 py-4 focus-within:border-sky-400">
+                    <div className={`rounded-[24px] border px-4 py-4 focus-within:border-sky-400 ${replyBoxClass}`}>
                       <textarea
                         value={reply}
                         onChange={(event) => handleReplyChange(event.target.value)}
                         onBlur={() => emitTyping(false)}
                         placeholder="Write a professional reply for the customer..."
-                        className="min-h-[6rem] w-full resize-none bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
+                        className={replyPlaceholderClass}
                       />
                       {attachmentPreview ? (
                         <div className="relative mt-3 inline-flex overflow-hidden rounded-[18px] border border-violet-400/18 bg-slate-950">
@@ -624,7 +671,7 @@ const SupportChats = () => {
                         <button
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
-                          className="inline-flex items-center gap-2 rounded-full border border-violet-400/24 bg-white/6 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
+                          className={addImageButtonClass}
                         >
                           <ImagePlus size={16} />
                           Add image

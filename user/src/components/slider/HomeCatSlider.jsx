@@ -11,10 +11,6 @@ const HomeCatSlider = () => {
   const { data: categories, isLoading } = useGetVendorCategoriesQuery();
   const categoryData = categories?.[0]?.categories || [];
 
-  const toggleArrowIcon = () => {
-    setArrowIcon(!arrowIcon);
-  };
-
   const getCategoryRoute = (categoryName = "") => {
     const normalized = categoryName.trim().toLowerCase();
 
@@ -36,28 +32,12 @@ const HomeCatSlider = () => {
   };
 
   const scrollRef = useRef(null);
-  let touchStartX = 0;
-  let touchEndX = 0;
 
   const scroll = (direction) => {
     const el = scrollRef.current;
     if (!el) return;
-    const distance = 200 * (direction === "left" ? -1 : 1);
+    const distance = Math.max(180, el.clientWidth * 0.72) * (direction === "left" ? -1 : 1);
     el.scrollBy({ left: distance, behavior: "smooth" });
-  };
-
-  const handleTouchStart = (e) => {
-    touchStartX = e.touches[0].clientX;
-  };
-
-  const handleTouchMove = (e) => {
-    touchEndX = e.touches[0].clientX;
-  };
-
-  const handleTouchEnd = () => {
-    const threshold = 50;
-    if (touchStartX - touchEndX > threshold) scroll("right");
-    if (touchEndX - touchStartX > threshold) scroll("left");
   };
 
   const handleCategoryNavigate = (categoryName) => {
@@ -68,8 +48,8 @@ const HomeCatSlider = () => {
 
   return (
     <div
-      onMouseEnter={toggleArrowIcon}
-      onMouseLeave={toggleArrowIcon}
+      onMouseEnter={() => setArrowIcon(true)}
+      onMouseLeave={() => setArrowIcon(false)}
       className="relative w-full my-8"
     >
         <button
@@ -84,10 +64,13 @@ const HomeCatSlider = () => {
 
         <div
           ref={scrollRef}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          className="flex gap-4 overflow-x-auto scroll-smooth pb-3 pr-[30%] sm:pr-4 no-scrollbar"
+          className="flex gap-3 overflow-x-auto scroll-smooth px-1 pb-3 pr-6 no-scrollbar sm:gap-4 sm:pr-4"
+          style={{
+            WebkitOverflowScrolling: "touch",
+            touchAction: "pan-x pinch-zoom",
+            overscrollBehaviorX: "contain",
+            scrollSnapType: "x proximity",
+          }}
         >
           {isLoading || categoryData.length === 0
             ? Array.from({ length: 11 }).map((_, idx) => (
@@ -99,8 +82,9 @@ const HomeCatSlider = () => {
                   onMouseEnter={() => setHover(idx)}
                   onMouseLeave={() => setHover(null)}
                   onClick={() => handleCategoryNavigate(item.name)}
-                  className={`flex-shrink-0 w-28 sm:w-32 md:w-44 h-32 sm:h-36 bg-white rounded-lg shadow-md p-2 cursor-pointer
-                    ${idx === categoryData.length - 1 ? "mr-[25%] sm:mr-0" : ""}`}
+                  className={`flex-shrink-0 w-[6.8rem] sm:w-32 md:w-44 h-[7.6rem] sm:h-36 rounded-lg bg-white p-2 shadow-sm transition-transform duration-200 cursor-pointer will-change-transform
+                    ${idx === categoryData.length - 1 ? "mr-3 sm:mr-0" : ""}`}
+                  style={{ scrollSnapAlign: "start" }}
                   role="link"
                   tabIndex={0}
                   onKeyDown={(event) => {
@@ -140,7 +124,10 @@ const HomeCatSlider = () => {
 export default HomeCatSlider;
 
 const SkeletonCard = () => (
-  <div className="flex-shrink-0 w-28 sm:w-32 md:w-44 h-32 sm:h-36 bg-gray-200 rounded-lg shadow-md p-2 animate-pulse">
+  <div
+    className="flex-shrink-0 w-[6.8rem] sm:w-32 md:w-44 h-[7.6rem] sm:h-36 rounded-lg bg-gray-200 p-2 animate-pulse"
+    style={{ scrollSnapAlign: "start" }}
+  >
     <div className="flex flex-col items-center justify-center h-full gap-3 w-full">
       <div className="h-8 w-8 md:h-14 md:w-14 bg-gray-300 rounded-full" />
       <div className="h-4 w-3/4 bg-gray-300 rounded" />
