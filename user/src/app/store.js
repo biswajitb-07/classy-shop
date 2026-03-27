@@ -12,6 +12,7 @@ import { cartApi } from "../features/api/cartApi.js";
 import { categoryApi } from "../features/api/categoryApi.js";
 import { electronicApi } from "../features/api/electronicApi.js";
 import { orderApi } from "../features/api/orderApi.js";
+import { supportApi } from "../features/api/supportApi.js";
 
 export const appStore = configureStore({
   reducer: rootRedcuer,
@@ -28,7 +29,8 @@ export const appStore = configureStore({
       cartApi.middleware,
       categoryApi.middleware,
       electronicApi.middleware,
-      orderApi.middleware
+      orderApi.middleware,
+      supportApi.middleware
     ),
 });
 

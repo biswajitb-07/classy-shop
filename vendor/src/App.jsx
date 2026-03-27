@@ -36,6 +36,7 @@ import OrderDetailsPage from "./pages/Vendor/vedorPage/OrderDetailsPage";
 import Users from "./pages/Vendor/vedorPage/community/Users";
 import Vendors from "./pages/Vendor/vedorPage/community/Vendors";
 import Settings from "./pages/Vendor/Settings";
+import SupportChats from "./pages/Vendor/vedorPage/SupportChats";
 import { ThemeProvider } from "./context/ThemeContext";
 
 const appRouter = createBrowserRouter([
@@ -166,6 +167,10 @@ const appRouter = createBrowserRouter([
       {
         path: "/settings",
         element: <Settings />,
+      },
+      {
+        path: "/support-chats",
+        element: <SupportChats />,
       },
     ],
   },

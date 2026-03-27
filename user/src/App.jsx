@@ -71,6 +71,10 @@ const OrderDetailsPage = lazy(
 const SearchResultsPage = lazy(
   () => import("./pages/User/SearchResultsPage.jsx"),
 );
+const InfoPage = lazy(() => import("./pages/User/support/InfoPage.jsx"));
+const SupportChatPage = lazy(
+  () => import("./pages/User/support/SupportChatPage.jsx"),
+);
 
 const appRouter = createBrowserRouter([
   {
@@ -112,6 +116,18 @@ const appRouter = createBrowserRouter([
       {
         path: "/search",
         element: <SearchResultsPage />,
+      },
+      {
+        path: "/company/:slug",
+        element: <InfoPage />,
+      },
+      {
+        path: "/support",
+        element: (
+          <UserRoute>
+            <SupportChatPage />
+          </UserRoute>
+        ),
       },
       {
         path: "/product-wishlist",

@@ -80,7 +80,7 @@ const Footer = () => {
           className="text-center text-gray-500 text-sm"
           variants={textVariants}
         >
-          <p>© 2025 - Ecommerce software by PrestaShop™</p>
+          <p>© 2025 - Ecommerce software by biswajit07</p>
         </motion.div>
       </div>
     </motion.footer>

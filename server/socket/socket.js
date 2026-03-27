@@ -1,5 +1,12 @@
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
+import {
+  areSupportVendorsOnline,
+  isSupportUserOnline,
+  registerSupportRealtime,
+  supportRooms,
+  supportVendorRoom,
+} from "./supportRealtime.js";
 
 let io;
 
@@ -21,15 +28,46 @@ export const initSocket = (httpServer) => {
 
   io.use((socket, next) => {
     try {
-      const cookies = parseCookies(socket.handshake.headers.cookie || "");
-      const token = cookies.token1;
+      const socketToken = socket.handshake.auth?.socketToken;
 
-      if (!token) {
+      if (socketToken) {
+        const decoded = jwt.verify(socketToken, process.env.SECRET_KEY);
+
+        if (decoded?.scope !== "socket") {
+          return next(new Error("Unauthorized"));
+        }
+
+        if (decoded?.role === "vendor" && decoded?.vendorId) {
+          socket.data.vendorId = decoded.vendorId;
+          socket.data.role = "vendor";
+          return next();
+        }
+
+        if (decoded?.role === "user" && decoded?.userId) {
+          socket.data.userId = decoded.userId;
+          socket.data.role = "user";
+          return next();
+        }
+      }
+
+      const cookies = parseCookies(socket.handshake.headers.cookie || "");
+      const vendorToken = cookies.vendorAccessToken || cookies.token1;
+      const userToken = cookies.accessToken;
+
+      if (!vendorToken && !userToken) {
         return next(new Error("Unauthorized"));
       }
 
-      const decoded = jwt.verify(token, process.env.SECRET_KEY);
-      socket.data.vendorId = decoded.vendorId;
+      if (vendorToken) {
+        const decoded = jwt.verify(vendorToken, process.env.SECRET_KEY);
+        socket.data.vendorId = decoded.vendorId;
+        socket.data.role = "vendor";
+        return next();
+      }
+
+      const decoded = jwt.verify(userToken, process.env.SECRET_KEY);
+      socket.data.userId = decoded.userId;
+      socket.data.role = "user";
       return next();
     } catch (error) {
       return next(new Error("Unauthorized"));
@@ -37,18 +75,25 @@ export const initSocket = (httpServer) => {
   });
 
   io.on("connection", (socket) => {
-    const vendorId = socket.data.vendorId;
-    if (!vendorId) {
-      socket.disconnect(true);
+    if (
+      (socket.data.role === "vendor" && socket.data.vendorId) ||
+      (socket.data.role === "user" && socket.data.userId)
+    ) {
+      if (socket.data.role === "vendor" && socket.data.vendorId) {
+        socket.join(`vendor:${socket.data.vendorId}`);
+      }
+
+      registerSupportRealtime(io, socket);
       return;
     }
 
-    socket.join(`vendor:${vendorId}`);
-    socket.join("vendors:all");
+    socket.disconnect(true);
   });
 
   return io;
 };
+
+export const isUserOnline = (userId) => isSupportUserOnline(userId);
 
 export const getIO = () => io;
 
@@ -74,3 +119,46 @@ export const emitVendorSummaryUpdate = () => {
     at: Date.now(),
   });
 };
+
+export const emitSupportMessageCreated = ({
+  conversationId,
+  userId,
+  message,
+}) => {
+  if (!io) return;
+
+  io.to(supportVendorRoom).emit("support:message", {
+    conversationId: String(conversationId),
+    message,
+    at: Date.now(),
+  });
+
+  if (userId) {
+    io.to(supportRooms.user(userId)).emit("support:message", {
+      conversationId: String(conversationId),
+      message,
+      at: Date.now(),
+    });
+  }
+};
+
+export const emitSupportConversationRefresh = ({
+  conversationId,
+  userId,
+}) => {
+  if (!io) return;
+
+  io.to(supportVendorRoom).emit("support:conversation:update", {
+    conversationId: String(conversationId),
+    at: Date.now(),
+  });
+
+  if (userId) {
+    io.to(supportRooms.user(userId)).emit("support:conversation:update", {
+      conversationId: String(conversationId),
+      at: Date.now(),
+    });
+  }
+};
+
+export const areVendorsOnline = () => areSupportVendorsOnline();

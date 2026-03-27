@@ -10,6 +10,7 @@ import {
 } from "../../utils/cloudinary.js";
 import {
   clearUserAuthCookies,
+  signSocketToken,
   setUserAuthCookies,
 } from "../../utils/authCookies.js";
 import { emitVendorSummaryUpdate } from "../../socket/socket.js";
@@ -141,6 +142,23 @@ export const logout = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to logout",
+    });
+  }
+};
+
+export const getUserSocketAuth = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      socketToken: signSocketToken({
+        userId: req.id,
+        role: "user",
+      }),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create socket auth token",
     });
   }
 };

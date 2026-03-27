@@ -9,6 +9,7 @@ import CategoryPanel from "../components/category/CategoryPanel.jsx";
 import { useEffect, useState } from "react";
 import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
 import ScrollToTop from "../components/router/ScrollToTop.jsx";
+import AIChatbotWidget from "../components/ai/AIChatbotWidget.jsx";
 
 const MainLayout = () => {
   const [prevScrollPos, setPrevScrollPos] = useState(0);
@@ -65,6 +66,7 @@ const MainLayout = () => {
       >
         <Outlet />
       </div>
+      <AIChatbotWidget />
 
       <div className="user-shell-muted transition-colors duration-300">
         <Features />

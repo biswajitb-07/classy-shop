@@ -8,6 +8,8 @@ import {
 } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../../context/ThemeContext.jsx";
+import { Link } from "react-router-dom";
+import { companyPageList } from "../../utils/siteSupport.js";
 
 const Contact = () => {
   const [isChecked, setIsChecked] = useState(false);
@@ -188,7 +190,11 @@ const Contact = () => {
                   <li>Prices Drop</li>
                   <li>New Products</li>
                   <li>Best Sales</li>
-                  <li>Contact Us</li>
+                  <li>
+                    <Link to="/support" className="transition hover:text-red-500">
+                      Support
+                    </Link>
+                  </li>
                   <li>Sitemap</li>
                   <li>Stores</li>
                 </ul>
@@ -225,12 +231,16 @@ const Contact = () => {
                 className="overflow-hidden"
               >
                 <ul className="space-y-2 text-gray-600">
-                  <li>Delivery</li>
-                  <li>Legal Notice</li>
-                  <li>Terms And Conditions Of Use</li>
-                  <li>About Us</li>
-                  <li>Secure Payment</li>
-                  <li>Login</li>
+                  {companyPageList.map((item) => (
+                    <li key={item.slug}>
+                      <Link
+                        to={`/company/${item.slug}`}
+                        className="transition hover:text-red-500"
+                      >
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
                 </ul>
               </motion.div>
             )}

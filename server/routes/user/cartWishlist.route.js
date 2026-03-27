@@ -8,6 +8,7 @@ import {
   removeFromWishlist,
   getWishlist,
 } from "../../controllers/user/cartWishlist.controller.js";
+import { getAiCatalogChatReply } from "../../controllers/ai/ai.controller.js";
 import isAuthenticatedUser from "../../middleware/user/isAuthenticatedUser.js";
 
 const cartWishlistRouter = express.Router();
@@ -20,5 +21,6 @@ cartWishlistRouter.get("/cart", isAuthenticatedUser, getCart);
 cartWishlistRouter.post("/wishlist/add", isAuthenticatedUser, addToWishlist);
 cartWishlistRouter.delete("/wishlist/remove", isAuthenticatedUser, removeFromWishlist);
 cartWishlistRouter.get("/wishlist", isAuthenticatedUser, getWishlist);
+cartWishlistRouter.post("/ai-chat", getAiCatalogChatReply);
 
 export default cartWishlistRouter;

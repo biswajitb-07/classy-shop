@@ -11,6 +11,7 @@ import {
 } from "../../utils/cloudinary.js";
 import {
   clearVendorAuthCookies,
+  signSocketToken,
   setVendorAuthCookies,
 } from "../../utils/authCookies.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
@@ -143,6 +144,23 @@ export const logout = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to logout",
+    });
+  }
+};
+
+export const getVendorSocketAuth = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      socketToken: signSocketToken({
+        vendorId: req.id,
+        role: "vendor",
+      }),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create socket auth token",
     });
   }
 };

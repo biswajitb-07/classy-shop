@@ -13,6 +13,7 @@ import { cartApi } from "../features/api/cartApi.js";
 import { categoryApi } from "../features/api/categoryApi.js";
 import { electronicApi } from "../features/api/electronicApi.js";
 import { orderApi } from "../features/api/orderApi.js";
+import { supportApi } from "../features/api/supportApi.js";
 
 const rootRedcuer = combineReducers({
   [authApi.reducerPath]: authApi.reducer,
@@ -27,6 +28,7 @@ const rootRedcuer = combineReducers({
   [cartApi.reducerPath]: cartApi.reducer,
   [categoryApi.reducerPath]: categoryApi.reducer,
   [orderApi.reducerPath]: orderApi.reducer,
+  [supportApi.reducerPath]: supportApi.reducer,
   auth: authReducer,
 });
 export default rootRedcuer;

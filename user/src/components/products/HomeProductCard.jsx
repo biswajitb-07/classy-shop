@@ -14,6 +14,7 @@ import {
 import AuthButtonLoader from "../Loader/AuthButtonLoader";
 import ProductModal from "./ProductModal";
 import { useSelector } from "react-redux";
+import { recordProductView } from "../../utils/aiShopping.js";
 
 const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -244,7 +245,16 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
       }
     }
   };
-  
+
+  const goToProduct = (product) => {
+    recordProductView(product);
+    navigate(
+      `/${product.category.toLowerCase()}/${product.category.toLowerCase()}-product-details/${
+        product._id
+      }`
+    );
+  };
+
   return (
     <>
       <div
@@ -279,13 +289,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
                 {/* images */}
                 <div className="relative overflow-hidden rounded-t-xl">
                   <img
-                    onClick={() =>
-                      navigate(
-                        `/${p.category.toLowerCase()}/${p.category.toLowerCase()}-product-details/${
-                          p._id
-                        }`
-                      )
-                    }
+                    onClick={() => goToProduct(p)}
                     src={p.image?.[0] || "/fallback-image.jpg"}
                     alt={p.name}
                     className="h-56 w-full object-cover object-top transition-opacity duration-700 ease-linear group-hover/card:opacity-0"
@@ -293,13 +297,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
 
                   {p.image?.[1] && (
                     <img
-                      onClick={() =>
-                        navigate(
-                          `/${p.category.toLowerCase()}/${p.category.toLowerCase()}-product-details/${
-                            p._id
-                          }`
-                        )
-                      }
+                      onClick={() => goToProduct(p)}
                       src={p.image[1]}
                       alt={p.name}
                       className="absolute inset-0 h-56 w-full object-cover object-top opacity-0 transition-opacity duration-700 ease-linear group-hover/card:opacity-100"
@@ -362,13 +360,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
 
                 {/* info */}
                 <div
-                  onClick={() =>
-                    navigate(
-                      `/${p.category.toLowerCase()}/${p.category.toLowerCase()}-product-details/${
-                        p._id
-                      }`
-                    )
-                  }
+                  onClick={() => goToProduct(p)}
                   className="p-4"
                 >
                   <p className="text-sm font-semibold text-gray-600">

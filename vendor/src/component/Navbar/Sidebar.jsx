@@ -8,6 +8,7 @@ import { IoBagCheckOutline } from "react-icons/io5";
 import { FiUsers } from "react-icons/fi";
 import { FiSettings } from "react-icons/fi";
 import { HiOutlineBuildingStorefront } from "react-icons/hi2";
+import { Headphones } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toggleSidebar } from "../../features/authSlice";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -410,6 +411,16 @@ const Sidebar = () => {
             >
               <IoBagCheckOutline size={20} />
               Orders
+            </li>
+
+            <li
+              onClick={() => navigateTo("/support-chats")}
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                location.pathname === "/support-chats"
+              )}`}
+            >
+              <Headphones size={18} />
+              Support Chats
             </li>
 
             <li

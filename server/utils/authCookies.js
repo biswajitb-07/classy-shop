@@ -22,6 +22,18 @@ export const signVendorAccessToken = (vendorId) =>
 export const signVendorRefreshToken = (vendorId) =>
   jwt.sign({ vendorId }, process.env.SECRET_KEY, { expiresIn: "30d" });
 
+export const signSocketToken = ({ userId, vendorId, role }) =>
+  jwt.sign(
+    {
+      userId: userId || undefined,
+      vendorId: vendorId || undefined,
+      role,
+      scope: "socket",
+    },
+    process.env.SECRET_KEY,
+    { expiresIn: "10m" }
+  );
+
 export const setUserAccessCookie = (res, userId) =>
   res.cookie("accessToken", signUserAccessToken(userId), {
     ...baseCookieOptions,
