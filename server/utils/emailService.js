@@ -1,4 +1,4 @@
-import transporter from "./nodemailer.js";
+import { Resend } from "resend";
 import {
   getOrderOutForDeliveryEmailTemplate,
   getOrderPlacedEmailTemplate,
@@ -8,101 +8,58 @@ import {
 } from "./emailTemplates.js";
 
 const cleanEnv = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
-const BREVO_API_URL = "https://api.brevo.com/v3/smtp/email";
+const resendApiKey = cleanEnv(process.env.RESEND_API_KEY);
+const resend = resendApiKey ? new Resend(resendApiKey) : null;
 
 const getFromAddress = () => {
-  const senderEmail =
-    cleanEnv(process.env.SENDER_EMAIL) ||
-    cleanEnv(process.env.SMTP_SENDER) ||
-    cleanEnv(process.env.SMTP_USER);
+  const senderEmail = cleanEnv(process.env.SENDER_EMAIL);
 
   return senderEmail ? `Classy Store <${senderEmail}>` : undefined;
 };
 
-const parseSender = () => {
-  const senderEmail =
-    cleanEnv(process.env.SENDER_EMAIL) ||
-    cleanEnv(process.env.SMTP_SENDER) ||
-    cleanEnv(process.env.SMTP_USER);
+const sendViaResendApi = async ({ to, subject, html }) => {
+  const from = getFromAddress();
 
-  return senderEmail
-    ? {
-        name: "Classy Store",
-        email: senderEmail,
-      }
-    : null;
+  if (!resend || !from) {
+    throw new Error(
+      "Resend email is not configured. Please set RESEND_API_KEY and SENDER_EMAIL."
+    );
+  }
+
+  return resend.emails.send({
+    from,
+    to: [to],
+    subject,
+    html,
+  });
 };
 
-const sendViaBrevoApi = async ({ to, subject, html }) => {
-  const apiKey = cleanEnv(process.env.BREVO_API_KEY || process.env.BREVO_KEY);
-  const sender = parseSender();
-
-  if (!apiKey || !sender) {
-    throw new Error(
-      "Brevo API email is not configured. Please set BREVO_API_KEY and SENDER_EMAIL."
-    );
+export const verifyEmailTransport = async () => {
+  if (!resendApiKey) {
+    console.warn("Email transport skipped: RESEND_API_KEY is missing.");
+    return false;
   }
 
-  const response = await fetch(BREVO_API_URL, {
-    method: "POST",
-    headers: {
-      accept: "application/json",
-      "content-type": "application/json",
-      "api-key": apiKey,
-    },
-    body: JSON.stringify({
-      sender,
-      to: [{ email: to }],
-      subject,
-      htmlContent: html,
-    }),
-  });
-
-  if (!response.ok) {
-    let details = "";
-
-    try {
-      details = await response.text();
-    } catch {
-      details = "";
-    }
-
-    const error = new Error(
-      `Brevo API request failed with status ${response.status}${details ? `: ${details}` : ""}`
-    );
-    error.responseCode = response.status;
-    error.response = details;
-    throw error;
+  if (!getFromAddress()) {
+    console.warn("Email transport skipped: SENDER_EMAIL is missing.");
+    return false;
   }
 
-  return response.json().catch(() => ({}));
+  console.log("Email transport ready via Resend API.");
+  return true;
 };
 
 const sendEmail = async ({ to, subject, html }) => {
   const from = getFromAddress();
-  const smtpUser = cleanEnv(process.env.SMTP_USER);
-  const smtpPass = cleanEnv(process.env.SMTP_PASS);
-  const brevoApiKey = cleanEnv(process.env.BREVO_API_KEY || process.env.BREVO_KEY);
 
-  if (!from || (!brevoApiKey && (!smtpUser || !smtpPass))) {
+  if (!from || !resendApiKey) {
     throw new Error(
-      "Email is not configured. Please set SENDER_EMAIL and either SMTP_USER/SMTP_PASS or BREVO_API_KEY."
+      "Email is not configured. Please set RESEND_API_KEY and SENDER_EMAIL."
     );
   }
 
   try {
-    if (brevoApiKey) {
-      return await sendViaBrevoApi({ to, subject, html });
-    }
-
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject,
-      html,
-    });
-
-    return info;
+    return await sendViaResendApi({ to, subject, html });
   } catch (error) {
     console.error("Email send failed:", {
       to,
@@ -110,13 +67,10 @@ const sendEmail = async ({ to, subject, html }) => {
       from,
       message: error?.message,
       code: error?.code,
+      name: error?.name,
       response: error?.response,
       responseCode: error?.responseCode,
     });
-
-    if (brevoApiKey && (smtpUser || smtpPass)) {
-      throw error;
-    }
 
     throw error;
   }

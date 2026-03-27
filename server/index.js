@@ -29,7 +29,7 @@ import wellnessRouter from "./routes/vendor/wellness/wellness.route.js";
 import jewelleryBrandRouter from "./routes/vendor/jewellery/jewelleryBrand.route.js";
 import jewelleryRouter from "./routes/vendor/jewellery/jewellery.route.js";
 import { initSocket } from "./socket/socket.js";
-import { verifyEmailTransport } from "./utils/nodemailer.js";
+import { verifyEmailTransport } from "./utils/emailService.js";
 
 const app = express();
 const httpServer = createServer(app);

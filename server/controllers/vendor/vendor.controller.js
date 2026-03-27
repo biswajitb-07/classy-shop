@@ -22,6 +22,9 @@ import {
   sendWelcomeEmail,
 } from "../../utils/emailService.js";
 
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 export const createVendor = async (req, res) => {
   try {
     const payload = {
@@ -39,8 +42,11 @@ export const createVendor = async (req, res) => {
     }
 
     const { name, email, password, phone } = validatedData.data;
+    const normalizedEmail = normalizeEmail(email);
 
-    const existedVendor = await Vendor.findOne({ email });
+    const existedVendor = await Vendor.findOne({
+      email: new RegExp(`^${escapeRegex(normalizedEmail)}$`, "i"),
+    });
     if (existedVendor) {
       return res.status(409).json({
         success: false,
@@ -53,7 +59,7 @@ export const createVendor = async (req, res) => {
 
     const newVendor = new Vendor({
       name,
-      email,
+      email: normalizedEmail,
       password: hashPassword,
       phone,
       welcomeMailSent: false,
@@ -103,8 +109,11 @@ export const login = async (req, res) => {
     }
 
     const { email, password } = validatedData.data;
+    const normalizedEmail = normalizeEmail(email);
 
-    const vendor = await Vendor.findOne({ email });
+    const vendor = await Vendor.findOne({
+      email: new RegExp(`^${escapeRegex(normalizedEmail)}$`, "i"),
+    });
     if (!vendor) {
       return res.status(401).json({
         success: false,
