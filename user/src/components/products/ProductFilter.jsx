@@ -1,34 +1,41 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { FaStar } from "react-icons/fa";
+import { FiFilter, FiRefreshCw, FiSliders } from "react-icons/fi";
 import { useTheme } from "../../context/ThemeContext.jsx";
+
+const MAX_PRICE = 60000;
 
 const ProductFilter = ({ initialFilters, onApply, onClear }) => {
   const { isDark } = useTheme();
   const [categories, setCategories] = useState(initialFilters.categories || []);
   const [minPrice, setMinPrice] = useState(initialFilters.minPrice ?? 0);
-  const [maxPrice, setMaxPrice] = useState(initialFilters.maxPrice ?? 60000);
+  const [maxPrice, setMaxPrice] = useState(initialFilters.maxPrice ?? MAX_PRICE);
   const [ratings, setRatings] = useState(initialFilters.ratings || []);
 
   useEffect(() => {
     setCategories(initialFilters.categories || []);
     setMinPrice(initialFilters.minPrice ?? 0);
-    setMaxPrice(initialFilters.maxPrice ?? 60000);
+    setMaxPrice(initialFilters.maxPrice ?? MAX_PRICE);
     setRatings(initialFilters.ratings || []);
   }, [initialFilters]);
 
-  const toggleRating = (r) =>
-    setRatings((p) => (p.includes(r) ? p.filter((x) => x !== r) : [...p, r]));
+  const toggleRating = (rating) => {
+    setRatings((prev) =>
+      prev.includes(rating)
+        ? prev.filter((value) => value !== rating)
+        : [...prev, rating].sort((a, b) => b - a)
+    );
+  };
 
   const handleClear = () => {
     setCategories([]);
     setMinPrice(0);
-    setMaxPrice(60000);
+    setMaxPrice(MAX_PRICE);
     setRatings([]);
     onClear();
   };
 
-  const handleApply = (e) => {
-    e.preventDefault();
+  const handleApply = () => {
     onApply({
       categories,
       minPrice: Number(minPrice),
@@ -37,232 +44,273 @@ const ProductFilter = ({ initialFilters, onApply, onClear }) => {
     });
   };
 
-  const panelSurface = isDark
-    ? "bg-slate-900 border-slate-700"
-    : "bg-white border-gray-100";
-  const cardSurface = isDark ? "bg-slate-800/80" : "bg-gray-50";
-  const headingText = isDark ? "text-white" : "text-gray-800";
-  const bodyText = isDark ? "text-slate-300" : "text-gray-600";
-  const valueText = isDark ? "text-slate-100" : "text-gray-700";
-  const mutedText = isDark ? "text-slate-400" : "text-gray-500";
-  const rangeTrack = isDark ? "bg-slate-700" : "bg-gray-200";
-  const summarySurface = isDark
-    ? "bg-slate-950 border-slate-700"
-    : "bg-white border-red-100";
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (minPrice > 0 || maxPrice < MAX_PRICE) count += 1;
+    if (ratings.length) count += ratings.length;
+    if (categories.length) count += categories.length;
+    return count;
+  }, [categories.length, maxPrice, minPrice, ratings.length]);
+
+  const selectedRatingLabel = ratings.length
+    ? `${ratings.length} rating filter${ratings.length > 1 ? "s" : ""}`
+    : "No rating filter";
+
+  const shellClass = isDark
+    ? "border-slate-800 bg-slate-950 shadow-[0_28px_60px_rgba(2,6,23,0.55)]"
+    : "border-slate-200 bg-white shadow-[0_24px_60px_rgba(15,23,42,0.12)]";
+  const headerClass = isDark
+    ? "border-slate-800 bg-[radial-gradient(circle_at_top_left,_rgba(34,211,238,0.18),_transparent_38%),linear-gradient(135deg,#020617_0%,#111827_45%,#0f172a_100%)]"
+    : "border-slate-200 bg-[radial-gradient(circle_at_top_left,_rgba(251,113,133,0.18),_transparent_40%),linear-gradient(135deg,#fff7ed_0%,#ffffff_45%,#fff1f2_100%)]";
+  const sectionClass = isDark
+    ? "border-slate-800 bg-slate-900/80"
+    : "border-slate-200 bg-slate-50/90";
+  const titleClass = isDark ? "text-white" : "text-slate-900";
+  const bodyClass = isDark ? "text-slate-300" : "text-slate-600";
+  const mutedClass = isDark ? "text-slate-400" : "text-slate-500";
+  const trackClass = isDark ? "bg-slate-700" : "bg-slate-200";
+  const inlineBoxClass = isDark
+    ? "border-slate-700 bg-slate-950 text-slate-100"
+    : "border-slate-200 bg-white text-slate-700";
+  const rowClass = isDark
+    ? "border-slate-800 bg-slate-950/70 hover:border-slate-700"
+    : "border-slate-200 bg-white hover:border-slate-300";
 
   return (
-    <div className={`${panelSurface} rounded-2xl shadow-xl border overflow-hidden w-full`}>
-      {/* Header */}
-      <div className="bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 p-4 sm:p-6">
-        <h2 className="text-lg sm:text-xl md:text-2xl font-bold text-white flex items-center gap-2">
-          <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 20 20">
-            <path
-              fillRule="evenodd"
-              d="M3 3a1 1 0 011-1h12a1 1 0 011 1v3a1 1 0 01-.293.707L12 11.414V15a1 1 0 01-.293.707l-2 2A1 1 0 018 17v-5.586L3.293 6.707A1 1 0 013 6V3z"
-              clipRule="evenodd"
-            />
-          </svg>
-          Filters
-        </h2>
-        <p className="text-red-100 text-xs sm:text-sm mt-1">Find your perfect product</p>
-      </div>
-
-      <div className="p-4 sm:p-6 space-y-6 sm:space-y-8">
-        {/* Price Filter */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-green-400 to-green-600 rounded-full flex items-center justify-center">
-              <svg
-                className="w-4 h-4 sm:w-5 sm:h-5 text-white"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path d="M8.433 7.418c.155-.103.346-.196.567-.267v1.698a2.305 2.305 0 01-.567-.267C8.07 8.34 8 8.114 8 8c0-.114.07-.34.433-.582zM11 12.849v-1.698c.22.071.412.164.567.267.364.243.433.468.433.582 0 .114-.07.34-.433.582a2.305 2.305 0 01-.567.267z" />
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-13a1 1 0 10-2 0v.092a4.535 4.535 0 00-1.676.662C6.602 6.234 6 7.009 6 8c0 .99.602 1.765 1.324 2.246.48.32 1.054.545 1.676.662v1.941c-.391-.127-.68-.317-.843-.504a1 1 0 10-1.51 1.31c.562.649 1.413 1.076 2.353 1.253V15a1 1 0 102 0v-.092a4.535 4.535 0 001.676-.662C13.398 13.766 14 12.991 14 12c0-.99-.602-1.765-1.324-2.246A4.535 4.535 0 0011 9.092V7.151c.391.127.68.317.843.504a1 1 0 101.511-1.31c-.563-.649-1.413-1.076-2.354-1.253V5z"
-                  clipRule="evenodd"
-                />
-              </svg>
+    <div className={`overflow-hidden rounded-[28px] border ${shellClass}`}>
+      <div className={`border-b px-5 py-5 sm:px-6 sm:py-6 ${headerClass}`}>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-red-500 to-pink-600 text-white shadow-lg shadow-red-500/20">
+                <FiFilter className="h-5 w-5" />
+              </div>
+              <div>
+                <h2 className={`text-xl font-bold sm:text-2xl ${titleClass}`}>
+                  Product Filters
+                </h2>
+                <p className={`mt-1 text-sm ${bodyClass}`}>
+                  Refine results by price and customer rating.
+                </p>
+              </div>
             </div>
-            <h3 className={`text-base sm:text-lg md:text-xl font-semibold ${headingText}`}>
-              Price Range
-            </h3>
           </div>
 
-          <div className={`${cardSurface} rounded-xl p-3 sm:p-4 space-y-3 sm:space-y-4`}>
-            <div>
-              <label className={`text-xs sm:text-sm font-medium ${bodyText} mb-2 block`}>
-                Minimum Price: ₹{minPrice.toLocaleString()}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="60000"
-                value={minPrice}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (v > maxPrice) setMaxPrice(v);
-                  setMinPrice(v);
-                }}
-                className={`w-full h-2 ${rangeTrack} rounded-lg cursor-pointer accent-red-500`}
-              />
-            </div>
-
-            <div>
-              <label className={`text-xs sm:text-sm font-medium ${bodyText} mb-2 block`}>
-                Maximum Price: ₹{maxPrice.toLocaleString()}
-              </label>
-              <input
-                type="range"
-                min="0"
-                max="60000"
-                value={maxPrice}
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  if (v < minPrice) setMinPrice(v);
-                  setMaxPrice(v);
-                }}
-                className={`w-full h-2 ${rangeTrack} rounded-lg cursor-pointer accent-red-500`}
-              />
-            </div>
-
-            <div className={`flex items-center justify-between ${summarySurface} rounded-lg p-2 sm:p-3 border-2`}>
-              <span className={`text-xs sm:text-sm font-medium ${valueText}`}>
-                ₹{minPrice.toLocaleString()}
-              </span>
-              <div className="flex-1 mx-2 sm:mx-3 h-px bg-gradient-to-r from-red-500 to-pink-500"></div>
-              <span className={`text-xs sm:text-sm font-medium ${valueText}`}>
-                ₹{maxPrice.toLocaleString()}
-              </span>
-            </div>
+          <div
+            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+              activeFilterCount
+                ? "bg-gradient-to-r from-red-500 to-pink-600 text-white"
+                : isDark
+                ? "bg-slate-800 text-slate-300"
+                : "bg-slate-100 text-slate-600"
+            }`}
+          >
+            {activeFilterCount} active
           </div>
         </div>
+      </div>
 
-        {/* Rating Filter */}
-        <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-full flex items-center justify-center">
-              <FaStar className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
+      <div className="space-y-5 p-5 sm:space-y-6 sm:p-6">
+        <section className={`rounded-[24px] border p-5 ${sectionClass}`}>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <h3 className={`text-lg font-semibold ${titleClass}`}>
+                Price range
+              </h3>
+              <p className={`mt-1 text-sm ${mutedClass}`}>
+                Choose the budget that fits your shopping plan.
+              </p>
             </div>
-            <h3 className={`text-base sm:text-lg md:text-xl font-semibold ${headingText}`}>
-              Customer Rating
-            </h3>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-green-600 text-white shadow-lg shadow-emerald-500/20">
+              <FiSliders className="h-4 w-4" />
+            </div>
           </div>
 
-          <div className={`${cardSurface} rounded-xl p-3 sm:p-4`}>
-            <div className="space-y-2 sm:space-y-3">
-              {[5, 4, 3, 2, 1].map((r) => (
-                <label key={r} className="group cursor-pointer">
+          <div className="grid grid-cols-2 gap-3">
+            <div className={`rounded-2xl border px-4 py-3 ${inlineBoxClass}`}>
+              <p className={`text-[11px] font-semibold uppercase ${mutedClass}`}>
+                Min
+              </p>
+              <p className="mt-1 text-base font-bold">
+                ₹{minPrice.toLocaleString()}
+              </p>
+            </div>
+            <div className={`rounded-2xl border px-4 py-3 ${inlineBoxClass}`}>
+              <p className={`text-[11px] font-semibold uppercase ${mutedClass}`}>
+                Max
+              </p>
+              <p className="mt-1 text-base font-bold">
+                ₹{maxPrice.toLocaleString()}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-5">
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className={`text-sm font-medium ${bodyClass}`}>
+                  Minimum price
+                </label>
+                <span className={`text-sm font-semibold ${titleClass}`}>
+                  ₹{minPrice.toLocaleString()}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max={MAX_PRICE}
+                value={minPrice}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (value > maxPrice) setMaxPrice(value);
+                  setMinPrice(value);
+                }}
+                className={`h-2 w-full cursor-pointer rounded-lg accent-red-500 ${trackClass}`}
+              />
+            </div>
+
+            <div>
+              <div className="mb-2 flex items-center justify-between">
+                <label className={`text-sm font-medium ${bodyClass}`}>
+                  Maximum price
+                </label>
+                <span className={`text-sm font-semibold ${titleClass}`}>
+                  ₹{maxPrice.toLocaleString()}
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0"
+                max={MAX_PRICE}
+                value={maxPrice}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  if (value < minPrice) setMinPrice(value);
+                  setMaxPrice(value);
+                }}
+                className={`h-2 w-full cursor-pointer rounded-lg accent-red-500 ${trackClass}`}
+              />
+            </div>
+          </div>
+
+          <div
+            className={`mt-5 rounded-2xl border px-4 py-3 ${inlineBoxClass}`}
+          >
+            <div className="flex items-center justify-between gap-3">
+              <span className={`text-sm ${bodyClass}`}>Selected budget</span>
+              <span className={`text-sm font-semibold ${titleClass}`}>
+                ₹{minPrice.toLocaleString()} - ₹{maxPrice.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </section>
+
+        <section className={`rounded-[24px] border p-5 ${sectionClass}`}>
+          <div className="mb-5 flex items-center justify-between gap-3">
+            <div>
+              <h3 className={`text-lg font-semibold ${titleClass}`}>
+                Customer rating
+              </h3>
+              <p className={`mt-1 text-sm ${mutedClass}`}>
+                Show products with strong buyer feedback.
+              </p>
+            </div>
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 text-white shadow-lg shadow-amber-500/20">
+              <FaStar className="h-4 w-4" />
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {[5, 4, 3, 2, 1].map((rating) => {
+              const checked = ratings.includes(rating);
+              return (
+                <label key={rating} className="block cursor-pointer">
                   <div
-                    className={`flex items-center gap-3 sm:gap-4 p-2 sm:p-3 rounded-lg transition-all duration-200 ${
-                      ratings.includes(r)
+                    className={`flex items-center gap-3 rounded-2xl border px-4 py-3 transition ${
+                      checked
                         ? isDark
-                          ? "bg-slate-950 border-2 border-yellow-500 shadow-sm"
-                          : "bg-gradient-to-r from-yellow-50 to-orange-50 border-2 border-yellow-300 shadow-sm"
-                        : isDark
-                        ? "bg-slate-900 border-2 border-transparent hover:border-yellow-500 hover:shadow-sm"
-                        : "bg-white border-2 border-transparent hover:border-yellow-200 hover:shadow-sm"
+                          ? "border-amber-400 bg-amber-400/10"
+                          : "border-amber-300 bg-amber-50"
+                        : rowClass
                     }`}
                   >
-                    <div className="relative">
+                    <div
+                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${
+                        checked
+                          ? "border-amber-500 bg-gradient-to-br from-amber-400 to-orange-500 text-white"
+                          : isDark
+                          ? "border-slate-600 bg-slate-900"
+                          : "border-slate-300 bg-white"
+                      }`}
+                    >
                       <input
                         type="checkbox"
-                        checked={ratings.includes(r)}
-                        onChange={() => toggleRating(r)}
+                        checked={checked}
+                        onChange={() => toggleRating(rating)}
                         className="sr-only"
                       />
-                      <div
-                        className={`w-4 h-4 sm:w-5 sm:h-5 rounded border-2 flex items-center justify-center transition-all duration-200 ${
-                          ratings.includes(r)
-                          ? "bg-gradient-to-br from-yellow-400 to-orange-500 border-yellow-500"
-                            : isDark
-                            ? "border-slate-600 group-hover:border-yellow-400"
-                            : "border-gray-300 group-hover:border-yellow-400"
-                        }`}
-                      >
-                        {ratings.includes(r) && (
-                          <svg
-                            className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-white"
-                            fill="currentColor"
-                            viewBox="0 0 20 20"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
+                      {checked ? <span className="text-[10px]">✓</span> : null}
+                    </div>
+
+                    <div className="flex flex-1 items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-0.5">
+                          {Array.from({ length: 5 }).map((_, index) => (
+                            <FaStar
+                              key={index}
+                              className={`h-4 w-4 ${
+                                index < rating
+                                  ? "text-amber-400"
+                                  : "text-slate-300"
+                              }`}
                             />
-                          </svg>
-                        )}
+                          ))}
+                        </div>
+                        <span className={`text-sm font-medium ${titleClass}`}>
+                          & up
+                        </span>
                       </div>
-                    </div>
 
-                    <div className="flex items-center gap-1 sm:gap-2 flex-1">
-                      <div className="flex items-center gap-0.5 sm:gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <FaStar
-                            key={i}
-                            className={`w-3.5 h-3.5 sm:w-4 sm:h-4 transition-colors duration-200 ${
-                              i < r ? "text-yellow-500" : "text-gray-300"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <span className={`text-xs sm:text-sm font-medium ${valueText}`}>
-                        & Up
+                      <span className={`text-xs font-semibold ${mutedClass}`}>
+                        {rating} star{rating > 1 ? "s" : ""}
                       </span>
-                    </div>
-
-                    <div className={`text-xs font-medium ${mutedText}`}>
-                      {r} Star{r !== 1 ? "s" : ""}
                     </div>
                   </div>
                 </label>
-              ))}
-            </div>
+              );
+            })}
           </div>
-        </div>
 
-        {/* Action Buttons */}
-        <div className={`grid grid-cols-2 gap-3 sm:gap-4 pt-3 sm:pt-4 border-t ${isDark ? "border-slate-700" : "border-gray-200"}`}>
+          <div
+            className={`mt-5 rounded-2xl border px-4 py-3 ${inlineBoxClass}`}
+          >
+            <p className={`text-sm ${bodyClass}`}>{selectedRatingLabel}</p>
+          </div>
+        </section>
+
+        <div
+          className={`rounded-[24px] border p-4 ${sectionClass} flex flex-col gap-3`}
+        >
           <button
             type="button"
-            onClick={handleClear}
-            className={`relative overflow-hidden border-2 rounded-xl py-2 sm:py-3 px-4 sm:px-6 font-semibold text-xs sm:text-sm transition-all duration-300 hover:border-red-300 hover:text-red-600 hover:shadow-lg transform hover:-translate-y-0.5 ${
-              isDark
-                ? "bg-slate-800 border-slate-600 text-slate-100"
-                : "bg-white border-gray-300 text-gray-700"
-            }`}
+            onClick={handleApply}
+            className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-red-500 via-pink-500 to-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-red-500/20 transition hover:-translate-y-0.5 hover:shadow-xl"
           >
-            <span className="relative z-10 flex items-center justify-center gap-1 sm:gap-2">
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Clear All
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-red-50 to-pink-50 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
+            <FiFilter className="h-4 w-4" />
+            Apply filters
           </button>
 
           <button
             type="button"
-            onClick={handleApply}
-            className="relative overflow-hidden bg-gradient-to-r from-red-500 via-pink-500 to-purple-600 text-white rounded-xl py-2 sm:py-3 px-4 sm:px-6 font-semibold text-xs sm:text-sm transition-all duration-300 hover:shadow-xl transform hover:-translate-y-0.5"
+            onClick={handleClear}
+            className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
+              isDark
+                ? "border-slate-700 bg-slate-950 text-slate-200 hover:border-slate-600 hover:bg-slate-900"
+                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            }`}
           >
-            <span className="relative z-10 flex items-center justify-center gap-1 sm:gap-2">
-              <svg className="w-3.5 h-3.5 sm:w-4 sm:h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  fillRule="evenodd"
-                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Apply Filters
-            </span>
-            <div className="absolute inset-0 bg-gradient-to-r from-red-600 via-pink-600 to-purple-700 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></div>
+            <FiRefreshCw className="h-4 w-4" />
+            Reset filters
           </button>
         </div>
       </div>

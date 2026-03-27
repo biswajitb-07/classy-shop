@@ -117,9 +117,9 @@ const AIChatbotWidget = () => {
   };
 
   return (
-    <div className="fixed bottom-5 right-5 z-40">
+    <div className="fixed bottom-[5.5rem] right-3 z-40 md:right-4 lg:bottom-5 lg:right-5">
       {isOpen ? (
-        <div className="w-[22rem] rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)]">
+        <div className="mb-3 w-[min(22rem,calc(100vw-1.25rem))] rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)] lg:mb-4">
           <div className="flex items-center justify-between rounded-t-[28px] bg-slate-950 px-5 py-4 text-white">
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-white/10 p-2">
@@ -232,7 +232,7 @@ const AIChatbotWidget = () => {
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
-        className="ml-auto flex items-center gap-3 rounded-full bg-gradient-to-r from-orange-500 via-rose-500 to-red-500 px-5 py-4 text-sm font-bold text-white shadow-[0_14px_40px_rgba(244,63,94,0.28)]"
+        className="ml-auto flex items-center gap-3 rounded-full bg-gradient-to-r from-orange-500 via-rose-500 to-red-500 px-4 py-3 text-sm font-bold text-white shadow-[0_14px_40px_rgba(244,63,94,0.28)] lg:px-5 lg:py-4"
       >
         <MessageCircle size={18} />
         AI Chat

@@ -159,7 +159,7 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
 
   return (
     <>
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-2 md:gap-4 mb-5">
         {products.map((p) => {
           const discount =
             p.originalPrice && p.discountedPrice
