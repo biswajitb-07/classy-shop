@@ -3,7 +3,7 @@ import Header from "../components/navbar/Header.jsx";
 import BottomNav from "../components/navbar/BottomNav.jsx";
 import Contact from "../components/contact/Contact.jsx";
 import Footer from "../components/footer/Footer.jsx";
-import OAuthToast from "../pages/user/auth/OAuthToast.jsx";
+import OAuthToast from "../pages/User/auth/OAuthToast.jsx";
 import Features from "../components/Features.jsx";
 import CategoryPanel from "../components/category/CategoryPanel.jsx";
 import { useEffect, useState } from "react";
