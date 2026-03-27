@@ -224,7 +224,7 @@ const Footwear = () => {
         />
       </aside>
 
-      <div className="container grid gap-6">
+      <div className="container grid gap-6 pb-6 md:pb-8">
         <main className="lg:col-span-9">
           <div className="flex items-center justify-between mb-4">
             <div>

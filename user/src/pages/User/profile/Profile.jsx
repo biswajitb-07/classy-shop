@@ -98,6 +98,7 @@ const Profile = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [changeModal, setChangeModal] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
+  const [deletingNotificationId, setDeletingNotificationId] = useState(null);
   const [changeForm, setChangeForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -294,6 +295,21 @@ const Profile = () => {
     } catch (err) {
       toast.error(err?.data?.message || "Failed to change password");
     }
+  };
+
+  const handleDeleteNotification = async (notificationId) => {
+    if (!notificationId || deletingNotificationId) return;
+    setDeletingNotificationId(notificationId);
+    try {
+      await deleteUserNotification(notificationId).unwrap();
+    } finally {
+      setDeletingNotificationId(null);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!notifications.length || clearNotificationsLoading) return;
+    await clearUserNotifications().unwrap();
   };
 
   if (isUserLoading) return <ProfileSkeleton />;
@@ -750,7 +766,7 @@ const Profile = () => {
             </div>
             <button
               type="button"
-              onClick={clearUserNotifications}
+              onClick={handleClearNotifications}
               disabled={!notifications.length || clearNotificationsLoading}
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 notifications.length
@@ -760,7 +776,13 @@ const Profile = () => {
                     : "bg-slate-100 text-slate-400"
               }`}
             >
-              Clear all
+              {clearNotificationsLoading ? (
+                <span className="flex min-w-[4rem] justify-center">
+                  <AuthButtonLoader />
+                </span>
+              ) : (
+                "Clear all"
+              )}
             </button>
           </div>
 
@@ -803,10 +825,17 @@ const Profile = () => {
                   </button>
                   <button
                     type="button"
-                    onClick={() => deleteUserNotification(notification._id)}
-                    className="rounded-full bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 transition"
+                    onClick={() => handleDeleteNotification(notification._id)}
+                    disabled={
+                      !!deletingNotificationId || clearNotificationsLoading
+                    }
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 transition disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    <FiTrash2 className="w-4 h-4" />
+                    {deletingNotificationId === notification._id ? (
+                      <AuthButtonLoader />
+                    ) : (
+                      <FiTrash2 className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               ))

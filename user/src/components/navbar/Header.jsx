@@ -20,10 +20,12 @@ import Search from "../Search";
 import Navigation from "./Navigation";
 import CartPanel from "../shipping/CartPanel";
 import { useTheme } from "../../context/ThemeContext";
+import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
 
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const [isOpenCartPanel, setIsOpenCartPanel] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [deletingNotificationId, setDeletingNotificationId] = useState(null);
   const notificationRef = useRef(null);
 
   const navigate = useNavigate();
@@ -66,6 +68,21 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  const handleDeleteNotification = async (notificationId) => {
+    if (!notificationId || deletingNotificationId) return;
+    setDeletingNotificationId(notificationId);
+    try {
+      await deleteUserNotification(notificationId).unwrap();
+    } finally {
+      setDeletingNotificationId(null);
+    }
+  };
+
+  const handleClearNotifications = async () => {
+    if (!notifications.length || isClearingNotifications) return;
+    await clearUserNotifications().unwrap();
+  };
+
   return (
     <>
       <header
@@ -87,7 +104,7 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                 <ul className="flex items-center gap-4 list-none">
                   <li>
                     <Link
-                      to="/help-center"
+                      to="/support"
                       className="text-[13px] link font-[500] transition duration-150 ease-linear"
                     >
                       Help Center
@@ -125,14 +142,20 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                               disabled={
                                 !notifications.length || isClearingNotifications
                               }
-                              onClick={clearUserNotifications}
+                              onClick={handleClearNotifications}
                               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                                 notifications.length
                                   ? "bg-red-500 text-white hover:bg-red-600"
                                   : "bg-slate-100 text-slate-400"
                               }`}
                             >
-                              Clear all
+                              {isClearingNotifications ? (
+                                <span className="flex min-w-[3.5rem] justify-center">
+                                  <AuthButtonLoader />
+                                </span>
+                              ) : (
+                                "Clear all"
+                              )}
                             </button>
                           </div>
 
@@ -181,11 +204,22 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                                     <button
                                       type="button"
                                       onClick={() =>
-                                        deleteUserNotification(notification._id)
+                                        handleDeleteNotification(
+                                          notification._id
+                                        )
                                       }
-                                      className="mt-1 rounded-full p-2 bg-slate-100 text-slate-600 hover:bg-slate-200 transition"
+                                      disabled={
+                                        !!deletingNotificationId ||
+                                        isClearingNotifications
+                                      }
+                                      className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition disabled:cursor-not-allowed disabled:opacity-70"
                                     >
-                                      <FiTrash2 className="text-sm" />
+                                      {deletingNotificationId ===
+                                      notification._id ? (
+                                        <AuthButtonLoader />
+                                      ) : (
+                                        <FiTrash2 className="text-sm" />
+                                      )}
                                     </button>
                                   </div>
                                 </div>

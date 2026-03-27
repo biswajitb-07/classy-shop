@@ -166,7 +166,7 @@ const FootwearProductDetails = () => {
 
   return (
     <>
-      <div className="container mx-auto px-4 sm:px-6 md:px-8 pb-10">
+      <div className="container mx-auto px-4 sm:px-6 md:px-8 pb-20 md:pb-24 mb-6 md:mb-8">
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           <button
             onClick={() => navigate(-1)}
@@ -219,7 +219,7 @@ const FootwearProductDetails = () => {
             />
           </div>
 
-          <div className="flex-1 flex flex-col gap-3 sm:gap-4">
+          <div className="flex-1 flex flex-col gap-3 sm:gap-4 pb-10 md:pb-14">
             <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold">
               {product.name}
             </h2>
@@ -290,7 +290,7 @@ const FootwearProductDetails = () => {
               {product.shippingInfo}
             </p>
 
-            <div className="grid place-items-end">
+            <div className="grid place-items-end pb-8 md:pb-10">
               <button
                 onClick={() =>
                   handleAddToCart(product, product.sizes?.length > 0)
@@ -311,7 +311,7 @@ const FootwearProductDetails = () => {
           </div>
         </div>
       </div>
-      <hr className="text-red-500 h-1 my-6" />
+      <hr className="text-red-500 h-1 my-10 md:my-12" />
       <RelatedProduct products={relatedProducts} isLoading={isLoading} />
     </>
   );

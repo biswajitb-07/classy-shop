@@ -12,6 +12,7 @@ import {
   useGetVendorNotificationsQuery,
 } from "../../features/api/authApi";
 import { connectVendorSocket } from "../../lib/socket";
+import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
 
 const Header = () => {
   const { isOpen, vendor } = useSelector((store) => store.auth);
@@ -19,6 +20,7 @@ const Header = () => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const [deletingNotificationId, setDeletingNotificationId] = useState(null);
   const notificationRef = useRef(null);
   const {
     data: notificationData,
@@ -28,8 +30,7 @@ const Header = () => {
     refetchOnFocus: true,
     refetchOnReconnect: true,
   });
-  const [deleteVendorNotification, { isLoading: isDeletingNotification }] =
-    useDeleteVendorNotificationMutation();
+  const [deleteVendorNotification] = useDeleteVendorNotificationMutation();
   const [clearVendorNotifications, { isLoading: isClearingNotifications }] =
     useClearVendorNotificationsMutation();
 
@@ -68,11 +69,18 @@ const Header = () => {
   }, [refetchNotifications, vendor?._id]);
 
   const handleDeleteNotification = async (id) => {
-    await deleteVendorNotification(id);
+    if (!id || deletingNotificationId) return;
+    setDeletingNotificationId(id);
+    try {
+      await deleteVendorNotification(id).unwrap();
+    } finally {
+      setDeletingNotificationId(null);
+    }
   };
 
   const handleClearNotifications = async () => {
-    await clearVendorNotifications();
+    if (!notifications.length || isClearingNotifications) return;
+    await clearVendorNotifications().unwrap();
   };
 
   return (
@@ -149,7 +157,13 @@ const Header = () => {
                       : "bg-slate-100 text-slate-400"
                   }`}
                 >
-                  Clear all
+                  {isClearingNotifications ? (
+                    <span className="flex min-w-[4rem] justify-center">
+                      <AuthButtonLoader />
+                    </span>
+                  ) : (
+                    "Clear all"
+                  )}
                 </button>
               </div>
 
@@ -211,14 +225,20 @@ const Header = () => {
                           onClick={() =>
                             handleDeleteNotification(notification._id)
                           }
-                          disabled={isDeletingNotification}
-                          className={`mt-1 rounded-full p-2 transition ${
+                          disabled={
+                            !!deletingNotificationId || isClearingNotifications
+                          }
+                          className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full p-2 transition disabled:cursor-not-allowed disabled:opacity-70 ${
                             isDark
                               ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                         >
-                          <FiTrash2 className="text-sm" />
+                          {deletingNotificationId === notification._id ? (
+                            <AuthButtonLoader />
+                          ) : (
+                            <FiTrash2 className="text-sm" />
+                          )}
                         </button>
                       </div>
                     </div>
