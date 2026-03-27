@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 
-const LoadingSpinner = () => {
+const LoadingSpinner = ({ message = "Please Wait..." }) => {
   const spinnerRef = useRef(null);
 
   useEffect(() => {
@@ -57,7 +57,7 @@ const LoadingSpinner = () => {
 
       <div className="mt-4 text-center">
         <p className="text-xs sm:text-sm md:text-base font-bold text-white drop-shadow-md">
-          Please Wait...
+          {message}
         </p>
       </div>
     </div>
