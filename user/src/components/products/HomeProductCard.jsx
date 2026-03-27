@@ -139,7 +139,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
         setModalCartLoading(true);
         try {
           const selectedSizes = Object.keys(quantities).filter(
-            (s) => quantities[s] > 0
+            (s) => quantities[s] > 0,
           );
           if (selectedSizes.length === 0) {
             toast.error("Please select size & quantity");
@@ -148,7 +148,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
           for (const size of selectedSizes) {
             if (quantities[size] > product.inStock) {
               toast.error(
-                `Only ${product.inStock} items left for size ${size}`
+                `Only ${product.inStock} items left for size ${size}`,
               );
               return;
             }
@@ -251,7 +251,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
     navigate(
       `/${product.category.toLowerCase()}/${product.category.toLowerCase()}-product-details/${
         product._id
-      }`
+      }`,
     );
   };
 
@@ -260,7 +260,11 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
       <div
         ref={productScrollRef}
         className="flex space-x-4 overflow-x-scroll scroll-smooth pb-4 touch-pan-x snap-x snap-mandatory scrollbar-hide"
-        style={{ scrollbarWidth: "none" }}
+        style={{
+          scrollbarWidth: "none",
+          touchAction: "pan-x",
+          WebkitOverflowScrolling: "touch",
+        }}
       >
         {isLoading || products.length === 0 ? (
           <div className="flex gap-5">
@@ -276,7 +280,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
               p.originalPrice && p.discountedPrice
                 ? Math.round(
                     ((p.originalPrice - p.discountedPrice) / p.originalPrice) *
-                      100
+                      100,
                   )
                 : 0;
             const inWishlist = isInWishlist(p._id);
@@ -332,8 +336,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
                       )}
                     </button>
 
-                    {((p.category === "Fashion" ||
-                      p.category === "Footwear") &&
+                    {((p.category === "Fashion" || p.category === "Footwear") &&
                       p.sizes?.length > 0) ||
                     p.category === "Electronics" ? (
                       <button
@@ -359,10 +362,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
                 </div>
 
                 {/* info */}
-                <div
-                  onClick={() => goToProduct(p)}
-                  className="p-4"
-                >
+                <div onClick={() => goToProduct(p)} className="p-4">
                   <p className="text-sm font-semibold text-gray-600">
                     {p.brand}
                   </p>

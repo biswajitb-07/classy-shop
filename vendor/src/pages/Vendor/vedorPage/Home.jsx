@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
@@ -248,7 +248,7 @@ const Home = () => {
   const [liveRefreshCount, setLiveRefreshCount] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date());
   const dashboardQueryOptions = {
-    pollingInterval: 15000,
+    pollingInterval: 30000,
     refetchOnFocus: true,
     refetchOnReconnect: true,
   };
@@ -547,7 +547,7 @@ const Home = () => {
       }),
     [lastUpdatedAt],
   );
-  const refreshDashboard = async () => {
+  const refreshDashboard = useCallback(async () => {
     await Promise.allSettled([
       refetchFashion(),
       refetchElectronic(),
@@ -562,7 +562,18 @@ const Home = () => {
     ]);
     setLiveRefreshCount((count) => count + 1);
     setLastUpdatedAt(new Date());
-  };
+  }, [
+    refetchBag,
+    refetchBeauty,
+    refetchElectronic,
+    refetchFashion,
+    refetchFootwear,
+    refetchGrocery,
+    refetchJewellery,
+    refetchOrders,
+    refetchSummary,
+    refetchWellness,
+  ]);
 
   useEffect(() => {
     if (!vendor?._id) return undefined;
@@ -581,29 +592,7 @@ const Home = () => {
       socket.off("vendor:dashboard:update", handleRealtimeRefresh);
       socket.off("vendor:summary:update", handleRealtimeRefresh);
     };
-  }, [
-    refetchBag,
-    refetchBeauty,
-    refetchElectronic,
-    refetchFashion,
-    refetchFootwear,
-    refetchGrocery,
-    refetchJewellery,
-    refetchOrders,
-    refetchSummary,
-    refetchWellness,
-    vendor?._id,
-  ]);
-
-  useEffect(() => {
-    if (!vendor?._id) return undefined;
-
-    const intervalId = window.setInterval(() => {
-      refreshDashboard();
-    }, 30000);
-
-    return () => window.clearInterval(intervalId);
-  }, [vendor?._id]);
+  }, [refreshDashboard, vendor?._id]);
 
   if (isInitialLoading) {
     return (

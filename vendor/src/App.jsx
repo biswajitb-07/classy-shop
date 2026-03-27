@@ -1,42 +1,77 @@
+import { lazy } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import { WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import Home from "./pages/Vendor/vedorPage/Home";
-import Login from "./pages/Vendor/auth/Login";
-import ForgotPassword from "./pages/Vendor/auth/ForgetPassword";
+const Home = lazy(() => import("./pages/Vendor/vedorPage/Home"));
+const Login = lazy(() => import("./pages/Vendor/auth/Login"));
+const ForgotPassword = lazy(() => import("./pages/Vendor/auth/ForgetPassword"));
 import {
   VendorRoute,
   PublicRoute,
 } from "./component/protectRoute/ProtectedRoutes";
-import MainLayout from "./layout/MainLayout";
-import Category from "./pages/Vendor/category/Category";
-import Profile from "./pages/Vendor/profile/Profile";
-import CategoryList from "./pages/Vendor/category/CategoryList";
-import FashionBrandManager from "./pages/Vendor/vedorPage/fashion/FashionBrandManager";
-import ShowAllFashionProduct from "./pages/Vendor/vedorPage/fashion/ShowAllFashionProduct";
-import ElectronicBrandManager from "./pages/Vendor/vedorPage/electronic/ElectronicBrandManager";
-import Error from "./component/error/Error";
-import ShowAllElectronicProduct from "./pages/Vendor/vedorPage/electronic/ShowAllElectronicProduct";
-import BagBrandManager from "./pages/Vendor/vedorPage/bag/BagBrandManager";
-import GroceryBrandManager from "./pages/Vendor/vedorPage/grocery/GroceryBrandManager";
-import FootwearBrandManager from "./pages/Vendor/vedorPage/footwear/FootwearBrandManager";
-import ShowAllGroceryProduct from "./pages/Vendor/vedorPage/grocery/ShowAllGroceryProduct";
-import ShowAllFootwearProduct from "./pages/Vendor/vedorPage/footwear/ShowAllFootwearProduct";
-import BeautyBrandManager from "./pages/Vendor/vedorPage/beauty/BeautyBrandManager";
-import WellnessBrandManager from "./pages/Vendor/vedorPage/wellness/wellnessBrandManager";
-import ShowAllBeautyProduct from "./pages/Vendor/vedorPage/beauty/ShowAllBeautyProduct";
-import ShowAllWellnessProduct from "./pages/Vendor/vedorPage/wellness/ShowAllWellnessProduct";
-import JewelleryBrandManager from "./pages/Vendor/vedorPage/jewellery/jewelleryBrandManager";
-import ShowAllJewelleryProduct from "./pages/Vendor/vedorPage/jewellery/ShowAllJewelleryProduct";
-import ShowAllBagProduct from "./pages/Vendor/vedorPage/bag/ShowAllBagProduct";
-import Orders from "./pages/Vendor/vedorPage/Orders";
-import OrderDetailsPage from "./pages/Vendor/vedorPage/OrderDetailsPage";
-import Users from "./pages/Vendor/vedorPage/community/Users";
-import Vendors from "./pages/Vendor/vedorPage/community/Vendors";
-import Settings from "./pages/Vendor/Settings";
-import SupportChats from "./pages/Vendor/vedorPage/SupportChats";
+const MainLayout = lazy(() => import("./layout/MainLayout"));
+const Category = lazy(() => import("./pages/Vendor/category/Category"));
+const Profile = lazy(() => import("./pages/Vendor/profile/Profile"));
+const CategoryList = lazy(() => import("./pages/Vendor/category/CategoryList"));
+const FashionBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/fashion/FashionBrandManager"),
+);
+const ShowAllFashionProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/fashion/ShowAllFashionProduct"),
+);
+const ElectronicBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/electronic/ElectronicBrandManager"),
+);
+const Error = lazy(() => import("./component/error/Error"));
+const ShowAllElectronicProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/electronic/ShowAllElectronicProduct"),
+);
+const BagBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/bag/BagBrandManager"),
+);
+const GroceryBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/grocery/GroceryBrandManager"),
+);
+const FootwearBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/footwear/FootwearBrandManager"),
+);
+const ShowAllGroceryProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/grocery/ShowAllGroceryProduct"),
+);
+const ShowAllFootwearProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/footwear/ShowAllFootwearProduct"),
+);
+const BeautyBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/beauty/BeautyBrandManager"),
+);
+const WellnessBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/wellness/wellnessBrandManager"),
+);
+const ShowAllBeautyProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/beauty/ShowAllBeautyProduct"),
+);
+const ShowAllWellnessProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/wellness/ShowAllWellnessProduct"),
+);
+const JewelleryBrandManager = lazy(
+  () => import("./pages/Vendor/vedorPage/jewellery/jewelleryBrandManager"),
+);
+const ShowAllJewelleryProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/jewellery/ShowAllJewelleryProduct"),
+);
+const ShowAllBagProduct = lazy(
+  () => import("./pages/Vendor/vedorPage/bag/ShowAllBagProduct"),
+);
+const Orders = lazy(() => import("./pages/Vendor/vedorPage/Orders"));
+const OrderDetailsPage = lazy(
+  () => import("./pages/Vendor/vedorPage/OrderDetailsPage"),
+);
+const Users = lazy(() => import("./pages/Vendor/vedorPage/community/Users"));
+const Vendors = lazy(() => import("./pages/Vendor/vedorPage/community/Vendors"));
+const Settings = lazy(() => import("./pages/Vendor/Settings"));
+const SupportChats = lazy(() => import("./pages/Vendor/vedorPage/SupportChats"));
 import { ThemeProvider } from "./context/ThemeContext";
 
 const appRouter = createBrowserRouter([

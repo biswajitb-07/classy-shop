@@ -5,7 +5,9 @@ const ScrollToTop = () => {
   const { pathname, search } = useLocation();
 
   useEffect(() => {
-    window.scrollTo({ top: 0, left: 0, behavior: "smooth" });
+    // Route changes should snap instantly to the top. On mobile, forcing a
+    // smooth animation during navigation can make the UI feel laggy.
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, [pathname, search]);
 
   return null;

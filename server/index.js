@@ -33,13 +33,17 @@ import { initSocket } from "./socket/socket.js";
 const app = express();
 const httpServer = createServer(app);
 const port = process.env.PORT || 5000;
+const isProduction = process.env.NODE_ENV === "production";
 
 // Connect once during boot so all route handlers and socket events can share
 // the same Mongo connection pool.
 connectDB();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.disable("x-powered-by");
+app.set("trust proxy", 1);
+
+app.use(express.json({ limit: "2mb" }));
+app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
 
 app.use(
@@ -47,7 +51,12 @@ app.use(
     secret: process.env.SECRET_KEY,
     resave: false,
     saveUninitialized: false,
-    cookie: { secure: false },
+    cookie: {
+      secure: isProduction,
+      httpOnly: true,
+      sameSite: isProduction ? "none" : "lax",
+      maxAge: 1000 * 60 * 60 * 24 * 7,
+    },
   }),
 );
 app.use(passport.initialize());
@@ -55,9 +64,30 @@ app.use(passport.session());
 
 // Frontend apps are deployed separately, so CORS must explicitly allow both
 // user and vendor origins to send cookies to this backend.
-const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL];
+const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL].filter(
+  Boolean,
+);
 
-app.use(cors({ origin: allowedOrigins, credentials: true }));
+app.use(
+  cors({
+    origin(origin, callback) {
+      // Mobile webviews, direct REST tools, and same-origin server calls may
+      // omit the Origin header, so only reject when a foreign browser origin
+      // is explicitly present.
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true,
+  }),
+);
+
+app.get("/api/v1/health", (_req, res) => {
+  res.status(200).json({ ok: true, uptime: process.uptime() });
+});
 
 // User APIs cover storefront auth, support, cart, checkout, and AI-assisted
 // product discovery. Vendor APIs power the separate dashboard application.

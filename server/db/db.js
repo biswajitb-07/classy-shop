@@ -24,8 +24,10 @@ const dropLegacySupportConversationIndex = async () => {
 const connectDB = async () => {
   try {
     await mongoose.connect(`${process.env.MONGODB_URI}/falcon`, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
+      maxPoolSize: 20,
+      minPoolSize: 5,
+      serverSelectionTimeoutMS: 10000,
+      socketTimeoutMS: 45000,
     });
     await dropLegacySupportConversationIndex();
     console.log("MongoDB Connected");
