@@ -1,5 +1,3 @@
-// File guide: FootwearProductDetails source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetFootwearItemsQuery } from "../../../../features/api/footwearApi.js";
 import { FaStar, FaStarHalfAlt } from "react-icons/fa";

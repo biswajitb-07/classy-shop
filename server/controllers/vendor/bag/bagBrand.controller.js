@@ -1,5 +1,3 @@
-// File guide: bagBrand.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import BagBrand from "../../../models/vendor/bag/bagBrand.model.js";
 
 export const getBrandsByVendor = async (req, res) => {

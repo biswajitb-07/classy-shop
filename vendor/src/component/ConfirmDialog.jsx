@@ -1,5 +1,3 @@
-// File guide: ConfirmDialog source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 const ConfirmDialog = ({ open, title, description, confirmText = "Confirm", cancelText = "Cancel", loading = false, onConfirm, onCancel }) => {
   if (!open) return null;
 

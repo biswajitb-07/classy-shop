@@ -1,5 +1,3 @@
-// File guide: category.route source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import express from "express";
 import isAuthenticatedVendor from "../../middleware/vendor/isAuthenticatedVendor.js";
 import {

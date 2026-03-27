@@ -1,5 +1,3 @@
-// File guide: ai.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { generateAiCatalogReply } from "../../services/aiCatalogChat.service.js";
 
 export const getAiCatalogChatReply = async (req, res) => {

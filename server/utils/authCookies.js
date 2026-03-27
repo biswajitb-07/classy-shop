@@ -1,5 +1,3 @@
-// File guide: authCookies source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import jwt from "jsonwebtoken";
 
 const isProd = process.env.NODE_ENV === "production";

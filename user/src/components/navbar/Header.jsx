@@ -1,5 +1,3 @@
-// File guide: Header source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { Link, useNavigate } from "react-router-dom";
 import { Heart, ShoppingCart } from "lucide-react";
 import { LuMenu } from "react-icons/lu";

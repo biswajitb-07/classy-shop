@@ -1,5 +1,3 @@
-// File guide: support.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import mongoose from "mongoose";
 import { SupportConversation } from "../../models/support/supportConversation.model.js";
 import { SupportMessage } from "../../models/support/supportMessage.model.js";
@@ -48,6 +46,8 @@ const loadConversationWithRelations = (conversationId) =>
     .populate("assignedVendor", "name email photoUrl");
 
 const uploadAttachments = async (files = []) => {
+  // Support chat attachments are normalized into a small metadata shape so the
+  // frontend never depends on raw Cloudinary responses.
   const uploads = await Promise.all(
     files.map(async (file) => {
       const result = await uploadMedia(file);
@@ -92,6 +92,8 @@ const createConversationForUser = async (userId) => {
     return loadConversationWithRelations(conversation._id);
   } catch (error) {
     if (error?.code === 11000 && error?.keyPattern?.user) {
+      // Older databases may still have the legacy one-conversation-per-user
+      // unique index. Drop it once, then retry the create transparently.
       await dropLegacyUserConversationIndex();
 
       const conversation = await SupportConversation.create({
@@ -181,6 +183,8 @@ const cleanupEmptySupportConversations = async (filter = {}) => {
 
   if (!emptyConversationIds.length) return;
 
+  // Draft chats with no messages should disappear instead of cluttering the
+  // chat list after refresh or route changes.
   await SupportConversation.deleteMany({
     _id: { $in: emptyConversationIds },
   });
@@ -189,6 +193,8 @@ const cleanupEmptySupportConversations = async (filter = {}) => {
 const ensureConversationOwner = async (conversationId, userId) => {
   const conversation = await loadConversationWithRelations(conversationId);
   if (!conversation) return null;
+  // User support APIs should never expose another user's conversation even if
+  // someone guesses a valid conversation id.
   if (String(conversation.user?._id || conversation.user) !== String(userId)) {
     return "forbidden";
   }

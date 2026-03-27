@@ -1,5 +1,3 @@
-// File guide: wellnessBrand.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import WellnessBrand from "../../../models/vendor/wellness/wellnessBrand.model.js";
 
 export const getWellnessBrandsByVendor = async (req, res) => {

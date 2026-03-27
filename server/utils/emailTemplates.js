@@ -1,5 +1,3 @@
-// File guide: emailTemplates source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 const APP_NAME = "Classy Shop";
 const SUPPORT_EMAIL = process.env.SENDER_EMAIL || "support@classyshop.com";
 

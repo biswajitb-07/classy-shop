@@ -1,5 +1,3 @@
-// File guide: main source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { createRoot } from "react-dom/client";
 import "./index.css";
 import App from "./App.jsx";

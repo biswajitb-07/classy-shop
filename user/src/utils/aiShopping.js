@@ -1,5 +1,3 @@
-// File guide: aiShopping source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 const VIEW_HISTORY_KEY = "classy-store-ai-view-history";
 
 const normalize = (value) =>

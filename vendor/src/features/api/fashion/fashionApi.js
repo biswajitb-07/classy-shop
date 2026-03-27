@@ -1,5 +1,3 @@
-// File guide: fashionApi source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
 const BASE_URL = import.meta.env.VITE_API_URL;

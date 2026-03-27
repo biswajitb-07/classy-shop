@@ -1,5 +1,3 @@
-// File guide: BannerBox source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { motion, useAnimation } from "framer-motion";
 import { useEffect, useRef } from "react";
 

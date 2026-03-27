@@ -1,5 +1,3 @@
-// File guide: Header source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AiOutlineMenu } from "react-icons/ai";
 import { IoNotifications } from "react-icons/io5";
@@ -60,6 +58,8 @@ const Header = () => {
 
     const socket = connectVendorSocket();
     const handleNotificationUpdate = () => {
+      // Notification count can change from order events in other tabs or after
+      // backend-side status updates, so we refetch when the socket nudges us.
       refetchNotifications();
     };
 
@@ -72,6 +72,8 @@ const Header = () => {
 
   const handleDeleteNotification = async (id) => {
     if (!id || deletingNotificationId) return;
+    // Per-item loading lets vendors remove one notification without making
+    // every notification button look busy at the same time.
     setDeletingNotificationId(id);
     try {
       await deleteVendorNotification(id).unwrap();

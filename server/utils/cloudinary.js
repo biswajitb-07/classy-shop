@@ -1,5 +1,3 @@
-// File guide: cloudinary source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { v2 as cloudinary } from "cloudinary";
 import "dotenv/config";
 import fs from "fs";

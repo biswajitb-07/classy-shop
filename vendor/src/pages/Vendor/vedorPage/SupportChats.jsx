@@ -1,5 +1,3 @@
-// File guide: SupportChats source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Headset,
@@ -54,6 +52,8 @@ const SupportChats = () => {
       return;
     }
 
+    // Keep a usable selection after refetches: prefer the current chat if it
+    // still exists, otherwise fall back to the first available conversation.
     const hasSelectedConversation = conversations.some(
       (item) => item._id === selectedId,
     );
@@ -98,6 +98,8 @@ const SupportChats = () => {
       syncChatList();
       socket.emit("sync_presence");
       if (selectedIdRef.current) {
+        // Rejoin the active room on reconnect so presence and typing indicators
+        // start working again after refresh or temporary network loss.
         socket.emit(
           "join_support_chat",
           { chatId: selectedIdRef.current },
@@ -122,6 +124,8 @@ const SupportChats = () => {
               "",
           )
       ) {
+        // Typing dots are intentionally limited to the selected conversation;
+        // messages from other users should not light up this open chat.
         setUserTyping(true);
       }
     };
@@ -246,6 +250,8 @@ const SupportChats = () => {
     ) {
       return;
     }
+    // The backend only forwards typing to the joined chat room, which prevents
+    // a vendor typing in one thread from leaking indicators into others.
     const socket = connectVendorSocket();
     socket.emit(isTyping ? "typing" : "stop_typing", {
       chatId: selectedId,

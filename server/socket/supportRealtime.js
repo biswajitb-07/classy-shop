@@ -1,5 +1,3 @@
-// File guide: supportRealtime source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { SupportConversation } from "../models/support/supportConversation.model.js";
 
 const SUPPORT_VENDORS_ROOM = "support:vendors";
@@ -90,6 +88,8 @@ const joinSupportChatRoom = async (socket, chatId) => {
 
   const nextChatId = String(chatId);
   if (socket.data.supportChatId === nextChatId) {
+    // Joining the same room repeatedly is harmless, but returning early keeps
+    // the room bookkeeping stable and avoids redundant leave/join churn.
     return { ok: true, chatId: nextChatId };
   }
 
@@ -151,6 +151,8 @@ export const registerSupportRealtime = (io, socket) => {
   };
 
   const onJoinSupportChat = async ({ chatId }, callback) => {
+    // The frontend joins one selected conversation at a time, which is what
+    // lets typing indicators stay scoped to exactly one active chat.
     const result = await joinSupportChatRoom(socket, chatId);
     callback?.(result);
   };
@@ -203,6 +205,8 @@ export const registerSupportRealtime = (io, socket) => {
     emitPresenceSnapshot();
 
     if (count === 1) {
+      // Broadcast vendor presence only when the first socket comes online, not
+      // every time a second tab connects.
       emitVendorPresenceToUsers(io);
     }
   }
@@ -215,6 +219,8 @@ export const registerSupportRealtime = (io, socket) => {
     emitPresenceSnapshot();
 
     if (count === 1) {
+      // Users are treated the same way: multiple tabs still count as one
+      // online user until the final socket disconnects.
       emitUserPresenceToVendors(io, userId, true);
     }
   }

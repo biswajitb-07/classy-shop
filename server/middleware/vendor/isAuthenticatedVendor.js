@@ -1,5 +1,3 @@
-// File guide: isAuthenticatedVendor source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import jwt from "jsonwebtoken";
 import { Vendor } from "../../models/vendor/vendor.model.js";
 import { clearVendorAuthCookies, setVendorAccessCookie } from "../../utils/authCookies.js";

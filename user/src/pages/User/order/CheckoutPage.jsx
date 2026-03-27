@@ -1,5 +1,3 @@
-// File guide: CheckoutPage source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {

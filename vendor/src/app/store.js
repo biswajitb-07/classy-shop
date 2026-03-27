@@ -1,5 +1,3 @@
-// File guide: store source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { configureStore } from "@reduxjs/toolkit";
 import rootRedcuer from "./rootReducer";
 import { authApi } from "../features/api/authApi";

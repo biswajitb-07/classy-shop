@@ -1,5 +1,3 @@
-// File guide: ErrorMessage source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 const ErrorMessage = ({
   title = "Oops!",
   message = "Something went wrong.",

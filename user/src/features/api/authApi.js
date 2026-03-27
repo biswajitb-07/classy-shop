@@ -1,5 +1,3 @@
-// File guide: authApi source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { userLoggedIn, userLoggedOut } from "../authSlice.js";
 
@@ -45,8 +43,8 @@ export const authApi = createApi({
       }),
       async onQueryStarted(arg, { queryFulfilled, dispatch }) {
         try {
-          // Mirror the backend login response into Redux immediately so the UI
-          // switches to the authenticated state without an extra round trip.
+          // Firebase only proves the Google account identity. The backend still
+          // creates the real app session and returns the Mongo user record.
           const result = await queryFulfilled;
           dispatch(userLoggedIn({ user: result.data.user }));
         } catch (error) {

@@ -1,5 +1,3 @@
-// File guide: jewelleryBrand.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import JewelleryBrand from "../../../models/vendor/jewellery/jewelleryBrand.model.js";
 
 export const getJewelleryBrandsByVendor = async (req, res) => {

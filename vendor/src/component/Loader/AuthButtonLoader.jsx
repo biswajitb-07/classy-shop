@@ -1,5 +1,3 @@
-// File guide: AuthButtonLoader source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 const sizeMap = {
   small: "h-4 w-4",
   medium: "h-5 w-5",

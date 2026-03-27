@@ -1,5 +1,3 @@
-// File guide: aiCatalogChat.service source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import Bag from "../models/vendor/bag/bag.model.js";
 import Beauty from "../models/vendor/beauty/beauty.model.js";
 import Electronic from "../models/vendor/electronic/electronic.model.js";
@@ -532,6 +530,8 @@ const buildFallbackReply = ({ message, catalog, candidates }) => {
 
   const categoryHint = findCategoryHint(normalizedMessage);
   if (categoryHint) {
+    // Category fallback is useful when the external model is unavailable but
+    // the query still clearly points to one of the storefront departments.
     const categoryMatches = catalog
       .filter(
         (item) => normalize(item.sourceLabel || item.category) === normalize(categoryHint.category),
@@ -705,6 +705,8 @@ export const generateAiCatalogReply = async ({
         response_format: {
           type: "json_object",
         },
+        // Low temperature helps keep product ids stable and reduces random
+        // suggestions outside the grounded candidate set.
         temperature: 0.2,
         max_tokens: 500,
       }),

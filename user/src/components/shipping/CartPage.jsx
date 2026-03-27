@@ -1,5 +1,3 @@
-// File guide: CartPage source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { FaTrashCan } from "react-icons/fa6";
 import { FaShoppingBag } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";

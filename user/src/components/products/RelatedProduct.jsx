@@ -1,5 +1,3 @@
-// File guide: RelatedProduct source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useRef, useState } from "react";
 import HomeProductCard from "./HomeProductCard";

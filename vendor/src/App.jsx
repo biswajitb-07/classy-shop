@@ -1,5 +1,3 @@
-// File guide: App source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import { WifiOff } from "lucide-react";
@@ -69,6 +67,8 @@ const appRouter = createBrowserRouter([
         <MainLayout />
       </VendorRoute>
     ),
+    // Once authenticated, vendors stay inside the dashboard shell and switch
+    // between analytics, catalog, orders, support, and settings as child routes.
     children: [
       {
         path: "/",
@@ -182,6 +182,8 @@ const App = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   useEffect(() => {
+    // The vendor dashboard uses the same global connectivity guard so actions
+    // like order updates or support replies do not fail silently when offline.
     const handleOnline = () => {
       setIsOnline(true);
       toast.success("Back online!", { position: "top-center", duration: 3000 });

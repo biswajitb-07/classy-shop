@@ -1,5 +1,3 @@
-// File guide: socket source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { io } from "socket.io-client";
 
 const SOCKET_URL = import.meta.env.VITE_API_URL;

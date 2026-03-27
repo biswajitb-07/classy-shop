@@ -1,5 +1,3 @@
-// File guide: index source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import express from "express";
 import { createServer } from "node:http";
 import cors from "cors";
@@ -61,6 +59,8 @@ const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL];
 
 app.use(cors({ origin: allowedOrigins, credentials: true }));
 
+// User APIs cover storefront auth, support, cart, checkout, and AI-assisted
+// product discovery. Vendor APIs power the separate dashboard application.
 app.use("/api/v1/user", userRouter);
 
 app.use("/api/v1/vendor", vendorRouter);

@@ -1,5 +1,3 @@
-// File guide: beautyBrand.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import BeautyBrand from "../../../models/vendor/beauty/beautyBrand.model.js";
 
 export const getBeautyBrandsByVendor = async (req, res) => {

@@ -1,5 +1,3 @@
-// File guide: AIChatbotWidget source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useRef, useState } from "react";
 import { Bot, MessageCircle, Send, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -56,6 +54,8 @@ const AIChatbotWidget = () => {
     const currentRequestId = Date.now();
     latestRequestIdRef.current = currentRequestId;
     const userMessage = { role: "user", content: message.trim() };
+    // Keep a short rolling conversation window so the AI gets enough context
+    // without sending an ever-growing payload on every message.
     const nextMessages = [...messages, userMessage].slice(-8);
     setMessages(nextMessages);
     setMessage("");
@@ -100,6 +100,8 @@ const AIChatbotWidget = () => {
         products: data?.reply?.products || [],
       };
 
+      // We append the assistant reply only if it still belongs to the most
+      // recent request; aborted older requests should never win the race.
       setMessages((current) => [...current, reply].slice(-8));
     } catch (error) {
       if (error?.name === "AbortError") {
@@ -209,6 +211,8 @@ const AIChatbotWidget = () => {
                   <button
                     key={prompt}
                     type="button"
+                    // Quick prompts help mobile users start with realistic
+                    // website-supported questions instead of a blank field.
                     onClick={() => setMessage(prompt)}
                     className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600"
                   >

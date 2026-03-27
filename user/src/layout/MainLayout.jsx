@@ -1,5 +1,3 @@
-// File guide: MainLayout source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { Outlet } from "react-router-dom";
 import Header from "../components/navbar/Header.jsx";
 import BottomNav from "../components/navbar/BottomNav.jsx";
@@ -22,6 +20,8 @@ const MainLayout = () => {
   const categoryData = data?.[0]?.categories || [];
 
   const openCategoryPanel = () => {
+    // One toggle drives both desktop category exposure and the slide-in mobile
+    // category drawer so the navigation data stays in sync.
     setIsOpenCatPanel(!isOpenCatPanel);
   };
 
@@ -70,6 +70,8 @@ const MainLayout = () => {
           visible ? "mt-[5rem] md:mt-[5.5rem] lg:mt-[13.5rem] z-0" : "mt-0"
         } overflow-hidden`}
       >
+        {/* The top margin compensates for the fixed header stack. When the
+            header hides on scroll we can safely reclaim that vertical space. */}
         {/* Route content is rendered here under the shared storefront chrome. */}
         <Outlet />
       </div>

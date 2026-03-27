@@ -1,5 +1,3 @@
-// File guide: Footwear source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import FootwearProductCard from "./FootwearProductCard.jsx";

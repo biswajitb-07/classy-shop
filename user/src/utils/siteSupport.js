@@ -1,5 +1,3 @@
-// File guide: siteSupport source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 const normalize = (value) =>
   String(value ?? "")
     .toLowerCase()

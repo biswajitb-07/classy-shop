@@ -1,5 +1,3 @@
-// File guide: footwearBrand.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import FootwearBrand from "../../../models/vendor/footwear/footwearBrand.model.js";
 
 export const getFootwearBrandsByVendor = async (req, res) => {

@@ -1,5 +1,3 @@
-// File guide: ProductFilter source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import React, { useEffect, useMemo, useState } from "react";
 import { FaStar } from "react-icons/fa";
 import { FiFilter, FiRefreshCw, FiSliders } from "react-icons/fi";

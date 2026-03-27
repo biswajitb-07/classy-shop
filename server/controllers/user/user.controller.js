@@ -1,5 +1,3 @@
-// File guide: user.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { User } from "../../models/user/user.model.js";
 import bcrypt from "bcryptjs";
 import {
@@ -186,6 +184,8 @@ export const firebaseGoogleLogin = async (req, res) => {
       });
       isNewUser = true;
     } else {
+      // Existing email users can still attach Google sign-in later. We keep
+      // their account history and only enrich it with Google/Firebase fields.
       user.name = user.name || decodedToken.name || email.split("@")[0];
       user.isGoogleUser = true;
       user.googleId = decodedToken.uid;
@@ -315,6 +315,8 @@ export const updateUserProfile = async (req, res) => {
     let photoUrl = user.photoUrl;
     if (profilePhoto) {
       if (user.photoUrl) {
+        // Replace the old Cloudinary asset so repeated profile updates do not
+        // keep orphaned images around in the cloud account.
         const urlParts = user.photoUrl.split("/");
         const filename = urlParts[urlParts.length - 1];
         const publicId = filename.split(".")[0];
@@ -342,6 +344,8 @@ export const updateUserProfile = async (req, res) => {
     const parsedAddresses =
       typeof addresses === "string" ? JSON.parse(addresses) : addresses;
 
+    // The profile page sends a single default address block, but the schema
+    // still supports an address array for future expansion.
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { name, phone, bio, dob, addresses: parsedAddresses, photoUrl },

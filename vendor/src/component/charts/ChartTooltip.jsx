@@ -1,5 +1,3 @@
-// File guide: ChartTooltip source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 const ChartTooltip = ({ active, payload, label, dark = false, formatter }) => {
   if (!active || !payload?.length) return null;
 

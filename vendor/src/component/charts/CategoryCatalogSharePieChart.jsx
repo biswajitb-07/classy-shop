@@ -1,5 +1,3 @@
-// File guide: CategoryCatalogSharePieChart source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
 import ChartTooltip from "./ChartTooltip";
 

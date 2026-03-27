@@ -1,5 +1,3 @@
-// File guide: order.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import Razorpay from "razorpay";
 import crypto from "crypto";
 import { Cart } from "../../models/user/cart.model.js";

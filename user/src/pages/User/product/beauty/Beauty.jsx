@@ -1,5 +1,3 @@
-// File guide: Beauty source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { CgCloseR } from "react-icons/cg";

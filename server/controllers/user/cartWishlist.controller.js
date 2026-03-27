@@ -1,5 +1,3 @@
-// File guide: cartWishlist.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { Cart } from "../../models/user/cart.model.js";
 import { Wishlist } from "../../models/user/wishlist.model.js";
 import Fashion from "../../models/vendor/fashion/fashion.model.js";

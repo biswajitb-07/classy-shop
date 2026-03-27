@@ -1,5 +1,3 @@
-// File guide: App source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import React, { lazy, useState, useEffect } from "react";
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
@@ -109,6 +107,8 @@ const appRouter = createBrowserRouter([
     path: "/",
     element: <MainLayout />,
     children: [
+      // Once the layout is active, nested routes inherit the full storefront
+      // chrome instead of rebuilding header/footer on every page.
       {
         path: "/",
         element: <Home />,
@@ -377,6 +377,8 @@ const App = () => {
         {isOnline ? (
           <RouterProvider router={appRouter} />
         ) : (
+          // A dedicated offline screen is less confusing than rendering pages
+          // that depend on data the browser cannot fetch at all.
           <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
             <WifiOff
               className="w-28 h-28 text-sky-400 animate-pulse"

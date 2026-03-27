@@ -1,5 +1,3 @@
-// File guide: footwear.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import Footwear from "../../../models/vendor/footwear/footwear.model.js";
 import {
   deleteMediaFromCloudinary,

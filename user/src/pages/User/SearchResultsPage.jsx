@@ -1,5 +1,3 @@
-// File guide: SearchResultsPage source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowRight, FaRegStar, FaStar, FaStarHalfAlt, FaLink } from "react-icons/fa";

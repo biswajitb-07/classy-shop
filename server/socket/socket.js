@@ -1,5 +1,3 @@
-// File guide: socket source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
 import {
@@ -67,6 +65,8 @@ export const initSocket = (httpServer) => {
       }
 
       if (vendorToken) {
+        // Vendor dashboard and user storefront use different cookie names, so
+        // the socket layer mirrors the same distinction during fallback auth.
         const decoded = jwt.verify(vendorToken, process.env.SECRET_KEY);
         socket.data.vendorId = decoded.vendorId;
         socket.data.role = "vendor";
@@ -137,6 +137,8 @@ export const emitSupportMessageCreated = ({
 }) => {
   if (!io) return;
 
+  // Vendors watch the shared support room, while the user receives updates in
+  // their own private room so unrelated users never see the event.
   io.to(supportVendorRoom).emit("support:message", {
     conversationId: String(conversationId),
     message,

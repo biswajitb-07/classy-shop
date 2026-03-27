@@ -1,5 +1,3 @@
-// File guide: InfoPage source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useMemo } from "react";
 import { useParams } from "react-router-dom";
 import { ShieldCheck, Truck, FileText, Building2, CreditCard } from "lucide-react";

@@ -1,5 +1,3 @@
-// File guide: Error source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { NavLink } from "react-router-dom";
 
 const Error = () => (

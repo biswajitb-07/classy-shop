@@ -1,5 +1,3 @@
-// File guide: Search source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { IoSearch } from "react-icons/io5";
 import { useNavigate } from "react-router-dom";

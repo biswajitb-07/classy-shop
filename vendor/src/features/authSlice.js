@@ -1,5 +1,3 @@
-// File guide: authSlice source file.
-// This file belongs to the vendor app architecture and has a focused responsibility within its module/folder.
 import { createSlice } from "@reduxjs/toolkit";
 
 const initialState = {

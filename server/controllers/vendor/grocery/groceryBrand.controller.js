@@ -1,5 +1,3 @@
-// File guide: groceryBrand.controller source file.
-// This file belongs to the current app architecture and has a focused responsibility within its module/folder.
 import GroceryBrand from "../../../models/vendor/grocery/groceryBrand.model.js";
 
 export const getGroceryBrandsByVendor = async (req, res) => {
