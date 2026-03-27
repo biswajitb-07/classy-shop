@@ -61,7 +61,7 @@ const Electronics = lazy(
 const ElectronicsProductDetails = lazy(
   () => import("./pages/User/product/electronic/ElectronicsProductDetails.jsx"),
 );
-const CheckoutPage = lazy(() => import("./pages/User/order/CheckOutPage.jsx"));
+const CheckoutPage = lazy(() => import("./pages/User/order/CheckoutPage.jsx"));
 const OrderListPage = lazy(
   () => import("./pages/User/order/OrderListPage.jsx"),
 );
