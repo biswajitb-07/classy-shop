@@ -51,6 +51,11 @@ const PopularProduct = () => {
     }
   };
 
+  const handleResize = () => {
+    checkNavScrollability();
+    checkProductScrollability();
+  };
+
   const checkProductScrollability = () => {
     if (productScrollRef.current) {
       const { scrollLeft, scrollWidth, clientWidth } = productScrollRef.current;
@@ -85,10 +90,7 @@ const PopularProduct = () => {
     if (productContainer) {
       productContainer.addEventListener("scroll", checkProductScrollability);
     }
-    window.addEventListener("resize", () => {
-      checkNavScrollability();
-      checkProductScrollability();
-    });
+    window.addEventListener("resize", handleResize);
 
     return () => {
       if (navContainer) {
@@ -100,10 +102,7 @@ const PopularProduct = () => {
           checkProductScrollability
         );
       }
-      window.removeEventListener("resize", () => {
-        checkNavScrollability();
-        checkProductScrollability();
-      });
+      window.removeEventListener("resize", handleResize);
     };
   }, [categoryData, popularProducts]);
 
@@ -148,7 +147,7 @@ const PopularProduct = () => {
 
           <div
             ref={navScrollRef}
-            className="flex justify-center gap-6 text-sm font-medium text-gray-600 overflow-x-auto scroll-smooth snap-x touch-pan-x px-2 scrollbar-hide"
+            className="flex justify-center gap-6 text-sm font-medium text-gray-600 overflow-x-auto scroll-smooth snap-x px-2 scrollbar-hide"
           >
             {categoryData.map((cat, i) => (
               <button
