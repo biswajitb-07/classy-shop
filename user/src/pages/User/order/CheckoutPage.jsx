@@ -47,7 +47,6 @@ const CheckoutPage = () => {
   });
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [loading, setLoading] = useState(false);
-  const [redirectLoading, setRedirectLoading] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -86,6 +85,10 @@ const CheckoutPage = () => {
     });
   };
 
+  const redirectToOrders = () => {
+    navigate("/orders", { replace: true });
+  };
+
   const handlePlaceOrder = async () => {
     if (!validateAddress()) return;
 
@@ -97,10 +100,8 @@ const CheckoutPage = () => {
       }).unwrap();
 
       if (paymentMethod === "cod") {
-        setRedirectLoading(true);
         toast.success("Order placed successfully!");
-        refetchCart();
-        navigate("/orders");
+        redirectToOrders();
       } else {
         const scriptLoaded = await loadRazorpayScript();
         if (!scriptLoaded) {
@@ -122,10 +123,8 @@ const CheckoutPage = () => {
                 razorpay_order_id: razorpayResponse.razorpay_order_id,
                 razorpay_signature: razorpayResponse.razorpay_signature,
               }).unwrap();
-              setRedirectLoading(true);
               toast.success("Payment successful! Order confirmed.");
-              refetchCart();
-              navigate("/orders");
+              redirectToOrders();
             } catch (err) {
               toast.error("Payment confirmation failed");
             }
@@ -205,14 +204,8 @@ const CheckoutPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-[7rem]">
-      {(createLoading || loading || redirectLoading) && (
-        <PageLoader
-          message={
-            redirectLoading
-              ? "Redirecting to your orders..."
-              : "Placing your order..."
-          }
-        />
+      {(createLoading || loading) && (
+        <PageLoader message="Placing your order..." />
       )}
       <div className="container">
         <div className="mb-8">
@@ -428,10 +421,10 @@ const CheckoutPage = () => {
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={loading || createLoading || redirectLoading}
+                  disabled={loading || createLoading}
                   className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer disabled:opacity-50"
                 >
-                  {loading || createLoading || redirectLoading ? (
+                  {loading || createLoading ? (
                     <AuthButtonLoader />
                   ) : (
                     "Place Order"
