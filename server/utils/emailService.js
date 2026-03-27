@@ -7,13 +7,29 @@ import {
   getWelcomeEmailTemplate,
 } from "./emailTemplates.js";
 
-const sendEmail = async ({ to, subject, html }) =>
-  transporter.sendMail({
-    from: process.env.SENDER_EMAIL || process.env.SMTP_USER,
+const getFromAddress = () => {
+  const senderEmail =
+    process.env.SENDER_EMAIL || process.env.SMTP_SENDER || process.env.SMTP_USER;
+
+  return senderEmail ? `Classy Store <${senderEmail}>` : undefined;
+};
+
+const sendEmail = async ({ to, subject, html }) => {
+  const from = getFromAddress();
+
+  if (!from || !process.env.SMTP_USER || !process.env.SMTP_PASS) {
+    throw new Error(
+      "Email is not configured. Please set SMTP_USER, SMTP_PASS, and SENDER_EMAIL."
+    );
+  }
+
+  return transporter.sendMail({
+    from,
     to,
     subject,
     html,
   });
+};
 
 export const sendWelcomeEmail = async ({ to, name, accountType = "user" }) =>
   sendEmail({

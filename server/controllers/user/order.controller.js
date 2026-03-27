@@ -357,8 +357,9 @@ export const createOrder = async (req, res) => {
       );
       cart.items = [];
       await cart.save();
-      // Fire-and-forget — response send hota hai bina email ka wait kiye
-      safelySendOrderPlacedEmail({ order, user: orderingUser });
+      // Delivery reliability ke liye deployed environments me email attempt
+      // ko await karte hain, lekin helper ke andar errors swallow hote hain.
+      await safelySendOrderPlacedEmail({ order, user: orderingUser });
       return res
         .status(201)
         .json({ success: true, message: "Order created successfully", order });
@@ -454,8 +455,9 @@ export const confirmPayment = async (req, res) => {
     await createVendorNotificationsForOrder(order, userId);
     cart.items = [];
     await cart.save();
-    // Fire-and-forget — response pehle, email background me
-    safelySendOrderPlacedEmail({ order, user: orderingUser });
+    // Delivery reliability ke liye deployed environments me email attempt
+    // ko await karte hain, lekin helper ke andar errors swallow hote hain.
+    await safelySendOrderPlacedEmail({ order, user: orderingUser });
     return res.status(200).json({
       success: true,
       message: "Payment confirmed successfully",
@@ -836,8 +838,9 @@ export const orderStatusUpdate = async (req, res) => {
         vendorId: req.id,
       });
       if (order.orderStatus === "out_for_delivery") {
-        // Fire-and-forget — order status response block nahi hoga
-        safelySendOutForDeliveryEmail({ order });
+        // Delivery reliability ke liye deployed environments me email attempt
+        // ko await karte hain, lekin helper ke andar errors swallow hote hain.
+        await safelySendOutForDeliveryEmail({ order });
       }
       emitVendorDashboardUpdate(req.id);
 
