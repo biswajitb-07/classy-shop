@@ -47,6 +47,7 @@ const CheckoutPage = () => {
   });
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [loading, setLoading] = useState(false);
+  const [redirectLoading, setRedirectLoading] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -96,6 +97,7 @@ const CheckoutPage = () => {
       }).unwrap();
 
       if (paymentMethod === "cod") {
+        setRedirectLoading(true);
         toast.success("Order placed successfully!");
         refetchCart();
         navigate("/orders");
@@ -120,6 +122,7 @@ const CheckoutPage = () => {
                 razorpay_order_id: razorpayResponse.razorpay_order_id,
                 razorpay_signature: razorpayResponse.razorpay_signature,
               }).unwrap();
+              setRedirectLoading(true);
               toast.success("Payment successful! Order confirmed.");
               refetchCart();
               navigate("/orders");
@@ -170,7 +173,7 @@ const CheckoutPage = () => {
 
   if (cartError) return <ErrorMessage onRetry={refetchCart} />;
 
-  if (cartLoading || createLoading || loading) {
+  if (cartLoading) {
     return (
       <div className="h-[26rem] grid place-items-center bg-gradient-to-br from-gray-50 to-gray-100">
         <PageLoader message="Loading checkout..." />
@@ -206,6 +209,19 @@ const CheckoutPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-[7rem]">
+      {(createLoading || loading || redirectLoading) && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/45 backdrop-blur-sm">
+          <div className="rounded-3xl bg-white px-8 py-7 shadow-[0_24px_80px_rgba(15,23,42,0.22)]">
+            <PageLoader
+              message={
+                redirectLoading
+                  ? "Redirecting to your orders..."
+                  : "Placing your order..."
+              }
+            />
+          </div>
+        </div>
+      )}
       <div className="container">
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
@@ -420,10 +436,14 @@ const CheckoutPage = () => {
 
                 <button
                   onClick={handlePlaceOrder}
-                  disabled={loading}
+                  disabled={loading || createLoading || redirectLoading}
                   className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer disabled:opacity-50"
                 >
-                  {loading ? <AuthButtonLoader /> : "Place Order"}
+                  {loading || createLoading || redirectLoading ? (
+                    <AuthButtonLoader />
+                  ) : (
+                    "Place Order"
+                  )}
                 </button>
 
                 <div className="mt-6 pt-6 border-t border-gray-100">
