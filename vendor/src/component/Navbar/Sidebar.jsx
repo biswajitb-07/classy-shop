@@ -10,7 +10,7 @@ import { FiSettings } from "react-icons/fi";
 import { HiOutlineBuildingStorefront } from "react-icons/hi2";
 import { Headphones } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
-import { toggleSidebar } from "../../features/authSlice";
+import { setSidebarOpen, toggleSidebar } from "../../features/authSlice";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
 import {
@@ -55,7 +55,7 @@ const Sidebar = () => {
   };
 
   const closeSidebar = () => {
-    dispatch(toggleSidebar());
+    dispatch(setSidebarOpen(false));
   };
 
   const navigateTo = (path) => {

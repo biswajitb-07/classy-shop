@@ -153,11 +153,13 @@ const SupportChatPage = () => {
   useEffect(() => {
     const socket = connectUserSocket();
     const syncChatList = () => {
+      if (!isCleanupReady) return;
       refetchList();
     };
 
     const syncSelectedConversation = (conversationId) => {
       if (
+        selectedIdRef.current &&
         conversationId &&
         String(conversationId) === String(selectedIdRef.current)
       ) {
@@ -237,7 +239,7 @@ const SupportChatPage = () => {
       socket.off("typing", handleTyping);
       socket.off("stop_typing", handleStopTyping);
     };
-  }, [refetchList, refetchDetails]);
+  }, [isCleanupReady, refetchList, refetchDetails]);
 
   useEffect(() => {
     const socket = connectUserSocket();
@@ -367,8 +369,10 @@ const SupportChatPage = () => {
         fileInputRef.current.value = "";
       }
       emitTyping(false);
-      refetchList();
-      if (conversationId) {
+      if (isCleanupReady) {
+        refetchList();
+      }
+      if (conversationId && selectedIdRef.current) {
         refetchDetails();
       }
     } catch (error) {
@@ -392,7 +396,9 @@ const SupportChatPage = () => {
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-      refetchList();
+      if (isCleanupReady) {
+        refetchList();
+      }
     } catch (error) {
       toast.error(error?.data?.message || "Failed to delete conversation");
     } finally {
@@ -412,7 +418,9 @@ const SupportChatPage = () => {
       const createdId = created?.conversation?._id || null;
       setPendingSelectedId(createdId);
       setSelectedId(createdId);
-      refetchList();
+      if (isCleanupReady) {
+        refetchList();
+      }
     } catch (error) {
       toast.error(error?.data?.message || "Failed to start new chat");
     }
@@ -475,6 +483,12 @@ const SupportChatPage = () => {
   const attachmentButtonClass = isDark
     ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-bold text-slate-100 transition hover:border-white/20 hover:bg-white/10"
     : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f3f4ff)] px-4 py-2.5 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50";
+  const supportProfileClass = isDark
+    ? "border-white/10 bg-white/5"
+    : "border-slate-200/80 bg-white/70";
+  const supportAvatarClass = isDark
+    ? "bg-[linear-gradient(135deg,#38bdf8,#6366f1_55%,#7c3aed)] text-white"
+    : "bg-[linear-gradient(135deg,#2563eb,#7c3aed)] text-white";
 
   return (
     <section className="container mx-auto px-4 pb-10 pt-6 md:px-6 lg:px-8">
@@ -627,6 +641,24 @@ const SupportChatPage = () => {
                       Active: {formatTime(selectedConversation.lastMessageAt)}
                     </p>
                   ) : null}
+                </div>
+              </div>
+              <div className={`mt-5 inline-flex items-center gap-3 rounded-[22px] border px-4 py-3 ${supportProfileClass}`}>
+                <div className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-black ${supportAvatarClass}`}>
+                  ST
+                </div>
+                <div>
+                  <p className={`text-lg font-bold ${headingClass}`}>
+                    Support Team
+                  </p>
+                  <div className={`mt-1 flex items-center gap-2 text-sm ${mutedClass}`}>
+                    <span
+                      className={`h-2.5 w-2.5 rounded-full ${
+                        supportOnline ? "bg-emerald-400" : "bg-slate-500"
+                      }`}
+                    />
+                    {supportOnline ? "Online" : "Offline"}
+                  </div>
                 </div>
               </div>
             </div>

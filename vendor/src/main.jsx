@@ -6,6 +6,7 @@ import { appStore } from "./app/store.js";
 import LoadingSpinner from "./component/Loader/LoadingSpinner.jsx";
 import { useLoadUserQuery } from "./features/api/authApi.js";
 import { Suspense } from "react";
+import { ThemeProvider } from "./context/ThemeContext.jsx";
 
 const Custom = ({ children }) => {
   const { isLoading } = useLoadUserQuery();
@@ -15,7 +16,7 @@ const Custom = ({ children }) => {
   return isLoading ? (
     <LoadingSpinner />
   ) : (
-    <Suspense fallback={<LoadingSpinner message="Loading Dashboard..." />}>
+    <Suspense fallback={null}>
       {children}
     </Suspense>
   );
@@ -23,8 +24,10 @@ const Custom = ({ children }) => {
 
 createRoot(document.getElementById("root")).render(
   <Provider store={appStore}>
-    <Custom>
-      <App />
-    </Custom>
+    <ThemeProvider>
+      <Custom>
+        <App />
+      </Custom>
+    </ThemeProvider>
   </Provider>
 );

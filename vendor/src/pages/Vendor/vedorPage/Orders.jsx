@@ -77,6 +77,8 @@ const Orders = () => {
         return "bg-blue-500 text-white";
       case "shipped":
         return "bg-purple-500 text-white";
+      case "out_for_delivery":
+        return "bg-orange-500 text-white";
       case "delivered":
         return "bg-green-500 text-white";
       case "cancelled":
@@ -100,6 +102,8 @@ const Orders = () => {
         return "bg-blue-500";
       case "shipped":
         return "bg-purple-500";
+      case "out_for_delivery":
+        return "bg-orange-500";
       case "delivered":
         return "bg-green-500";
       case "cancelled":
@@ -173,9 +177,10 @@ const Orders = () => {
       { key: "pending", label: "Order Placed" },
       { key: "processing", label: "Processing" },
       { key: "shipped", label: "Shipped" },
+      { key: "out_for_delivery", label: "Out for Delivery" },
       { key: "delivered", label: "Delivered" },
     ];
-    const statusOrder = ["pending", "processing", "shipped", "delivered"];
+    const statusOrder = ["pending", "processing", "shipped", "out_for_delivery", "delivered"];
     const currentIndex = statusOrder.indexOf(orderStatus);
 
     return allSteps.map((step, index) => ({

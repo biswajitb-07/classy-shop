@@ -214,7 +214,7 @@ const PopularProduct = () => {
             className="flex w-full gap-4 overflow-x-auto scroll-smooth px-1 pb-2 text-sm font-medium text-gray-600 scrollbar-hide sm:justify-center sm:gap-6 sm:px-2"
             style={{
               WebkitOverflowScrolling: "touch",
-              touchAction: "pan-x",
+              overscrollBehaviorX: "contain",
             }}
           >
             {visibleCategories.map((categoryName) => (

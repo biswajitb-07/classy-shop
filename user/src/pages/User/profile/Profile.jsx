@@ -845,7 +845,7 @@ const Profile = () => {
                   No notifications yet
                 </h4>
                 <p className="mt-2 text-sm text-slate-400">
-                  When a vendor marks your order as processing, shipped, delivered,
+                  When a vendor marks your order as processing, shipped, out for delivery, delivered,
                   cancelled, or handles a return, you will see it here.
                 </p>
               </div>

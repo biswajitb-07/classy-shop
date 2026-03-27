@@ -21,6 +21,7 @@ import Navigation from "./Navigation";
 import CartPanel from "../shipping/CartPanel";
 import { useTheme } from "../../context/ThemeContext";
 import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
+import { connectUserSocket } from "../../lib/socket.js";
 
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const [isOpenCartPanel, setIsOpenCartPanel] = useState(false);
@@ -33,12 +34,13 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const { user } = useSelector((store) => store.auth);
   const { data: cartData } = useGetCartQuery();
   const { data: wishlistData } = useGetWishlistQuery();
-  const { data: notificationData } = useGetUserNotificationsQuery(undefined, {
+  const { data: notificationData, refetch: refetchNotifications } =
+    useGetUserNotificationsQuery(undefined, {
     skip: !user,
     pollingInterval: 5000,
     refetchOnFocus: true,
     refetchOnReconnect: true,
-  });
+    });
   const [deleteUserNotification] = useDeleteUserNotificationMutation();
   const [clearUserNotifications, { isLoading: isClearingNotifications }] =
     useClearUserNotificationsMutation();
@@ -67,6 +69,25 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!user?._id) return undefined;
+
+    const socket = connectUserSocket();
+    const handleNotificationUpdate = () => {
+      refetchNotifications();
+    };
+
+    socket.on("user:notifications:update", handleNotificationUpdate);
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    return () => {
+      socket.off("user:notifications:update", handleNotificationUpdate);
+    };
+  }, [refetchNotifications, user?._id]);
 
   const handleDeleteNotification = async (notificationId) => {
     if (!notificationId || deletingNotificationId) return;

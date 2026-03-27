@@ -248,11 +248,11 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
     <>
       <div
         ref={productScrollRef}
-        className="flex space-x-4 overflow-x-auto scroll-smooth pb-4 snap-x snap-mandatory scrollbar-hide"
+        className="flex space-x-4 overflow-x-auto scroll-smooth pb-4 snap-x snap-proximity scrollbar-hide"
         style={{
           scrollbarWidth: "none",
           WebkitOverflowScrolling: "touch",
-          touchAction: "pan-x",
+          overscrollBehaviorX: "contain",
         }}
       >
         {isLoading ? (

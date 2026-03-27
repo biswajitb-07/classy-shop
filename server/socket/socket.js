@@ -123,6 +123,14 @@ export const emitVendorDashboardUpdate = (vendorId) => {
   });
 };
 
+export const emitUserNotificationUpdate = (userId) => {
+  if (!io || !userId) return;
+  io.to(`user:${userId}`).emit("user:notifications:update", {
+    userId: String(userId),
+    at: Date.now(),
+  });
+};
+
 export const emitVendorSummaryUpdate = () => {
   if (!io) return;
   io.to("vendors:all").emit("vendor:summary:update", {

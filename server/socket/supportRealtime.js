@@ -7,6 +7,7 @@ const SUPPORT_USERS_ROOM = "support:users";
 // incorrectly mark a user/vendor offline while another tab is still connected.
 const activeUsers = new Map();
 const activeVendors = new Map();
+const activeSupportVendors = new Map();
 
 const roomNames = {
   user: (userId) => `user:${userId}`,
@@ -39,11 +40,28 @@ const removeActiveSocket = (map, entityId, socketId) => {
   return sockets.size;
 };
 
+const syncSupportVendorAvailability = (io, vendorId, socketId, active) => {
+  const key = String(vendorId);
+
+  if (active) {
+    addActiveSocket(activeSupportVendors, key, socketId);
+  } else {
+    removeActiveSocket(activeSupportVendors, key, socketId);
+  }
+
+  const online = activeSupportVendors.size > 0;
+  io.to(SUPPORT_USERS_ROOM).emit(online ? "vendor_online" : "vendor_offline", {
+    online,
+    vendorIds: Array.from(activeSupportVendors.keys()),
+    at: Date.now(),
+  });
+};
+
 const isUserOnline = (userId) => activeUsers.has(String(userId));
-const areVendorsOnline = () => activeVendors.size > 0;
+const areVendorsOnline = () => activeSupportVendors.size > 0;
 
 const getOnlineUserIds = () => Array.from(activeUsers.keys());
-const getOnlineVendorIds = () => Array.from(activeVendors.keys());
+const getOnlineVendorIds = () => Array.from(activeSupportVendors.keys());
 
 const leaveSupportChatRoom = (socket) => {
   if (socket.data.supportChatId) {
@@ -98,15 +116,6 @@ const joinSupportChatRoom = async (socket, chatId) => {
   socket.data.supportChatId = nextChatId;
 
   return { ok: true, chatId: nextChatId };
-};
-
-const emitVendorPresenceToUsers = (io) => {
-  const event = areVendorsOnline() ? "vendor_online" : "vendor_offline";
-  io.to(SUPPORT_USERS_ROOM).emit(event, {
-    online: areVendorsOnline(),
-    vendorIds: getOnlineVendorIds(),
-    at: Date.now(),
-  });
 };
 
 const emitUserPresenceToVendors = (io, userId, online) => {
@@ -196,19 +205,24 @@ export const registerSupportRealtime = (io, socket) => {
   socket.on("typing", onTyping);
   socket.on("stop_typing", onStopTyping);
   socket.on("sync_presence", emitPresenceSnapshot);
+  socket.on("support_presence_active", ({ active } = {}) => {
+    if (socket.data.role !== "vendor" || !socket.data.vendorId) return;
+
+    socket.data.supportPresenceActive = Boolean(active);
+    syncSupportVendorAvailability(
+      io,
+      socket.data.vendorId,
+      socket.id,
+      socket.data.supportPresenceActive,
+    );
+  });
 
   if (socket.data.role === "vendor" && socket.data.vendorId) {
     const vendorId = String(socket.data.vendorId);
-    const count = addActiveSocket(activeVendors, vendorId, socket.id);
+    addActiveSocket(activeVendors, vendorId, socket.id);
     socket.join(roomNames.vendor(vendorId));
     socket.join(SUPPORT_VENDORS_ROOM);
     emitPresenceSnapshot();
-
-    if (count === 1) {
-      // Broadcast vendor presence only when the first socket comes online, not
-      // every time a second tab connects.
-      emitVendorPresenceToUsers(io);
-    }
   }
 
   if (socket.data.role === "user" && socket.data.userId) {
@@ -230,15 +244,8 @@ export const registerSupportRealtime = (io, socket) => {
     leaveSupportChatRoom(socket);
 
     if (socket.data.role === "vendor" && socket.data.vendorId) {
-      const remaining = removeActiveSocket(
-        activeVendors,
-        socket.data.vendorId,
-        socket.id,
-      );
-
-      if (!remaining) {
-        emitVendorPresenceToUsers(io);
-      }
+      removeActiveSocket(activeVendors, socket.data.vendorId, socket.id);
+      syncSupportVendorAvailability(io, socket.data.vendorId, socket.id, false);
     }
 
     if (socket.data.role === "user" && socket.data.userId) {

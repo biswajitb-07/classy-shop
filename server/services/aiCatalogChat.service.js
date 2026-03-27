@@ -504,7 +504,7 @@ const buildFallbackReply = ({ message, catalog, candidates }) => {
   if (hasWholeTerm(normalizedMessage, "order") || hasWholeTerm(normalizedMessage, "track")) {
     return {
       reply:
-        "For order updates, please open your order history page. You can check pending, processing, shipped, delivered, or cancelled status there.",
+        "For order updates, please open your order history page. You can check pending, processing, shipped, out for delivery, delivered, or cancelled status there.",
       needsClarification: false,
       products: [],
     };

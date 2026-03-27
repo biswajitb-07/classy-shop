@@ -27,7 +27,7 @@ export const companyPages = {
       {
         question: "How do I know my order status?",
         answer:
-          "Open your account order section to view pending, processing, shipped, delivered, or cancelled updates.",
+          "Open your account order section to view pending, processing, shipped, out for delivery, delivered, or cancelled updates.",
       },
       {
         question: "Do all products ship at the same speed?",
@@ -475,7 +475,7 @@ export const getWebsiteAwareChatReply = ({
 
   if (text.includes("order") || text.includes("track")) {
     return {
-      text: "For order tracking, open your order list from your account. There you can check pending, processing, shipped, delivered, or cancelled status updates.",
+      text: "For order tracking, open your order list from your account. There you can check pending, processing, shipped, out for delivery, delivered, or cancelled status updates.",
     };
   }
 

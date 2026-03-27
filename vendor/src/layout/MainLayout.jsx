@@ -2,7 +2,7 @@ import Sidebar from "../component/Navbar/Sidebar";
 import Header from "../component/Navbar/Header";
 import { Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import { toggleSidebar } from "../features/authSlice";
+import { setSidebarOpen } from "../features/authSlice";
 import { useState, useEffect } from "react";
 
 const MainLayout = () => {
@@ -20,7 +20,7 @@ const MainLayout = () => {
   }, [isOpen]);
 
   const handleOverlayClick = () => {
-    dispatch(toggleSidebar());
+    dispatch(setSidebarOpen(false));
   };
 
   return (

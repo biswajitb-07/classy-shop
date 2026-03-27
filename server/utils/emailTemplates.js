@@ -30,6 +30,20 @@ const brandThemes = {
     surface: "#ecfdf5",
     heading: "Password Updated",
   },
+  order: {
+    badge: "Order Confirmation",
+    accent: "#7c3aed",
+    accentSoft: "#ede9fe",
+    surface: "#f5f3ff",
+    heading: "Your order is confirmed",
+  },
+  delivery: {
+    badge: "Delivery Update",
+    accent: "#ea580c",
+    accentSoft: "#fed7aa",
+    surface: "#fff7ed",
+    heading: "Your order is out for delivery",
+  },
 };
 
 const buildEmailLayout = ({
@@ -209,5 +223,128 @@ export const getPasswordChangedEmailTemplate = ({
     `,
     footer:
       "Security tip: use a strong password that is unique to your Classy Shop account.",
+  });
+};
+
+const renderOrderItemCards = (items = []) =>
+  items
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:0 0 16px 0;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-radius:22px;background:#ffffff;border:1px solid #e2e8f0;overflow:hidden;">
+              <tr>
+                <td style="width:96px;padding:14px;" valign="top">
+                  ${
+                    item.image
+                      ? `<img src="${item.image}" alt="${item.name}" width="82" height="82" style="display:block;width:82px;height:82px;object-fit:cover;border-radius:16px;border:1px solid #e2e8f0;" />`
+                      : `<div style="width:82px;height:82px;border-radius:16px;background:#e2e8f0;"></div>`
+                  }
+                </td>
+                <td style="padding:14px 16px 14px 0;" valign="top">
+                  <p style="margin:0 0 6px 0;font-size:16px;line-height:24px;font-weight:700;color:#0f172a;">
+                    ${item.name}
+                  </p>
+                  <p style="margin:0 0 6px 0;font-size:13px;line-height:20px;color:#64748b;">
+                    ${item.category}${item.variant ? ` • ${item.variant}` : ""}
+                  </p>
+                  <p style="margin:0 0 10px 0;font-size:13px;line-height:20px;color:#475569;">
+                    Qty: <strong>${item.quantity}</strong> &nbsp;|&nbsp; Price: <strong>₹${item.price}</strong>
+                  </p>
+                  ${
+                    item.link
+                      ? `<a href="${item.link}" style="display:inline-block;color:#2563eb;text-decoration:none;font-weight:700;font-size:13px;">View product</a>`
+                      : ""
+                  }
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      `,
+    )
+    .join("");
+
+export const getOrderPlacedEmailTemplate = ({
+  name,
+  orderId,
+  paymentMethod,
+  totalAmount,
+  shippingAddress,
+  items = [],
+}) => {
+  const theme = brandThemes.order;
+  const shippingSummary = [
+    shippingAddress?.fullName,
+    shippingAddress?.addressLine1,
+    shippingAddress?.village,
+    shippingAddress?.city,
+    shippingAddress?.district,
+    shippingAddress?.state,
+    shippingAddress?.postalCode,
+    shippingAddress?.country,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return buildEmailLayout({
+    theme,
+    preview: `Order ${orderId} has been placed successfully.`,
+    title: theme.heading,
+    subtitle: `We have received your order ${orderId} and started preparing it.`,
+    body: `
+      <p style="margin:0 0 16px 0;">Hi <strong>${name || "there"}</strong>,</p>
+      <p style="margin:0 0 18px 0;">
+        Thank you for shopping with ${APP_NAME}. Your order has been placed successfully and our team is now preparing it with care.
+      </p>
+      <div style="border-radius:20px;background:#ffffff;padding:18px 20px;border:1px solid ${theme.accentSoft};margin:0 0 20px 0;">
+        <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${theme.accent};">
+          Order Summary
+        </p>
+        <p style="margin:0 0 8px 0;"><strong>Order ID:</strong> ${orderId}</p>
+        <p style="margin:0 0 8px 0;"><strong>Total:</strong> ₹${totalAmount}</p>
+        <p style="margin:0 0 8px 0;"><strong>Payment:</strong> ${paymentMethod}</p>
+        <p style="margin:0;"><strong>Shipping To:</strong> ${shippingSummary}</p>
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px 0;">
+        ${renderOrderItemCards(items)}
+      </table>
+    `,
+    footer:
+      "You will receive another update as your order progresses through shipping and delivery.",
+  });
+};
+
+export const getOrderOutForDeliveryEmailTemplate = ({
+  name,
+  orderId,
+  totalAmount,
+  items = [],
+}) => {
+  const theme = brandThemes.delivery;
+
+  return buildEmailLayout({
+    theme,
+    preview: `Order ${orderId} is out for delivery.`,
+    title: theme.heading,
+    subtitle: `Your order ${orderId} is on the way and should arrive soon.`,
+    body: `
+      <p style="margin:0 0 16px 0;">Hi <strong>${name || "there"}</strong>,</p>
+      <p style="margin:0 0 18px 0;">
+        Great news. Your order is now <strong>out for delivery</strong>. Please keep your phone available in case the delivery partner needs to reach you.
+      </p>
+      <div style="border-radius:20px;background:#ffffff;padding:18px 20px;border:1px solid ${theme.accentSoft};margin:0 0 20px 0;">
+        <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${theme.accent};">
+          Delivery Update
+        </p>
+        <p style="margin:0 0 8px 0;"><strong>Order ID:</strong> ${orderId}</p>
+        <p style="margin:0;"><strong>Order Total:</strong> ₹${totalAmount}</p>
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px 0;">
+        ${renderOrderItemCards(items)}
+      </table>
+    `,
+    footer:
+      "If your delivery is delayed or you need help, reply to this email or contact support.",
   });
 };

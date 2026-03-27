@@ -14,6 +14,7 @@ const STATUS_COLORS = {
   pending: "#f59e0b",
   processing: "#38bdf8",
   shipped: "#8b5cf6",
+  out_for_delivery: "#f97316",
   delivered: "#22c55e",
   cancelled: "#f43f5e",
 };

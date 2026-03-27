@@ -102,17 +102,31 @@ const OrderDetailsPage = () => {
     );
   }
 
-  const statusOptions = ["processing", "shipped", "delivered"];
+  const statusOptions = [
+    { value: "processing", label: "processing" },
+    { value: "shipped", label: "shipped" },
+    { value: "out_for_delivery", label: "out for delivery" },
+    { value: "delivered", label: "delivered" },
+  ];
   const canCancel =
     order.orderStatus !== "delivered" && order.orderStatus !== "cancelled";
   const isReturnRequested = order.orderStatus === "return_requested";
   const isReturnApproved = order.orderStatus === "return_approved";
 
+  const normalizeStatus = (status) =>
+    String(status || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+
   const handleSetStatus = (status) => {
-    openConfirm(`Set status to ${status}`, `Set order status to "${status}"?`, {
-      status,
-      reason: `Status changed to ${status} by vendor`,
-      __actionKey: `status_${status}`,
+    const normalizedStatus = normalizeStatus(status);
+    const statusLabel = normalizedStatus.replace(/_/g, " ");
+
+    openConfirm(`Set status to ${statusLabel}`, `Set order status to "${statusLabel}"?`, {
+      status: normalizedStatus,
+      reason: `Status changed to ${statusLabel} by vendor`,
+      __actionKey: `status_${normalizedStatus}`,
     });
   };
 
@@ -189,31 +203,37 @@ const OrderDetailsPage = () => {
                           ? "bg-yellow-500 text-white"
                           : order.orderStatus === "cancelled"
                           ? "bg-red-500 text-white"
+                          : order.orderStatus === "out_for_delivery"
+                          ? "bg-orange-500 text-white"
                           : order.orderStatus === "delivered"
                           ? "bg-green-500 text-white"
                           : "bg-blue-500 text-white"
                       }`}
                     >
-                      {order.orderStatus}
+                      {order.orderStatus.replace(/_/g, " ")}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {statusOptions.map((s) => {
-                      const key = `status_${s}`;
+                    {statusOptions.map((option) => {
+                      const key = `status_${option.value}`;
                       const loadingThis = actionLoading === key;
                       return (
                         <button
-                          key={s}
+                          key={option.value}
                           disabled={
                             isUpdating ||
                             order.orderStatus === "cancelled" ||
                             order.orderStatus === "return_completed"
                           }
-                          onClick={() => handleSetStatus(s)}
+                          onClick={() => handleSetStatus(option.value)}
                           className="px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm disabled:opacity-50 flex items-center gap-2"
                         >
-                          {loadingThis ? <AuthButtonLoader size={14} /> : s}
+                          {loadingThis ? (
+                            <AuthButtonLoader size={14} />
+                          ) : (
+                            option.label
+                          )}
                         </button>
                       );
                     })}
@@ -379,12 +399,14 @@ const OrderDetailsPage = () => {
                         ? "bg-yellow-500 text-white"
                         : order.orderStatus === "cancelled"
                         ? "bg-red-500 text-white"
+                        : order.orderStatus === "out_for_delivery"
+                        ? "bg-orange-500 text-white"
                         : order.orderStatus === "delivered"
                         ? "bg-green-500 text-white"
                         : "bg-blue-500 text-white"
                     }`}
                   >
-                    {order.orderStatus}
+                    {order.orderStatus.replace(/_/g, " ")}
                   </span>
                 </div>
               </div>

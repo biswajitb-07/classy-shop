@@ -72,7 +72,6 @@ const Users = lazy(() => import("./pages/Vendor/vedorPage/community/Users"));
 const Vendors = lazy(() => import("./pages/Vendor/vedorPage/community/Vendors"));
 const Settings = lazy(() => import("./pages/Vendor/Settings"));
 const SupportChats = lazy(() => import("./pages/Vendor/vedorPage/SupportChats"));
-import { ThemeProvider } from "./context/ThemeContext";
 
 const appRouter = createBrowserRouter([
   {
@@ -240,32 +239,30 @@ const App = () => {
   }, []);
 
   return (
-    <ThemeProvider>
-      <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 2000,
-          }}
-        />
-        {isOnline ? (
-          <RouterProvider router={appRouter} />
-        ) : (
-          <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
-            <WifiOff
-              className="w-28 h-28 text-sky-400 animate-pulse"
-              strokeWidth={0.5}
-            />
-            <h1 className="mt-6 text-3xl font-bold tracking-tight">
-              You're offline
-            </h1>
-            <p className="mt-2 text-slate-300 text-center max-w-xs">
-              Check your connection to continue using the site.
-            </p>
-          </div>
-        )}
-      </main>
-    </ThemeProvider>
+    <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 2000,
+        }}
+      />
+      {isOnline ? (
+        <RouterProvider router={appRouter} />
+      ) : (
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
+          <WifiOff
+            className="w-28 h-28 text-sky-400 animate-pulse"
+            strokeWidth={0.5}
+          />
+          <h1 className="mt-6 text-3xl font-bold tracking-tight">
+            You're offline
+          </h1>
+          <p className="mt-2 text-slate-300 text-center max-w-xs">
+            Check your connection to continue using the site.
+          </p>
+        </div>
+      )}
+    </main>
   );
 };
 

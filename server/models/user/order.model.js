@@ -106,6 +106,7 @@ const orderSchema = new mongoose.Schema({
       "pending",
       "processing",
       "shipped",
+      "out_for_delivery",
       "delivered",
       "cancelled",
       "return_requested",

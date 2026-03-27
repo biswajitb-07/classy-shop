@@ -25,7 +25,13 @@ export const orderApi = createApi({
       query: ({ orderId, body }) => ({
         url: `/vendor/status/${orderId}`,
         method: "PUT",
-        body,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: {
+          status: body?.status,
+          reason: body?.reason || "",
+        },
       }),
       invalidatesTags: (result, error, { orderId }) => [
         { type: "Order", id: orderId },

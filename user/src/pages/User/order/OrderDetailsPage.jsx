@@ -80,6 +80,8 @@ const OrderDetailsPage = () => {
         return "bg-blue-500 text-white";
       case "shipped":
         return "bg-purple-500 text-white";
+      case "out_for_delivery":
+        return "bg-orange-500 text-white";
       case "delivered":
         return "bg-green-500 text-white";
       case "cancelled":
@@ -125,7 +127,7 @@ const OrderDetailsPage = () => {
     0
   );
 
-  const statusOrder = ["pending", "processing", "shipped", "delivered"];
+  const statusOrder = ["pending", "processing", "shipped", "out_for_delivery", "delivered"];
   const isReturnFlow =
     order.orderStatus && order.orderStatus.startsWith("return");
   const isCancelled = order.orderStatus === "cancelled";
@@ -262,7 +264,7 @@ const OrderDetailsPage = () => {
                     {isReturnFlow
                       ? returnLabel(order.orderStatus)
                       : order.orderStatus.charAt(0).toUpperCase() +
-                        order.orderStatus.slice(1)}
+                        order.orderStatus.slice(1).replace(/_/g, " ")}
                   </div>
                 </div>
               </div>
@@ -438,7 +440,7 @@ const OrderDetailsPage = () => {
                   >
                     {isReturnFlow
                       ? returnLabel(order.orderStatus)
-                      : order.orderStatus}
+                      : order.orderStatus.replace(/_/g, " ")}
                   </span>
                 </div>
               </div>

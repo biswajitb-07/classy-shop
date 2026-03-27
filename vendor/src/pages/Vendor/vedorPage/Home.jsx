@@ -67,6 +67,7 @@ const statusPalette = {
   pending: "bg-amber-100 text-amber-700 border-amber-200",
   processing: "bg-sky-100 text-sky-700 border-sky-200",
   shipped: "bg-violet-100 text-violet-700 border-violet-200",
+  out_for_delivery: "bg-orange-100 text-orange-700 border-orange-200",
   delivered: "bg-emerald-100 text-emerald-700 border-emerald-200",
   cancelled: "bg-rose-100 text-rose-700 border-rose-200",
 };
@@ -419,7 +420,9 @@ const Home = () => {
       (order) => order?.orderStatus === "delivered",
     ).length;
     const pendingOrders = orders.filter((order) =>
-      ["pending", "processing", "shipped"].includes(order?.orderStatus),
+      ["pending", "processing", "shipped", "out_for_delivery"].includes(
+        order?.orderStatus,
+      ),
     ).length;
     const fulfillmentRate = orders.length
       ? Math.round((deliveredOrders / orders.length) * 100)
@@ -428,6 +431,7 @@ const Home = () => {
       "pending",
       "processing",
       "shipped",
+      "out_for_delivery",
       "delivered",
       "cancelled",
     ].map((status) => ({

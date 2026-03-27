@@ -14,9 +14,14 @@ import { User } from "../../models/user/user.model.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
 import { UserNotification } from "../../models/user/userNotification.model.js";
 import {
+  emitUserNotificationUpdate,
   emitVendorDashboardUpdate,
   emitVendorNotificationUpdate,
 } from "../../socket/socket.js";
+import {
+  sendOrderOutForDeliveryEmail,
+  sendOrderPlacedEmail,
+} from "../../utils/emailService.js";
 
 const productModels = {
   Fashion,
@@ -38,6 +43,134 @@ const formatStatusLabel = (status) =>
   status
     ?.replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const normalizeOrderStatus = (status) => {
+  const rawStatus =
+    typeof status === "object" && status !== null
+      ? status.value || status.status || status.label || ""
+      : status;
+
+  const normalized = String(rawStatus || "")
+    .trim()
+    .toLowerCase();
+
+  if (/out[\s_-]*for[\s_-]*delivery/.test(normalized)) {
+    return "out_for_delivery";
+  }
+
+  if (/return[\s_-]*requested/.test(normalized)) {
+    return "return_requested";
+  }
+
+  if (/return[\s_-]*approved/.test(normalized)) {
+    return "return_approved";
+  }
+
+  if (/return[\s_-]*rejected/.test(normalized)) {
+    return "return_rejected";
+  }
+
+  if (/return[\s_-]*completed/.test(normalized)) {
+    return "return_completed";
+  }
+
+  return normalized.replace(/[\s-]+/g, "_");
+};
+
+const productRouteMap = {
+  Fashion: "fashion",
+  Electronics: "electronics",
+  Bag: "bag",
+  Footwear: "footwear",
+  Grocery: "grocery",
+  Beauty: "beauty",
+  Wellness: "wellness",
+  Jewellery: "jewellery",
+};
+
+const getProductLink = (productType, productId) => {
+  const routeBase = productRouteMap[productType];
+  const storefrontBase = (process.env.USER_URL || "").replace(/\/$/, "");
+
+  if (!routeBase || !storefrontBase || !productId) return "";
+
+  return `${storefrontBase}/${routeBase}/${routeBase}-product-details/${productId}`;
+};
+
+const buildOrderEmailItems = async (items = []) => {
+  const emailItems = await Promise.all(
+    (items || []).map(async (item) => {
+      try {
+        const Model = productModels[item.productType];
+        const product = Model
+          ? await Model.findById(item.productId).lean()
+          : null;
+
+        return {
+          name: item.productName || product?.name || item.productType,
+          category: item.productType,
+          variant: item.variant || "",
+          quantity: item.quantity,
+          price: item.price,
+          image: product?.image?.[0] || "",
+          link: getProductLink(item.productType, item.productId),
+        };
+      } catch (error) {
+        console.error("Failed to build order email item:", error);
+        return {
+          name: item.productName || item.productType,
+          category: item.productType,
+          variant: item.variant || "",
+          quantity: item.quantity,
+          price: item.price,
+          image: "",
+          link: getProductLink(item.productType, item.productId),
+        };
+      }
+    }),
+  );
+
+  return emailItems.filter(Boolean);
+};
+
+const safelySendOrderPlacedEmail = async ({ order, user }) => {
+  if (!order || !user?.email) return;
+
+  try {
+    const items = await buildOrderEmailItems(order.items);
+    await sendOrderPlacedEmail({
+      to: user.email,
+      name: user.name,
+      orderId: order.orderId,
+      paymentMethod: order.paymentMethod === "cod" ? "Cash on Delivery" : "Razorpay",
+      totalAmount: order.totalAmount,
+      shippingAddress: order.shippingAddress,
+      items,
+    });
+  } catch (error) {
+    console.error("Failed to send order confirmation email:", error);
+  }
+};
+
+const safelySendOutForDeliveryEmail = async ({ order }) => {
+  if (!order?.userId) return;
+
+  try {
+    const user = await User.findById(order.userId).select("name email").lean();
+    if (!user?.email) return;
+
+    const items = await buildOrderEmailItems(order.items);
+    await sendOrderOutForDeliveryEmail({
+      to: user.email,
+      name: user.name,
+      orderId: order.orderId,
+      totalAmount: order.totalAmount,
+      items,
+    });
+  } catch (error) {
+    console.error("Failed to send out-for-delivery email:", error);
+  }
+};
 
 const adjustInventoryForOrderItems = async (
   items,
@@ -125,6 +258,8 @@ const createUserNotificationForOrderStatus = async ({
       extraCount ? ` +${extraCount} more.` : ""
     }${reason ? ` Note: ${reason}` : ""}`,
   });
+
+  emitUserNotificationUpdate(order.userId);
 };
 
 const computeOrderDetailsFromCart = async (userId) => {
@@ -182,6 +317,7 @@ export const createOrder = async (req, res) => {
   try {
     const { shippingAddress, paymentMethod } = req.body;
     const userId = req.id;
+    const orderingUser = await User.findById(userId).select("name email").lean();
     if (!shippingAddress || !paymentMethod) {
       return res.status(400).json({
         success: false,
@@ -221,6 +357,7 @@ export const createOrder = async (req, res) => {
       );
       cart.items = [];
       await cart.save();
+      await safelySendOrderPlacedEmail({ order, user: orderingUser });
       return res
         .status(201)
         .json({ success: true, message: "Order created successfully", order });
@@ -284,6 +421,7 @@ export const confirmPayment = async (req, res) => {
         .json({ success: false, message: "Invalid order reference" });
     }
     const userId = notes.userId;
+    const orderingUser = await User.findById(userId).select("name email").lean();
     const shippingAddress = JSON.parse(notes.shippingAddress);
     const { totalAmount, orderItems, cart } = await computeOrderDetailsFromCart(
       userId
@@ -315,6 +453,7 @@ export const confirmPayment = async (req, res) => {
     await createVendorNotificationsForOrder(order, userId);
     cart.items = [];
     await cart.save();
+    await safelySendOrderPlacedEmail({ order, user: orderingUser });
     return res.status(200).json({
       success: true,
       message: "Payment confirmed successfully",
@@ -399,8 +538,9 @@ export const orderStatusUpdate = async (req, res) => {
   try {
     const { status, reason } = req.body;
     const { orderId } = req.params;
+    const normalizedStatus = normalizeOrderStatus(status);
 
-    if (!status) {
+    if (!normalizedStatus) {
       return res
         .status(400)
         .json({ success: false, message: "Status is required" });
@@ -410,6 +550,7 @@ export const orderStatusUpdate = async (req, res) => {
       "pending",
       "processing",
       "shipped",
+      "out_for_delivery",
       "delivered",
       "cancelled",
       "return_requested",
@@ -418,7 +559,7 @@ export const orderStatusUpdate = async (req, res) => {
       "return_completed",
     ];
 
-    if (!allowedStatuses.includes(status)) {
+    if (!allowedStatuses.includes(normalizedStatus)) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid status value" });
@@ -460,7 +601,7 @@ export const orderStatusUpdate = async (req, res) => {
       }
 
       // Allow user to request return only when delivered
-      if (status === "return_requested") {
+      if (normalizedStatus === "return_requested") {
         if (order.orderStatus !== "delivered") {
           return res.status(400).json({
             success: false,
@@ -490,7 +631,7 @@ export const orderStatusUpdate = async (req, res) => {
       }
 
       // Allow user to cancel if order is pending or processing
-      if (status === "cancelled") {
+      if (normalizedStatus === "cancelled") {
         if (!["pending", "processing"].includes(order.orderStatus)) {
           return res.status(400).json({
             success: false,
@@ -542,19 +683,20 @@ export const orderStatusUpdate = async (req, res) => {
       const vendorAllowed = [
         "processing",
         "shipped",
+        "out_for_delivery",
         "delivered",
         "cancelled",
         "return_approved",
         "return_rejected",
         "return_completed",
       ];
-      if (!vendorAllowed.includes(status)) {
+      if (!vendorAllowed.includes(normalizedStatus)) {
         return res
           .status(403)
           .json({ success: false, message: "Vendors cannot set that status" });
       }
 
-      if (order.orderStatus === "cancelled" && status !== "cancelled") {
+      if (order.orderStatus === "cancelled" && normalizedStatus !== "cancelled") {
         return res.status(400).json({
           success: false,
           message: "Order already cancelled and cannot be changed",
@@ -563,16 +705,16 @@ export const orderStatusUpdate = async (req, res) => {
 
       if (
         order.orderStatus === "delivered" &&
-        !status.startsWith("return") &&
-        status !== "delivered"
+        !normalizedStatus.startsWith("return") &&
+        normalizedStatus !== "delivered"
       ) {
         return res.status(400).json({
           success: false,
-          message: `Cannot change a delivered order to '${status}'`,
+          message: `Cannot change a delivered order to '${normalizedStatus}'`,
         });
       }
 
-      if (status === "return_approved") {
+      if (normalizedStatus === "return_approved") {
         if (order.orderStatus !== "return_requested") {
           return res.status(400).json({
             success: false,
@@ -596,7 +738,7 @@ export const orderStatusUpdate = async (req, res) => {
           at: new Date(),
         });
         order.orderStatus = "return_approved";
-      } else if (status === "return_rejected") {
+      } else if (normalizedStatus === "return_rejected") {
         if (order.orderStatus !== "return_requested") {
           return res.status(400).json({
             success: false,
@@ -613,7 +755,7 @@ export const orderStatusUpdate = async (req, res) => {
           at: new Date(),
         });
         order.orderStatus = "return_rejected";
-      } else if (status === "return_completed") {
+      } else if (normalizedStatus === "return_completed") {
         if (order.orderStatus !== "return_approved") {
           return res.status(400).json({
             success: false,
@@ -641,7 +783,7 @@ export const orderStatusUpdate = async (req, res) => {
           order.stockRestored = true;
         }
         order.orderStatus = "return_completed";
-      } else if (status === "cancelled") {
+      } else if (normalizedStatus === "cancelled") {
         if (order.orderStatus === "delivered") {
           return res.status(400).json({
             success: false,
@@ -673,13 +815,13 @@ export const orderStatusUpdate = async (req, res) => {
         order.statusHistory = order.statusHistory || [];
         order.statusHistory.push({
           from: order.orderStatus,
-          to: status,
+          to: normalizedStatus,
           by: req.id,
           role: "vendor",
           reason: reason || "",
           at: new Date(),
         });
-        order.orderStatus = status;
+        order.orderStatus = normalizedStatus;
       }
 
       order.updatedAt = Date.now();
@@ -691,6 +833,9 @@ export const orderStatusUpdate = async (req, res) => {
         previousStatus,
         vendorId: req.id,
       });
+      if (order.orderStatus === "out_for_delivery") {
+        await safelySendOutForDeliveryEmail({ order });
+      }
       emitVendorDashboardUpdate(req.id);
 
       return res

@@ -98,6 +98,7 @@ const SupportChats = () => {
 
     const handleConnect = () => {
       syncChatList();
+      socket.emit("support_presence_active", { active: true });
       socket.emit("sync_presence");
       if (selectedIdRef.current) {
         // Rejoin the active room on reconnect so presence and typing indicators
@@ -170,6 +171,7 @@ const SupportChats = () => {
     socket.on("user_offline", handlePresence);
     socket.on("user_presence_snapshot", handlePresenceSnapshot);
     connectVendorSocket();
+    socket.emit("support_presence_active", { active: true });
     socket.emit("sync_presence");
     if (selectedIdRef.current) {
       socket.emit("join_support_chat", { chatId: selectedIdRef.current }, (response) => {
@@ -180,6 +182,7 @@ const SupportChats = () => {
     }
 
     return () => {
+      socket.emit("support_presence_active", { active: false });
       socket.off("connect", handleConnect);
       socket.off("support:message");
       socket.off("support:conversation:update");
