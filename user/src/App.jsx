@@ -6,7 +6,6 @@ import {
   PublicRoute,
   UserRoute,
 } from "./components/protectRoute/ProtectedRoutes.jsx";
-import { ThemeProvider } from "./context/ThemeContext.jsx";
 
 const MainLayout = lazy(() => import("./layout/MainLayout.jsx"));
 const Home = lazy(() => import("./pages/Home.jsx"));
@@ -364,36 +363,32 @@ const App = () => {
   }, []);
 
   return (
-    <ThemeProvider>
-      {/* ThemeProvider wraps the full user app because page, navbar, profile,
-          support, and product components all read the same theme tokens. */}
-      <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
-        <Toaster
-          position="top-center"
-          toastOptions={{
-            duration: 2000,
-          }}
-        />
-        {isOnline ? (
-          <RouterProvider router={appRouter} />
-        ) : (
-          // A dedicated offline screen is less confusing than rendering pages
-          // that depend on data the browser cannot fetch at all.
-          <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
-            <WifiOff
-              className="w-28 h-28 text-sky-400 animate-pulse"
-              strokeWidth={0.5}
-            />
-            <h1 className="mt-6 text-3xl font-bold tracking-tight">
-              You're offline
-            </h1>
-            <p className="mt-2 text-slate-300 text-center max-w-xs">
-              Check your connection to continue using the site.
-            </p>
-          </div>
-        )}
-      </main>
-    </ThemeProvider>
+    <main className="min-h-screen bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
+      <Toaster
+        position="top-center"
+        toastOptions={{
+          duration: 2000,
+        }}
+      />
+      {isOnline ? (
+        <RouterProvider router={appRouter} />
+      ) : (
+        // A dedicated offline screen is less confusing than rendering pages
+        // that depend on data the browser cannot fetch at all.
+        <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 text-white">
+          <WifiOff
+            className="w-28 h-28 text-sky-400 animate-pulse"
+            strokeWidth={0.5}
+          />
+          <h1 className="mt-6 text-3xl font-bold tracking-tight">
+            You're offline
+          </h1>
+          <p className="mt-2 text-slate-300 text-center max-w-xs">
+            Check your connection to continue using the site.
+          </p>
+        </div>
+      )}
+    </main>
   );
 };
 
