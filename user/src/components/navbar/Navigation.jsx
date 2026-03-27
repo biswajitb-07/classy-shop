@@ -169,7 +169,7 @@ const Navigation = ({ openCategoryPanel, isOpenCatPanel, categories }) => {
           <div className="col3 w-[20%]">
             <div className="text-sm font-[500] flex items-center justify-end gap-3 mb-0 mt-0">
               <GoRocket className="text-[18px] size" />
-              <p className="hide-below-1220">Free International Delivery</p>
+              <p className="hide-below-1220">Free All India Delivery</p>
             </div>
           </div>
         </div>

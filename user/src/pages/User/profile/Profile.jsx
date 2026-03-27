@@ -759,9 +759,6 @@ const Profile = () => {
                 <h3 className={`text-lg sm:text-xl font-bold ${sectionTitleClass}`}>
                   Order Notifications
                 </h3>
-                <p className={`text-sm ${subtitleClass}`}>
-                  Vendor order status updates appear here automatically
-                </p>
               </div>
             </div>
             <button
