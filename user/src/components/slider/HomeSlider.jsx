@@ -52,16 +52,16 @@ const HomeSlider = () => {
 
   return (
     <div
-      onMouseEnter={toggleArrowIcon}
-      onMouseLeave={toggleArrowIcon}
+      onMouseEnter={() => setArrowIcon(true)}
+      onMouseLeave={() => setArrowIcon(false)}
       className="relative w-full my-2 md:my-4 lg:my-3 overflow-hidden rounded-lg shadow-lg"
     >
       {/* Slides container */}
-      <div className="relative flex w-full h-full">
+      <div className="relative w-full aspect-[16/8.6] sm:aspect-[16/7.2] md:aspect-[16/6] lg:aspect-[16/4.8]">
         <AnimatePresence initial={false} mode="wait">
           <motion.div
             key={current}
-            className="min-w-full h-full"
+            className="absolute inset-0"
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -100 }}
@@ -70,7 +70,7 @@ const HomeSlider = () => {
             <img
               src={slides[current]}
               alt={`slide-${current}`}
-              className="w-full h-auto block"
+              className="block h-full w-full object-cover"
             />
           </motion.div>
         </AnimatePresence>

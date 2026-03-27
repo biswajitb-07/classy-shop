@@ -1,16 +1,38 @@
 import { useRef, useState } from "react";
 import { FaArrowRight, FaArrowLeft } from "react-icons/fa";
+import { useNavigate } from "react-router-dom";
 import { useGetVendorCategoriesQuery } from "../../features/api/categoryApi";
 
 const HomeCatSlider = () => {
   const [hover, setHover] = useState(null);
   const [arrowIcon, setArrowIcon] = useState(false);
+  const navigate = useNavigate();
 
   const { data: categories, isLoading } = useGetVendorCategoriesQuery();
   const categoryData = categories?.[0]?.categories || [];
 
   const toggleArrowIcon = () => {
     setArrowIcon(!arrowIcon);
+  };
+
+  const getCategoryRoute = (categoryName = "") => {
+    const normalized = categoryName.trim().toLowerCase();
+
+    const routeMap = {
+      fashion: "/fashion",
+      electronics: "/electronics",
+      bags: "/bags",
+      bag: "/bags",
+      footwear: "/footwear",
+      groceries: "/groceries",
+      grocery: "/grocery",
+      beauty: "/beauty",
+      wellness: "/wellness",
+      jewellery: "/jewellery",
+      jewelry: "/jewellery",
+    };
+
+    return routeMap[normalized] || `/${normalized.replace(/\s+/g, "-")}`;
   };
 
   const scrollRef = useRef(null);
@@ -70,8 +92,17 @@ const HomeCatSlider = () => {
                 key={idx}
                 onMouseEnter={() => setHover(idx)}
                 onMouseLeave={() => setHover(null)}
+                onClick={() => navigate(getCategoryRoute(item.name))}
                 className={`flex-shrink-0 w-28 sm:w-32 md:w-44 h-32 sm:h-36 bg-white rounded-lg shadow-md p-2 cursor-pointer
                   ${idx === categoryData.length - 1 ? "mr-[25%] sm:mr-0" : ""}`}
+                role="link"
+                tabIndex={0}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    navigate(getCategoryRoute(item.name));
+                  }
+                }}
               >
                 <div className="flex flex-col items-center justify-center h-full gap-3 w-full">
                   <img
