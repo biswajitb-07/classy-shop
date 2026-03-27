@@ -56,6 +56,7 @@ export const createVendor = async (req, res) => {
       email,
       password: hashPassword,
       phone,
+      welcomeMailSent: false,
       bio:
         typeof req.body.bio === "string" && req.body.bio.trim()
           ? req.body.bio.trim()
@@ -71,6 +72,11 @@ export const createVendor = async (req, res) => {
         name,
         accountType: "vendor",
       });
+
+      await Vendor.updateOne(
+        { _id: newVendor._id },
+        { $set: { welcomeMailSent: true } }
+      );
     } catch (mailErr) {
       console.error("Vendor welcome mail error:", mailErr);
     }

@@ -55,7 +55,7 @@ export const register = async (req, res) => {
       name,
       email,
       password: hashPassword,
-      welcomeMailSent: true,
+      welcomeMailSent: false,
     });
 
     await newUser.save();
@@ -67,7 +67,13 @@ export const register = async (req, res) => {
         name,
         accountType: "user",
       });
+
+      await User.updateOne(
+        { _id: newUser._id },
+        { $set: { welcomeMailSent: true } }
+      );
     } catch (mailErr) {
+      console.error("User welcome mail error:", mailErr);
       await User.updateOne(
         { _id: newUser._id },
         { $set: { welcomeMailSent: false } }
