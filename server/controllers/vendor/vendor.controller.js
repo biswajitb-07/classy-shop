@@ -1,5 +1,9 @@
 import { Vendor } from "../../models/vendor/vendor.model.js";
 import { User } from "../../models/user/user.model.js";
+import { Cart } from "../../models/user/cart.model.js";
+import { Wishlist } from "../../models/user/wishlist.model.js";
+import Order from "../../models/user/order.model.js";
+import { UserNotification } from "../../models/user/userNotification.model.js";
 import bcrypt from "bcryptjs";
 import {
   loginSchema,
@@ -14,8 +18,28 @@ import {
   signSocketToken,
   setVendorAuthCookies,
 } from "../../utils/authCookies.js";
+import { Category } from "../../models/vendor/category.model.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
+import { SupportConversation } from "../../models/support/supportConversation.model.js";
+import { SupportMessage } from "../../models/support/supportMessage.model.js";
+import Fashion from "../../models/vendor/fashion/fashion.model.js";
+import Electronic from "../../models/vendor/electronic/electronic.model.js";
+import Bag from "../../models/vendor/bag/bag.model.js";
+import Grocery from "../../models/vendor/grocery/grocery.model.js";
+import Footwear from "../../models/vendor/footwear/footwear.model.js";
+import Beauty from "../../models/vendor/beauty/beauty.model.js";
+import Wellness from "../../models/vendor/wellness/wellness.model.js";
+import Jewellery from "../../models/vendor/jewellery/jewellery.model.js";
+import FashionBrand from "../../models/vendor/fashion/fashionBrand.model.js";
+import ElectronicBrand from "../../models/vendor/electronic/electronicBrand.model.js";
+import BagBrand from "../../models/vendor/bag/bagBrand.model.js";
+import GroceryBrand from "../../models/vendor/grocery/groceryBrand.model.js";
+import FootwearBrand from "../../models/vendor/footwear/footwearBrand.model.js";
+import BeautyBrand from "../../models/vendor/beauty/beautyBrand.model.js";
+import WellnessBrand from "../../models/vendor/wellness/wellnessBrand.model.js";
+import JewelleryBrand from "../../models/vendor/jewellery/jewelleryBrand.model.js";
 import { emitVendorSummaryUpdate } from "../../socket/socket.js";
+import { NewsletterSubscriber } from "../../models/newsletter.model.js";
 import {
   sendPasswordChangedEmail,
   sendResetOtpEmail,
@@ -24,6 +48,179 @@ import {
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const vendorProductModels = [
+  Fashion,
+  Electronic,
+  Bag,
+  Grocery,
+  Footwear,
+  Beauty,
+  Wellness,
+  Jewellery,
+];
+
+const vendorBrandModels = [
+  FashionBrand,
+  ElectronicBrand,
+  BagBrand,
+  GroceryBrand,
+  FootwearBrand,
+  BeautyBrand,
+  WellnessBrand,
+  JewelleryBrand,
+];
+
+const extractCloudinaryPublicIdFromUrl = (url = "") => {
+  if (!url || typeof url !== "string" || !url.includes("/upload/")) return "";
+  const cleanedUrl = url.split("?")[0];
+  const match = cleanedUrl.match(/\/upload\/(?:v\d+\/)?(.+)\.[a-zA-Z0-9]+$/);
+  return match?.[1] || "";
+};
+
+const deleteCloudinaryUrl = async (url) => {
+  const publicId = extractCloudinaryPublicIdFromUrl(url);
+  if (!publicId) return;
+  await deleteMediaFromCloudinary(publicId);
+};
+
+const deleteCloudinaryUrls = async (urls = []) => {
+  const uniqueUrls = [...new Set((urls || []).filter(Boolean))];
+  await Promise.all(uniqueUrls.map((url) => deleteCloudinaryUrl(url)));
+};
+
+const deleteSupportAttachments = async (messages = []) => {
+  const publicIds = messages.flatMap((message) =>
+    (message.attachments || []).map((attachment) => attachment?.publicId).filter(Boolean)
+  );
+
+  await Promise.all(
+    [...new Set(publicIds)].map((publicId) => deleteMediaFromCloudinary(publicId))
+  );
+};
+
+const cleanupUserRelatedData = async (user) => {
+  if (!user) return;
+
+  const userId = user._id;
+  const userOrders = await Order.find({ userId }).select("_id");
+  const orderIds = userOrders.map((order) => order._id);
+
+  const supportConversations = await SupportConversation.find({ user: userId }).select("_id");
+  const conversationIds = supportConversations.map((conversation) => conversation._id);
+  const supportMessages = conversationIds.length
+    ? await SupportMessage.find({ conversation: { $in: conversationIds } }).select("attachments")
+    : [];
+
+  await deleteCloudinaryUrl(user.photoUrl);
+  await deleteSupportAttachments(supportMessages);
+
+  const notificationFilter = orderIds.length
+    ? { $or: [{ userId }, { orderId: { $in: orderIds } }] }
+    : { userId };
+
+  await Promise.all([
+    Cart.deleteOne({ userId }),
+    Wishlist.deleteMany({ userId }),
+    UserNotification.deleteMany(notificationFilter),
+    VendorNotification.deleteMany(notificationFilter),
+    orderIds.length ? Order.deleteMany({ _id: { $in: orderIds } }) : Promise.resolve(),
+    conversationIds.length
+      ? SupportMessage.deleteMany({ conversation: { $in: conversationIds } })
+      : Promise.resolve(),
+    conversationIds.length
+      ? SupportConversation.deleteMany({ _id: { $in: conversationIds } })
+      : Promise.resolve(),
+    User.findByIdAndDelete(userId),
+  ]);
+};
+
+const cleanupVendorRelatedData = async (vendor) => {
+  if (!vendor) return;
+
+  const vendorId = vendor._id;
+
+  const [categoryDocs, supportConversations, vendorProducts, orders] = await Promise.all([
+    Category.find({ vendorId }).lean(),
+    SupportConversation.find({ assignedVendor: vendorId }).select("_id"),
+    Promise.all(
+      vendorProductModels.map((Model) => Model.find({ vendorId }).select("_id image").lean())
+    ),
+    Order.find({ "items.vendorId": vendorId }),
+  ]);
+
+  const conversationIds = supportConversations.map((conversation) => conversation._id);
+  const supportMessages = conversationIds.length
+    ? await SupportMessage.find({ conversation: { $in: conversationIds } }).select("attachments")
+    : [];
+
+  const productDocs = vendorProducts.flat();
+  const deletedProductIds = productDocs.map((product) => product._id);
+  const productImageUrls = productDocs.flatMap((product) => product.image || []);
+  const categoryImageUrls = categoryDocs.flatMap((doc) =>
+    (doc.categories || []).map((category) => category?.image).filter(Boolean)
+  );
+
+  await deleteCloudinaryUrl(vendor.photoUrl);
+  await deleteCloudinaryUrls([...productImageUrls, ...categoryImageUrls]);
+  await deleteSupportAttachments(supportMessages);
+
+  for (const order of orders) {
+    order.items = (order.items || []).filter(
+      (item) => String(item.vendorId) !== String(vendorId)
+    );
+    order.totalAmount = order.items.reduce(
+      (sum, item) => sum + Number(item.subtotal || item.price * item.quantity || 0),
+      0
+    );
+
+    if (!order.items.length) {
+      await Promise.all([
+        UserNotification.deleteMany({ orderId: order._id }),
+        VendorNotification.deleteMany({ orderId: order._id }),
+      ]);
+      await order.deleteOne();
+      continue;
+    }
+
+    await Promise.all([
+      UserNotification.deleteMany({ vendorId, orderId: order._id }),
+      VendorNotification.deleteMany({ vendorId, orderId: order._id }),
+    ]);
+    await order.save();
+  }
+
+  const productCleanupQuery = deletedProductIds.length
+    ? { items: { $elemMatch: { productId: { $in: deletedProductIds } } } }
+    : null;
+
+  await Promise.all([
+    ...vendorProductModels.map((Model) => Model.deleteMany({ vendorId })),
+    ...vendorBrandModels.map((Model) => Model.deleteMany({ vendorId })),
+    Category.deleteMany({ vendorId }),
+    VendorNotification.deleteMany({ vendorId }),
+    UserNotification.deleteMany({ vendorId }),
+    conversationIds.length
+      ? SupportMessage.deleteMany({ conversation: { $in: conversationIds } })
+      : Promise.resolve(),
+    conversationIds.length
+      ? SupportConversation.deleteMany({ _id: { $in: conversationIds } })
+      : Promise.resolve(),
+    productCleanupQuery
+      ? Cart.updateMany(
+          productCleanupQuery,
+          { $pull: { items: { productId: { $in: deletedProductIds } } } }
+        )
+      : Promise.resolve(),
+    productCleanupQuery
+      ? Wishlist.updateMany(
+          productCleanupQuery,
+          { $pull: { items: { productId: { $in: deletedProductIds } } } }
+        )
+      : Promise.resolve(),
+    Vendor.findByIdAndDelete(vendorId),
+  ]);
+};
 
 export const createVendor = async (req, res) => {
   try {
@@ -485,6 +682,61 @@ export const getAllVendors = async (req, res) => {
   }
 };
 
+export const getNewsletterSubscribers = async (_req, res) => {
+  try {
+    const subscribers = await NewsletterSubscriber.find({ isActive: true }).sort({
+      createdAt: -1,
+    });
+
+    return res.status(200).json({
+      success: true,
+      subscribers,
+    });
+  } catch (error) {
+    console.error("Failed to load newsletter subscribers:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load newsletter subscribers",
+    });
+  }
+};
+
+export const exportNewsletterSubscribersCsv = async (_req, res) => {
+  try {
+    const subscribers = await NewsletterSubscriber.find({ isActive: true }).sort({
+      createdAt: -1,
+    });
+
+    const csvRows = [
+      ["Email", "Source", "Status", "Subscribed At"].join(","),
+      ...subscribers.map((subscriber) =>
+        [
+          `"${String(subscriber.email || "").replace(/"/g, '""')}"`,
+          `"${String(subscriber.source || "").replace(/"/g, '""')}"`,
+          `"${subscriber.isActive ? "Active" : "Inactive"}"`,
+          `"${new Date(subscriber.createdAt).toISOString()}"`,
+        ].join(","),
+      ),
+    ];
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="newsletter-subscribers-${new Date()
+        .toISOString()
+        .slice(0, 10)}.csv"`,
+    );
+
+    return res.status(200).send(csvRows.join("\n"));
+  } catch (error) {
+    console.error("Failed to export newsletter subscribers:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export newsletter subscribers",
+    });
+  }
+};
+
 const buildUpdatePayload = (body) => {
   const payload = {};
   const fields = ["name", "email", "phone", "bio", "dob"];
@@ -529,13 +781,17 @@ export const updateUserById = async (req, res) => {
 
 export const deleteUserById = async (req, res) => {
   try {
-    const user = await User.findByIdAndDelete(req.params.id);
+    const user = await User.findById(req.params.id);
     if (!user) {
       return res.status(404).json({ success: false, message: "User not found" });
     }
+
+    await cleanupUserRelatedData(user);
+
     emitVendorSummaryUpdate();
     return res.status(200).json({ success: true, message: "User deleted successfully" });
   } catch (error) {
+    console.error("Failed to delete user with related data:", error);
     return res.status(500).json({ success: false, message: "Failed to delete user" });
   }
 };
@@ -579,13 +835,17 @@ export const updateVendorById = async (req, res) => {
 
 export const deleteVendorById = async (req, res) => {
   try {
-    const vendor = await Vendor.findByIdAndDelete(req.params.id);
+    const vendor = await Vendor.findById(req.params.id);
     if (!vendor) {
       return res.status(404).json({ success: false, message: "Vendor not found" });
     }
+
+    await cleanupVendorRelatedData(vendor);
+
     emitVendorSummaryUpdate();
     return res.status(200).json({ success: true, message: "Vendor deleted successfully" });
   } catch (error) {
+    console.error("Failed to delete vendor with related data:", error);
     return res.status(500).json({ success: false, message: "Failed to delete vendor" });
   }
 };

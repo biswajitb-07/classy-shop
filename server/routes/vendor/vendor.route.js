@@ -14,6 +14,8 @@ import {
   updateVendorProfile,
   getAllUsers,
   getAllVendors,
+  getNewsletterSubscribers,
+  exportNewsletterSubscribersCsv,
   updateUserById,
   deleteUserById,
   toggleUserBlock,
@@ -32,6 +34,7 @@ import {
   getVendorSupportConversations,
   sendVendorSupportReply,
 } from "../../controllers/support/support.controller.js";
+import siteContentVendorRouter from "./siteContent.route.js";
 
 const vendorRouter = express.Router();
 
@@ -49,6 +52,12 @@ vendorRouter.put("/profile/update", isAuthenticatedVendor, upload.single("photo"
 
 vendorRouter.get("/users", isAuthenticatedVendor, getAllUsers);
 vendorRouter.get("/vendors", isAuthenticatedVendor, getAllVendors);
+vendorRouter.get("/newsletter/subscribers", isAuthenticatedVendor, getNewsletterSubscribers);
+vendorRouter.get(
+  "/newsletter/subscribers/export",
+  isAuthenticatedVendor,
+  exportNewsletterSubscribersCsv
+);
 vendorRouter.put("/users/:id", isAuthenticatedVendor, updateUserById);
 vendorRouter.delete("/users/:id", isAuthenticatedVendor, deleteUserById);
 vendorRouter.patch("/users/:id/block", isAuthenticatedVendor, toggleUserBlock);
@@ -75,5 +84,6 @@ vendorRouter.delete(
   isAuthenticatedVendor,
   deleteVendorSupportConversation
 );
+vendorRouter.use("/site-content", siteContentVendorRouter);
 
 export default vendorRouter;

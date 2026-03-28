@@ -70,8 +70,14 @@ const OrderDetailsPage = lazy(
 );
 const Users = lazy(() => import("./pages/Vendor/vedorPage/community/Users"));
 const Vendors = lazy(() => import("./pages/Vendor/vedorPage/community/Vendors"));
+const NewsletterSubscribers = lazy(
+  () => import("./pages/Vendor/vedorPage/community/NewsletterSubscribers")
+);
 const Settings = lazy(() => import("./pages/Vendor/Settings"));
 const SupportChats = lazy(() => import("./pages/Vendor/vedorPage/SupportChats"));
+const SiteContentManager = lazy(
+  () => import("./pages/Vendor/vedorPage/SiteContentManager"),
+);
 
 const appRouter = createBrowserRouter([
   {
@@ -201,12 +207,20 @@ const appRouter = createBrowserRouter([
         element: <Vendors />,
       },
       {
+        path: "/community/newsletter",
+        element: <NewsletterSubscribers />,
+      },
+      {
         path: "/settings",
         element: <Settings />,
       },
       {
         path: "/support-chats",
         element: <SupportChats />,
+      },
+      {
+        path: "/site-content",
+        element: <SiteContentManager />,
       },
     ],
   },

@@ -11,13 +11,18 @@ import { useTheme } from "../../context/ThemeContext.jsx";
 import { Link } from "react-router-dom";
 import { companyPageList } from "../../utils/siteSupport.js";
 import { useNavigate } from "react-router-dom";
+import { toast } from "react-hot-toast";
+import { useSubscribeNewsletterMutation } from "../../features/api/newsletterApi.js";
 
 const Contact = () => {
   const [isChecked, setIsChecked] = useState(false);
   const [openAccordion, setOpenAccordion] = useState(null);
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
+  const [email, setEmail] = useState("");
   const { isDark } = useTheme();
   const navigate = useNavigate();
+  const [subscribeNewsletter, { isLoading: isSubscribing }] =
+    useSubscribeNewsletterMutation();
 
   useEffect(() => {
     const handleResize = () => {
@@ -36,6 +41,32 @@ const Contact = () => {
 
   const handleCheckboxChange = () => {
     setIsChecked(!isChecked);
+  };
+
+  const handleNewsletterSubmit = async () => {
+    const normalizedEmail = email.trim();
+
+    if (!normalizedEmail) {
+      toast.error("Please enter your email");
+      return;
+    }
+
+    if (!isChecked) {
+      toast.error("Please agree to the terms first");
+      return;
+    }
+
+    try {
+      const response = await subscribeNewsletter({
+        email: normalizedEmail,
+      }).unwrap();
+
+      toast.success(response.message || "Subscribed successfully");
+      setEmail("");
+      setIsChecked(false);
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to subscribe");
+    }
   };
 
   // Animation variants for accordion
@@ -288,6 +319,8 @@ const Contact = () => {
                     type="email"
                     className="w-full px-4 py-2 border rounded focus:outline-none"
                     placeholder="Enter your email"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
                     variants={inputVariants}
                     whileFocus="focus"
                     initial="blur"
@@ -296,15 +329,16 @@ const Contact = () => {
                 </div>
                 <motion.button
                   className={`w-full py-2 px-4 rounded text-white ${
-                    isChecked ? "" : "opacity-50 cursor-not-allowed"
+                    isChecked && !isSubscribing ? "" : "opacity-50 cursor-not-allowed"
                   }`}
-                  disabled={!isChecked}
+                  disabled={!isChecked || isSubscribing}
+                  onClick={handleNewsletterSubmit}
                   variants={buttonVariants}
-                  initial={isChecked ? "enabled" : "disabled"}
-                  animate={isChecked ? "enabled" : "disabled"}
-                  whileHover={isChecked ? "hover" : ""}
+                  initial={isChecked && !isSubscribing ? "enabled" : "disabled"}
+                  animate={isChecked && !isSubscribing ? "enabled" : "disabled"}
+                  whileHover={isChecked && !isSubscribing ? "hover" : ""}
                 >
-                  SUBSCRIBE
+                  {isSubscribing ? "SUBSCRIBING..." : "SUBSCRIBE"}
                 </motion.button>
                 <div className="mt-4 flex items-start">
                   <input

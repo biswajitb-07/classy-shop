@@ -6,7 +6,7 @@ const VENDOR_API = `${BASE_URL}/api/v1/vendor/`;
 
 export const authApi = createApi({
   reducerPath: "authApi",
-  tagTypes: ["VendorNotifications"],
+  tagTypes: ["VendorNotifications", "NewsletterSubscribers"],
   baseQuery: fetchBaseQuery({
     baseUrl: VENDOR_API,
     credentials: "include",
@@ -100,6 +100,13 @@ export const authApi = createApi({
         url: "vendors",
         method: "GET",
       }),
+    }),
+    getNewsletterSubscribers: builder.query({
+      query: () => ({
+        url: "newsletter/subscribers",
+        method: "GET",
+      }),
+      providesTags: [{ type: "NewsletterSubscribers", id: "LIST" }],
     }),
     createVendor: builder.mutation({
       query: (body) => ({
@@ -196,6 +203,7 @@ export const {
   useGetDashboardSummaryQuery,
   useGetUsersQuery,
   useGetVendorsQuery,
+  useGetNewsletterSubscribersQuery,
   useCreateVendorMutation,
   useUpdateUserByIdMutation,
   useDeleteUserByIdMutation,

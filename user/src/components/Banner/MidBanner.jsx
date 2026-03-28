@@ -1,15 +1,14 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
+import { useNavigate } from "react-router-dom";
+import { useGetSiteContentQuery } from "../../features/api/contentApi.js";
 
-const slides = ["./mid-banner/banner-1.jpg", "./mid-banner/banner-2.jpg"];
-const promoSlides = ["./mid-banner/banner-3.jpg", "./mid-banner/banner-4.jpg"];
 const AUTO_PLAY_INTERVAL = 5000;
 const PROMO_AUTO_PLAY_INTERVAL = 3000;
 
-// Helper component to reveal on scroll
 const ScrollReveal = ({ children }) => {
   const ref = useRef(null);
-  const isInView = useInView(ref); // Removed `once: true` to trigger animation on every view
+  const isInView = useInView(ref);
 
   return (
     <motion.div
@@ -26,6 +25,10 @@ const ScrollReveal = ({ children }) => {
 const MidBanner = () => {
   const [current, setCurrent] = useState(0);
   const [promoCurrent, setPromoCurrent] = useState(0);
+  const navigate = useNavigate();
+  const { data } = useGetSiteContentQuery();
+  const slides = data?.content?.heroSlides || [];
+  const promoSlides = data?.content?.promoBanners || [];
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const promoTouchStartX = useRef(0);
@@ -37,26 +40,51 @@ const MidBanner = () => {
     setCurrent((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
 
   const nextPromoSlide = () =>
-    setPromoCurrent((prev) => (prev === promoSlides.length - 1 ? 0 : prev + 1));
+    setPromoCurrent((prev) =>
+      prev === promoSlides.length - 1 ? 0 : prev + 1
+    );
   const prevPromoSlide = () =>
-    setPromoCurrent((prev) => (prev === 0 ? promoSlides.length - 1 : prev - 1));
+    setPromoCurrent((prev) =>
+      prev === 0 ? promoSlides.length - 1 : prev - 1
+    );
 
   useEffect(() => {
+    if (!slides.length) return undefined;
     const timer = setInterval(nextSlide, AUTO_PLAY_INTERVAL);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
 
   useEffect(() => {
-    const promoTimer = setInterval(nextPromoSlide, PROMO_AUTO_PLAY_INTERVAL);
-    return () => clearInterval(promoTimer);
-  }, []);
+    if (!promoSlides.length) return undefined;
+    const timer = setInterval(nextPromoSlide, PROMO_AUTO_PLAY_INTERVAL);
+    return () => clearInterval(timer);
+  }, [promoSlides.length]);
+
+  useEffect(() => {
+    if (current >= slides.length) setCurrent(0);
+  }, [current, slides.length]);
+
+  useEffect(() => {
+    if (promoCurrent >= promoSlides.length) setPromoCurrent(0);
+  }, [promoCurrent, promoSlides.length]);
+
+  const openLink = (link) => {
+    if (!link) return;
+    if (/^https?:\/\//i.test(link)) {
+      window.location.assign(link);
+      return;
+    }
+    navigate(link);
+  };
 
   const handleTouchStart = (e) => {
     touchStartX.current = e.touches[0].clientX;
   };
+
   const handleTouchMove = (e) => {
     touchEndX.current = e.touches[0].clientX;
   };
+
   const handleTouchEnd = () => {
     const diff = touchStartX.current - touchEndX.current;
     if (diff > 50) nextSlide();
@@ -66,9 +94,11 @@ const MidBanner = () => {
   const handlePromoTouchStart = (e) => {
     promoTouchStartX.current = e.touches[0].clientX;
   };
+
   const handlePromoTouchMove = (e) => {
     promoTouchEndX.current = e.touches[0].clientX;
   };
+
   const handlePromoTouchEnd = () => {
     const diff = promoTouchStartX.current - promoTouchEndX.current;
     if (diff > 50) nextPromoSlide();
@@ -111,25 +141,39 @@ const MidBanner = () => {
     },
   };
 
+  if (!slides.length && !promoSlides.length) return null;
+
   return (
-    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 z-">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
-        {/* Promotion Slider 1 */}
-        <ScrollReveal>
-          <div className="relative w-full overflow-hidden rounded-xl">
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div
+        className={`grid grid-cols-1 gap-4 lg:gap-8 ${
+          slides.length && promoSlides.length ? "lg:grid-cols-2" : ""
+        }`}
+      >
+        {slides.length ? (
+          <ScrollReveal>
+          <div
+            className="relative w-full overflow-hidden rounded-xl"
+            onTouchStart={handleTouchStart}
+            onTouchMove={handleTouchMove}
+            onTouchEnd={handleTouchEnd}
+          >
             <div className="relative">
               <AnimatePresence initial={false} mode="wait">
                 <motion.div
-                  key={current}
-                  className="min-w-full h-[20rem] sm:h-[24rem] md:h-[28rem] lg:h-[33.4rem] relative overflow-hidden group cursor-pointer"
+                  key={slides[current]?._id || current}
+                  onClick={() => openLink(slides[current]?.link)}
+                  className={`min-w-full h-[20rem] sm:h-[24rem] md:h-[28rem] lg:h-[33.4rem] relative overflow-hidden group ${
+                    slides[current]?.link ? "cursor-pointer" : "cursor-default"
+                  }`}
                   variants={slideVariants}
                   initial="initial"
                   animate="animate"
                   exit="exit"
                 >
                   <motion.img
-                    src={slides[current]}
-                    alt={`Slide ${current + 1}`}
+                    src={slides[current]?.image}
+                    alt={slides[current]?.alt || `Slide ${current + 1}`}
                     className="w-full h-full object-cover"
                     whileHover={{ scale: 1.05 }}
                     transition={{ duration: 0.3 }}
@@ -146,23 +190,20 @@ const MidBanner = () => {
                       variants={textVariants}
                       custom={0}
                     >
-                      Big Saving days sale
+                      {slides[current]?.eyebrow}
                     </motion.p>
                     <motion.h1
-                      className="text-sm sm:text-base md:text-xl lg:text-3xl font-bold text-black"
+                      className="text-sm sm:text-base md:text-xl lg:text-3xl font-bold text-black text-right"
                       variants={textVariants}
                       custom={1}
                     >
-                      {current === 1 ? (
+                      {slides[current]?.title}
+                      {slides[current]?.subtitle ? (
                         <>
-                          Apple iPhone <br /> 13 128 GB, Pink
+                          <br />
+                          {slides[current]?.subtitle}
                         </>
-                      ) : (
-                        <div className="text-xl">
-                          Buy New Women Trend | Black <br />
-                          Top Cotton Blend Top
-                        </div>
-                      )}
+                      ) : null}
                     </motion.h1>
                     <motion.p
                       className="text-lg sm:text-xl md:text-2xl font-medium text-black"
@@ -171,7 +212,7 @@ const MidBanner = () => {
                     >
                       Starting At Only{" "}
                       <span className="font-bold pl-1 text-red-500">
-                        {current === 1 ? "₹35,000.00" : "₹1,500.00"}
+                        {slides[current]?.priceLabel}
                       </span>
                     </motion.p>
                   </motion.div>
@@ -180,9 +221,9 @@ const MidBanner = () => {
             </div>
 
             <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-              {slides.map((_, idx) => (
+              {slides.map((slide, idx) => (
                 <motion.button
-                  key={idx}
+                  key={slide._id || idx}
                   className="w-2 h-2 rounded-full"
                   variants={dotVariants}
                   animate={current === idx ? "active" : "inactive"}
@@ -192,12 +233,12 @@ const MidBanner = () => {
               ))}
             </div>
           </div>
-        </ScrollReveal>
+          </ScrollReveal>
+        ) : null}
 
-        {/* Promo Slider Section */}
-        <ScrollReveal>
+        {promoSlides.length ? (
+          <ScrollReveal>
           <div className="grid grid-cols-1 gap-4 sm:gap-6">
-            {/* Mobile Promo Slider */}
             <div
               className="relative w-full overflow-hidden rounded-xl lg:hidden"
               onTouchStart={handlePromoTouchStart}
@@ -206,32 +247,39 @@ const MidBanner = () => {
             >
               <AnimatePresence initial={false} mode="wait">
                 <motion.div
-                  key={promoCurrent}
+                  key={promoSlides[promoCurrent]?._id || promoCurrent}
                   className="min-w-full"
                   variants={slideVariants}
                   initial="initial"
                   animate="animate"
                   exit="exit"
                 >
-                  <div className="relative overflow-hidden group cursor-pointer rounded-xl">
+                  <div
+                    onClick={() => openLink(promoSlides[promoCurrent]?.link)}
+                    className={`relative overflow-hidden rounded-xl ${
+                      promoSlides[promoCurrent]?.link
+                        ? "cursor-pointer"
+                        : "cursor-default"
+                    }`}
+                  >
                     <motion.img
-                      src={promoSlides[promoCurrent]}
+                      src={promoSlides[promoCurrent]?.image}
                       className="w-full h-[16rem] sm:h-[18rem] object-cover"
                       whileHover={{ scale: 1.05 }}
                       transition={{ duration: 0.3 }}
-                      alt={
-                        promoCurrent === 0 ? "Apple iPhone" : "Men's Footwear"
-                      }
+                      alt={promoSlides[promoCurrent]?.alt}
                       loading="lazy"
                     />
                     <motion.div
                       className={`absolute inset-0 bg-gradient-to-${
-                        promoCurrent === 0 ? "r" : "l"
+                        promoSlides[promoCurrent]?.overlayDirection === "right"
+                          ? "r"
+                          : "l"
                       } from-black/50 to-transparent p-4 sm:p-6 flex flex-col ${
-                        promoCurrent === 0 ? "items-end" : "items-start"
-                      } justify-center ${
-                        promoCurrent === 0 ? "!text-left" : "text-right"
-                      }`}
+                        promoSlides[promoCurrent]?.textAlign === "right"
+                          ? "items-end !text-left"
+                          : "items-start text-right"
+                      } justify-center`}
                       initial="hidden"
                       animate="visible"
                       variants={textVariants}
@@ -241,23 +289,26 @@ const MidBanner = () => {
                         variants={textVariants}
                         custom={0}
                       >
-                        {promoCurrent === 0
-                          ? "Buy Apple iPhone"
-                          : "Buy Men's Footwear"}
+                        {promoSlides[promoCurrent]?.title}
                       </motion.h3>
                       <motion.p
                         className="text-sm sm:text-lg md:text-xl font-bold text-orange-500 mt-1"
                         variants={textVariants}
                         custom={1}
                       >
-                        {promoCurrent === 0 ? "₹45,000" : "₹1,500"}
+                        {promoSlides[promoCurrent]?.price}
                       </motion.p>
                       <motion.button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          openLink(promoSlides[promoCurrent]?.link);
+                        }}
                         className="mt-2 text-xs sm:text-sm md:text-base font-medium text-black underline"
                         whileHover={{ x: 5, color: "#f4d03f" }}
                         transition={{ duration: 0.2 }}
                       >
-                        Show More
+                        {promoSlides[promoCurrent]?.ctaLabel || "Show More"}
                       </motion.button>
                     </motion.div>
                   </div>
@@ -265,9 +316,9 @@ const MidBanner = () => {
               </AnimatePresence>
 
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-2">
-                {promoSlides.map((_, idx) => (
+                {promoSlides.map((slide, idx) => (
                   <motion.button
-                    key={idx}
+                    key={slide._id || idx}
                     className="w-2 h-2 rounded-full"
                     variants={dotVariants}
                     animate={promoCurrent === idx ? "active" : "inactive"}
@@ -278,98 +329,71 @@ const MidBanner = () => {
               </div>
             </div>
 
-            {/* Static Banners for LG Screens */}
             <div className="hidden lg:grid lg:grid-cols-1 gap-4 sm:gap-6">
-              <motion.div
-                className="relative overflow-hidden group cursor-pointer rounded-xl"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-              >
-                <motion.img
-                  src="./mid-banner/banner-3.jpg"
-                  className="w-full h-[16rem] object-cover"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.3 }}
-                  alt="Apple iPhone"
-                  loading="lazy"
-                />
+              {promoSlides.slice(0, 2).map((promo, index) => (
                 <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-black/50 to-transparent p-4 sm:p-6 flex flex-col items-end justify-center !text-left"
-                  initial="hidden"
-                  whileInView="visible"
-                  variants={textVariants}
+                  key={promo._id || index}
+                  onClick={() => openLink(promo.link)}
+                  className={`relative overflow-hidden rounded-xl ${
+                    promo.link ? "cursor-pointer" : "cursor-default"
+                  }`}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: "easeOut" }}
                 >
-                  <motion.h3
-                    className="text-sm sm:text-lg md:text-xl lg:text-2xl font-semibold text-black"
+                  <motion.img
+                    src={promo.image}
+                    className="w-full h-[16rem] object-cover"
+                    whileHover={{ scale: 1.05 }}
+                    transition={{ duration: 0.3 }}
+                    alt={promo.alt}
+                    loading="lazy"
+                  />
+                  <motion.div
+                    className={`absolute inset-0 bg-gradient-to-${
+                      promo.overlayDirection === "right" ? "r" : "l"
+                    } from-black/50 to-transparent p-4 sm:p-6 flex flex-col justify-center ${
+                      promo.textAlign === "right"
+                        ? "items-end !text-left"
+                        : "items-start text-right"
+                    }`}
+                    initial="hidden"
+                    whileInView="visible"
                     variants={textVariants}
-                    custom={0}
                   >
-                    Buy Apple iPhone
-                  </motion.h3>
-                  <motion.p
-                    className="text-sm sm:text-lg md:text-xl font-bold text-orange-500 mt-1"
-                    variants={textVariants}
-                    custom={1}
-                  >
-                    ₹45,000
-                  </motion.p>
-                  <motion.button
-                    className="mt-2 text-xs sm:text-sm md:text-base font-medium text-black underline"
-                    whileHover={{ x: 5, color: "#f4d03f" }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    Show More
-                  </motion.button>
+                    <motion.h3
+                      className="text-sm sm:text-lg md:text-xl lg:text-2xl font-semibold text-black"
+                      variants={textVariants}
+                      custom={0}
+                    >
+                      {promo.title}
+                    </motion.h3>
+                    <motion.p
+                      className="text-sm sm:text-lg md:text-xl font-bold text-orange-500 mt-1"
+                      variants={textVariants}
+                      custom={1}
+                    >
+                      {promo.price}
+                    </motion.p>
+                    <motion.button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openLink(promo.link);
+                      }}
+                      className="mt-2 text-xs sm:text-sm md:text-base font-medium text-black underline"
+                      whileHover={{ x: 5, color: "#f4d03f" }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      {promo.ctaLabel || "Show More"}
+                    </motion.button>
+                  </motion.div>
                 </motion.div>
-              </motion.div>
-
-              <motion.div
-                className="relative overflow-hidden group cursor-pointer rounded-xl"
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, ease: "easeOut" }}
-              >
-                <motion.img
-                  src="./mid-banner/banner-4.jpg"
-                  className="w-full h-[16rem] object-cover"
-                  whileHover={{ scale: 1.05 }}
-                  transition={{ duration: 0.3 }}
-                  alt="Men's Footwear"
-                  loading="lazy"
-                />
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-l from-black/50 to-transparent p-4 sm:p-6 flex flex-col justify-center items-start text-right"
-                  initial="hidden"
-                  whileInView="visible"
-                  variants={textVariants}
-                >
-                  <motion.h3
-                    className="text-sm sm:text-lg md:text-xl lg:text-2xl font-semibold text-black"
-                    variants={textVariants}
-                    custom={0}
-                  >
-                    Buy Men's Footwear
-                  </motion.h3>
-                  <motion.p
-                    className="text-sm sm:text-lg md:text-xl font-bold text-orange-500 mt-1"
-                    variants={textVariants}
-                    custom={1}
-                  >
-                    ₹1,500
-                  </motion.p>
-                  <motion.button
-                    className="mt-2 text-xs sm:text-sm md:text-base font-medium text-black underline"
-                    whileHover={{ x: 5, color: "#f4d03f" }}
-                    transition={{ duration: 0.2 }}
-                  >
-                    Show More
-                  </motion.button>
-                </motion.div>
-              </motion.div>
+              ))}
             </div>
           </div>
-        </ScrollReveal>
+          </ScrollReveal>
+        ) : null}
       </div>
     </div>
   );

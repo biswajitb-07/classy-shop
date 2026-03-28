@@ -18,6 +18,7 @@ import {
   googleAuth,
   googlePassword,
 } from "../../controllers/googleAuth/google.controller.js";
+import { subscribeNewsletter } from "../../controllers/newsletter.controller.js";
 import {
   createUserSupportConversation,
   cleanupUserEmptySupportConversations,
@@ -27,6 +28,7 @@ import {
   getUserSupportConversation,
   sendUserSupportMessage,
 } from "../../controllers/support/support.controller.js";
+import siteContentUserRouter from "./siteContent.route.js";
 
 const userRouter = express.Router();
 
@@ -50,6 +52,7 @@ userRouter.get("/logout", logout);
 userRouter.post("/send-reset-otp", sendResetOtp);
 userRouter.post("/reset-password", resetPassword);
 userRouter.post("/change-password", isAuthenticatedUser, changePassword);
+userRouter.post("/newsletter/subscribe", subscribeNewsletter);
 userRouter.get("/socket-auth", isAuthenticatedUser, getUserSocketAuth);
 
 userRouter.get("/profile", isAuthenticatedUser, getUserProfile);
@@ -85,5 +88,6 @@ userRouter.delete(
   isAuthenticatedUser,
   deleteUserSupportConversation
 );
+userRouter.use("/site-content", siteContentUserRouter);
 
 export default userRouter;

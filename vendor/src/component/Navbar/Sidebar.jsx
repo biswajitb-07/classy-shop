@@ -6,9 +6,11 @@ import { AiOutlineLogout, AiOutlineClose } from "react-icons/ai";
 import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { IoBagCheckOutline } from "react-icons/io5";
 import { FiUsers } from "react-icons/fi";
+import { FiMail } from "react-icons/fi";
 import { FiSettings } from "react-icons/fi";
 import { HiOutlineBuildingStorefront } from "react-icons/hi2";
 import { Headphones } from "lucide-react";
+import { Image as ImageIcon } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setSidebarOpen, toggleSidebar } from "../../features/authSlice";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -60,6 +62,7 @@ const Sidebar = () => {
 
   const navigateTo = (path) => {
     navigate(path);
+    closeSidebar();
   };
 
   const isActivePath = (...paths) => paths.includes(location.pathname);
@@ -173,7 +176,7 @@ const Sidebar = () => {
                 <div className="overflow-hidden">
                   <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
                     <li
-                      onClick={() => navigate("/category-list")}
+                      onClick={() => navigateTo("/category-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/category-list"
                       )}`}
@@ -181,7 +184,7 @@ const Sidebar = () => {
                       Category List
                     </li>
                     <li
-                      onClick={() => navigate("/category")}
+                      onClick={() => navigateTo("/category")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/category"
                       )}`}
@@ -230,7 +233,7 @@ const Sidebar = () => {
                 <div className="overflow-hidden">
                   <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
                     <li
-                      onClick={() => navigate("/fashion-brand-list")}
+                      onClick={() => navigateTo("/fashion-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/fashion-brand-list"
                       )}`}
@@ -238,7 +241,7 @@ const Sidebar = () => {
                       Fashion Brands
                     </li>
                     <li
-                      onClick={() => navigate("/electronic-brand-list")}
+                      onClick={() => navigateTo("/electronic-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/electronic-brand-list"
                       )}`}
@@ -246,7 +249,7 @@ const Sidebar = () => {
                       Electronic Brands
                     </li>
                     <li
-                      onClick={() => navigate("/bag-brand-list")}
+                      onClick={() => navigateTo("/bag-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/bag-brand-list"
                       )}`}
@@ -254,7 +257,7 @@ const Sidebar = () => {
                       Bag Brands
                     </li>
                     <li
-                      onClick={() => navigate("/grocery-brand-list")}
+                      onClick={() => navigateTo("/grocery-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/grocery-brand-list"
                       )}`}
@@ -262,7 +265,7 @@ const Sidebar = () => {
                       Grocery Brands
                     </li>
                     <li
-                      onClick={() => navigate("/footwear-brand-list")}
+                      onClick={() => navigateTo("/footwear-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/footwear-brand-list"
                       )}`}
@@ -270,7 +273,7 @@ const Sidebar = () => {
                       Footwear Brands
                     </li>
                     <li
-                      onClick={() => navigate("/beauty-brand-list")}
+                      onClick={() => navigateTo("/beauty-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/beauty-brand-list"
                       )}`}
@@ -278,7 +281,7 @@ const Sidebar = () => {
                       Beauty Brands
                     </li>
                     <li
-                      onClick={() => navigate("/wellness-brand-list")}
+                      onClick={() => navigateTo("/wellness-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/wellness-brand-list"
                       )}`}
@@ -286,7 +289,7 @@ const Sidebar = () => {
                       Wellness Brands
                     </li>
                     <li
-                      onClick={() => navigate("/jewellery-brand-list")}
+                      onClick={() => navigateTo("/jewellery-brand-list")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/jewellery-brand-list"
                       )}`}
@@ -335,7 +338,7 @@ const Sidebar = () => {
                 <div className="overflow-hidden">
                   <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
                     <li
-                      onClick={() => navigate("/fashion-products")}
+                      onClick={() => navigateTo("/fashion-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/fashion-products"
                       )}`}
@@ -343,7 +346,7 @@ const Sidebar = () => {
                       Fashion Product
                     </li>
                     <li
-                      onClick={() => navigate("/electronic-products")}
+                      onClick={() => navigateTo("/electronic-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/electronic-products"
                       )}`}
@@ -351,7 +354,7 @@ const Sidebar = () => {
                       Electronic Product
                     </li>
                     <li
-                      onClick={() => navigate("/grocery-products")}
+                      onClick={() => navigateTo("/grocery-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/grocery-products"
                       )}`}
@@ -359,7 +362,7 @@ const Sidebar = () => {
                       Grocery Product
                     </li>
                     <li
-                      onClick={() => navigate("/footwear-products")}
+                      onClick={() => navigateTo("/footwear-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/footwear-products"
                       )}`}
@@ -367,7 +370,7 @@ const Sidebar = () => {
                       Footwear Product
                     </li>
                     <li
-                      onClick={() => navigate("/bag-products")}
+                      onClick={() => navigateTo("/bag-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/bag-products"
                       )}`}
@@ -375,7 +378,7 @@ const Sidebar = () => {
                       Bag Product
                     </li>
                     <li
-                      onClick={() => navigate("/beauty-products")}
+                      onClick={() => navigateTo("/beauty-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/beauty-products"
                       )}`}
@@ -383,7 +386,7 @@ const Sidebar = () => {
                       Beauty Product
                     </li>
                     <li
-                      onClick={() => navigate("/wellness-products")}
+                      onClick={() => navigateTo("/wellness-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/wellness-products"
                       )}`}
@@ -391,7 +394,7 @@ const Sidebar = () => {
                       Wellness Product
                     </li>
                     <li
-                      onClick={() => navigate("/jewellery-products")}
+                      onClick={() => navigateTo("/jewellery-products")}
                       className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
                         location.pathname === "/jewellery-products"
                       )}`}
@@ -404,7 +407,7 @@ const Sidebar = () => {
             </li>
 
             <li
-              onClick={() => navigate("/orders")}
+              onClick={() => navigateTo("/orders")}
               className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
                 location.pathname === "/orders"
               )}`}
@@ -424,6 +427,16 @@ const Sidebar = () => {
             </li>
 
             <li
+              onClick={() => navigateTo("/site-content")}
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                location.pathname === "/site-content"
+              )}`}
+            >
+              <ImageIcon size={18} />
+              Site Content
+            </li>
+
+            <li
               onClick={() => navigateTo("/settings")}
               className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
                 location.pathname === "/settings"
@@ -437,7 +450,11 @@ const Sidebar = () => {
               <button
                 onClick={() => toggleAccordion("community")}
                 className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
-                  isActivePath("/community/users", "/community/vendors")
+                  isActivePath(
+                    "/community/users",
+                    "/community/vendors",
+                    "/community/newsletter"
+                  )
                 )}`}
               >
                 <div className="flex items-center gap-4 text-sm font-bold">
@@ -501,13 +518,37 @@ const Sidebar = () => {
                         </div>
                       </div>
                     </div>
+                    <div 
+                      onClick={() => navigateTo("/community/newsletter")}
+                      className={`rounded-2xl border px-4 py-3 cursor-pointer transition-colors ${communityCardClass(
+                        location.pathname === "/community/newsletter",
+                        "users"
+                      )}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`rounded-xl p-2 shadow-sm bg-white ${location.pathname === "/community/newsletter" ? "text-black" : isDark ? "text-slate-200" : "text-violet-600"}`}>
+                          <FiMail size={18} />
+                        </div>
+                        <div>
+                          <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${communityCardTextClass(location.pathname === "/community/newsletter", "users")}`}>
+                            Newsletter
+                          </p>
+                          <p className={`text-lg font-black ${communityValueClass(location.pathname === "/community/newsletter")}`}>
+                            List
+                          </p>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
             </li>
 
             <li
-              onClick={() => setShowLogoutConfirm(true)}
+              onClick={() => {
+                closeSidebar();
+                setShowLogoutConfirm(true);
+              }}
               className={`flex items-center gap-4 font-bold text-sm cursor-pointer px-2 py-2 rounded transition ${isDark ? "text-rose-300 hover:text-rose-200 hover:bg-slate-800" : "text-red-500 hover:text-red-400 hover:bg-gray-200"}`}
             >
               <AiOutlineLogout size={20} />

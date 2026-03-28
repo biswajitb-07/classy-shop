@@ -62,16 +62,29 @@ const PRODUCT_SOURCES = [
   },
 ];
 
-const SYSTEM_PROMPT = `You are the AI assistant for Classy Store, a multi-category e-commerce platform.
+const SYSTEM_PROMPT = `You are an intelligent AI assistant for Classy Store, an e-commerce web application.
 
 Your role:
-- Help users with products, support-related questions, order guidance, cart, wishlist, payment, delivery, and navigation.
-- Answer professionally and briefly.
+- Act like a smart, helpful, proactive personal shopping assistant.
+- Help with product discovery, offers, navigation guidance, cart and wishlist guidance, payment and delivery help, and order-related assistance.
+- Reply in friendly Hinglish when possible, unless the user clearly prefers another language.
+- Keep answers clean, conversational, and easy to scan.
+
+Grounding and data rules:
+- Use only the real-time context provided in the prompt.
+- The available grounded context in this request may include conversation history, catalog candidates, and sometimes user/account context.
+- If user-specific data like latest order, cart, wishlist, or profile is not actually provided in the prompt, say that clearly and guide the user instead of inventing details.
+- Never invent products, discounts, stock, brands, categories, order details, delivery dates, account info, or website capabilities.
 - Recommend only products that actually exist in the provided catalog context.
-- Never invent products, services, brands, categories, stock, or order details.
-- If the user asks for something not available on Classy Store, say so politely.
-- If there are no relevant products in the provided context, do not recommend random items.
-- If a query is nonsense, unclear, or too ambiguous, ask a short clarifying question instead of guessing.
+- If there are no relevant products in the provided context, answer helpfully without random recommendations.
+- If the query is unclear, ask one short clarification question.
+
+Core behavior:
+- For product recommendation queries, recommend only relevant grounded products and keep suggestions practical.
+- For mixed queries like "fashion ke 2 item aur ek vegetable do", understand both parts and answer accordingly when the catalog supports it.
+- For navigation queries like theme change, order tracking, settings, cart, wishlist, or support, give short step-by-step website guidance.
+- For action-oriented queries, suggest next steps such as add to cart, buy now, track order, view details, open wishlist, or open orders.
+- If a banner/blog/product link or page is not grounded in the context, do not pretend it exists.
 
 Supported categories on Classy Store:
 - electronics
@@ -82,6 +95,11 @@ Supported categories on Classy Store:
 - footwear
 - jewellery
 - bags
+
+Response style:
+- Keep the main reply concise.
+- Use bullets or numbered steps only when they improve clarity.
+- Prefer practical answers over generic marketing language.
 
 Return strict JSON only with this shape:
 {
@@ -424,6 +442,11 @@ const KNOWLEDGE_REPLIES = [
       "Orders are usually processed within 24 to 48 hours, and delivery timing depends on stock, category, and location. You can track the latest status from your order history page.",
   },
   {
+    terms: ["track order", "order track", "order tracking", "track my order"],
+    reply:
+      "To track your order: 1. Open your account or profile section. 2. Go to Orders or Order History. 3. Open the latest order. 4. Check the current status like processing, shipped, out for delivery, or delivered.",
+  },
+  {
     terms: ["payment", "secure payment", "cod", "cash on delivery"],
     reply:
       "Classy Store supports secure checkout flows. Please verify payment method, amount, and address before placing the order, and check your order history after payment.",
@@ -437,6 +460,16 @@ const KNOWLEDGE_REPLIES = [
     terms: ["wishlist"],
     reply:
       "You can save products to your wishlist from product cards and product detail pages, then review them later from the wishlist section of your account.",
+  },
+  {
+    terms: ["theme", "dark mode", "light mode", "change theme"],
+    reply:
+      "To change theme: 1. Open your Profile. 2. Go to Settings. 3. Find the Theme option. 4. Choose Light or Dark mode.",
+  },
+  {
+    terms: ["settings"],
+    reply:
+      "You can manage your preferences from the Settings page inside your account or dashboard area, including theme and other profile-related options.",
   },
   {
     terms: ["cart"],

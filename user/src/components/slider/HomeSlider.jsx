@@ -1,25 +1,17 @@
 import { useState, useEffect } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-
-const slides = [
-  "./slide/slide-1.jpg",
-  "./slide/slide-2.jpg",
-  "./slide/slide-3.jpg",
-  "./slide/slide-4.jpg",
-  "./slide/slide-5.jpg",
-  "./slide/slide-6.jpg",
-];
+import { useNavigate } from "react-router-dom";
+import { useGetSiteContentQuery } from "../../features/api/contentApi.js";
 
 const AUTO_PLAY_INTERVAL = 5000;
 
 const HomeSlider = () => {
   const [current, setCurrent] = useState(0);
   const [arrowIcon, setArrowIcon] = useState(false);
-
-  const toggleArrowIcon = () => {
-    setArrowIcon(!arrowIcon);
-  };
+  const navigate = useNavigate();
+  const { data } = useGetSiteContentQuery();
+  const slides = data?.content?.homeSlides || [];
 
   const nextSlide = () =>
     setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
@@ -28,9 +20,25 @@ const HomeSlider = () => {
     setCurrent((prev) => (prev === 0 ? slides.length - 1 : prev - 1));
 
   useEffect(() => {
+    if (!slides.length) return undefined;
     const timer = setInterval(nextSlide, AUTO_PLAY_INTERVAL);
     return () => clearInterval(timer);
-  }, []);
+  }, [slides.length]);
+
+  useEffect(() => {
+    if (current >= slides.length) {
+      setCurrent(0);
+    }
+  }, [current, slides.length]);
+
+  const openBannerLink = (link) => {
+    if (!link) return;
+    if (/^https?:\/\//i.test(link)) {
+      window.location.assign(link);
+      return;
+    }
+    navigate(link);
+  };
 
   const arrowVariants = {
     hidden: { opacity: 0, x: -10 },
@@ -50,6 +58,8 @@ const HomeSlider = () => {
     },
   };
 
+  if (!slides.length) return null;
+
   return (
     <div
       onMouseEnter={() => setArrowIcon(true)}
@@ -60,16 +70,19 @@ const HomeSlider = () => {
       <div className="relative w-full aspect-[16/5.15] sm:aspect-[16/6.1] md:aspect-[16/6] lg:aspect-[16/4.8]">
         <AnimatePresence initial={false} mode="wait">
           <motion.div
-            key={current}
-            className="absolute inset-0"
+            key={slides[current]?._id || current}
+            className={`absolute inset-0 ${
+              slides[current]?.link ? "cursor-pointer" : "cursor-default"
+            }`}
             initial={{ opacity: 0, x: 100 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -100 }}
             transition={{ duration: 0.4, ease: "easeInOut" }}
+            onClick={() => openBannerLink(slides[current]?.link)}
           >
             <img
-              src={slides[current]}
-              alt={`slide-${current}`}
+              src={slides[current]?.image}
+              alt={slides[current]?.alt || `slide-${current + 1}`}
               className="block h-full w-full object-cover object-center"
             />
           </motion.div>
@@ -100,9 +113,9 @@ const HomeSlider = () => {
 
       {/* Dots */}
       <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
-        {slides.map((_, idx) => (
+        {slides.map((slide, idx) => (
           <motion.button
-            key={idx}
+            key={slide._id || idx}
             onClick={() => setCurrent(idx)}
             className="w-2 h-2 rounded-full"
             variants={dotVariants}

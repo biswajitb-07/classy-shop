@@ -20,6 +20,7 @@ import { jewelleryBrandApi } from "../features/api/jewellery/jewelleryBrandApi";
 import { bagApi } from "../features/api/bag/bagApi";
 import { orderApi } from "../features/api/orderApi";
 import { supportApi } from "../features/api/supportApi";
+import { contentApi } from "../features/api/contentApi";
 
 export const appStore = configureStore({
   reducer: rootRedcuer,
@@ -44,7 +45,8 @@ export const appStore = configureStore({
       wellnessBrandApi.middleware,
       jewelleryBrandApi.middleware,
       orderApi.middleware,
-      supportApi.middleware
+      supportApi.middleware,
+      contentApi.middleware
     ),
 });
 

@@ -14,6 +14,8 @@ import { categoryApi } from "../features/api/categoryApi.js";
 import { electronicApi } from "../features/api/electronicApi.js";
 import { orderApi } from "../features/api/orderApi.js";
 import { supportApi } from "../features/api/supportApi.js";
+import { contentApi } from "../features/api/contentApi.js";
+import { newsletterApi } from "../features/api/newsletterApi.js";
 
 const rootRedcuer = combineReducers({
   [authApi.reducerPath]: authApi.reducer,
@@ -29,6 +31,8 @@ const rootRedcuer = combineReducers({
   [categoryApi.reducerPath]: categoryApi.reducer,
   [orderApi.reducerPath]: orderApi.reducer,
   [supportApi.reducerPath]: supportApi.reducer,
+  [contentApi.reducerPath]: contentApi.reducer,
+  [newsletterApi.reducerPath]: newsletterApi.reducer,
   auth: authReducer,
 });
 export default rootRedcuer;

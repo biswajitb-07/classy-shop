@@ -190,6 +190,22 @@ const cleanupEmptySupportConversations = async (filter = {}) => {
   });
 };
 
+const cleanupExpiredSupportConversations = async (filter = {}) => {
+  const cutoffDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+  const expiredConversations = await SupportConversation.find({
+    ...filter,
+    lastMessageAt: { $ne: null, $lte: cutoffDate },
+  }).select("_id");
+
+  if (!expiredConversations.length) return;
+
+  await Promise.all(
+    expiredConversations.map((conversation) =>
+      deleteConversationAssets(conversation._id),
+    ),
+  );
+};
+
 const ensureConversationOwner = async (conversationId, userId) => {
   const conversation = await loadConversationWithRelations(conversationId);
   if (!conversation) return null;
@@ -203,6 +219,8 @@ const ensureConversationOwner = async (conversationId, userId) => {
 
 export const getUserSupportConversations = async (req, res) => {
   try {
+    await cleanupExpiredSupportConversations({ user: req.id });
+
     const conversations = await SupportConversation.find({
       user: req.id,
       lastMessageAt: { $ne: null },
@@ -225,6 +243,8 @@ export const getUserSupportConversations = async (req, res) => {
 
 export const getUserSupportConversation = async (req, res) => {
   try {
+    await cleanupExpiredSupportConversations({ user: req.id });
+
     const conversation =
       (await SupportConversation.findOne({ user: req.id })
         .sort({ updatedAt: -1 })
@@ -285,6 +305,8 @@ export const createUserSupportConversation = async (req, res) => {
 
 export const getUserSupportConversationDetails = async (req, res) => {
   try {
+    await cleanupExpiredSupportConversations({ user: req.id });
+
     const { conversationId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
@@ -476,6 +498,8 @@ export const cleanupUserEmptySupportConversations = async (req, res) => {
 
 export const getVendorSupportConversations = async (req, res) => {
   try {
+    await cleanupExpiredSupportConversations();
+
     const conversations = await SupportConversation.find({
       lastMessageAt: { $ne: null },
     })
@@ -501,6 +525,8 @@ export const getVendorSupportConversations = async (req, res) => {
 
 export const getVendorSupportConversationDetails = async (req, res) => {
   try {
+    await cleanupExpiredSupportConversations();
+
     const { conversationId } = req.params;
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {

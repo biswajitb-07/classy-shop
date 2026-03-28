@@ -21,6 +21,7 @@ import { jewelleryBrandApi } from "../features/api/jewellery/jewelleryBrandApi";
 import { bagApi } from "../features/api/bag/bagApi";
 import { orderApi } from "../features/api/orderApi";
 import { supportApi } from "../features/api/supportApi";
+import { contentApi } from "../features/api/contentApi";
 
 const rootRedcuer = combineReducers({
   [authApi.reducerPath]: authApi.reducer,
@@ -43,6 +44,7 @@ const rootRedcuer = combineReducers({
   [jewelleryBrandApi.reducerPath]: jewelleryBrandApi.reducer,
   [orderApi.reducerPath]: orderApi.reducer,
   [supportApi.reducerPath]: supportApi.reducer,
+  [contentApi.reducerPath]: contentApi.reducer,
   auth: authReducer,
 });
 export default rootRedcuer;

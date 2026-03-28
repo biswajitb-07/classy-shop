@@ -13,7 +13,7 @@ const AIChatbotWidget = () => {
     {
       role: "assistant",
       content:
-        "Hi, I am your AI shopping assistant. Ask for recommendations, discounts, or category ideas.",
+        "Hi, main aapka ClassyShop AI shopping assistant hoon. Products, discounts, order guidance, ya website navigation me help kar sakta hoon.",
     },
   ]);
   const requestControllerRef = useRef(null);
@@ -206,7 +206,11 @@ const AIChatbotWidget = () => {
 
           <div className="border-t border-slate-200 px-4 py-4">
             <div className="mb-3 flex flex-wrap gap-2">
-              {["Suggest vegetables", "Delivery info", "Secure payment help"].map(
+              {[
+                "50% off items dikhao",
+                "Mujhe cheap fashion items suggest karo",
+                "Order kaise track kare",
+              ].map(
                 (prompt) => (
                   <button
                     key={prompt}
@@ -228,7 +232,7 @@ const AIChatbotWidget = () => {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") handleSend();
                 }}
-                placeholder="Ask the AI assistant..."
+                placeholder="Products, orders, ya website help poochhiye..."
                 className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-orange-400"
               />
               <button
