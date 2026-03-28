@@ -7,6 +7,7 @@ import OAuthToast from "../pages/User/auth/OAuthToast.jsx";
 import Features from "../components/Features.jsx";
 import CategoryPanel from "../components/category/CategoryPanel.jsx";
 import SearchPanel from "../components/search/SearchPanel.jsx";
+import RouteTransitionLoader from "../components/router/RouteTransitionLoader.jsx";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
 import ScrollToTop from "../components/router/ScrollToTop.jsx";
@@ -85,6 +86,7 @@ const MainLayout = () => {
 
   return (
     <>
+      <RouteTransitionLoader />
       <div className="user-shell bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
         <ScrollToTop />
         <OAuthToast />
