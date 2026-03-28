@@ -1,4 +1,4 @@
-import { Resend } from "resend";
+import nodemailer from "nodemailer";
 import {
   getOrderOutForDeliveryEmailTemplate,
   getOrderPlacedEmailTemplate,
@@ -8,35 +8,48 @@ import {
 } from "./emailTemplates.js";
 
 const cleanEnv = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
-const resendApiKey = cleanEnv(process.env.RESEND_API_KEY);
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
+const gmailUser = cleanEnv(process.env.GMAIL_USER);
+const gmailPass = cleanEnv(process.env.GMAIL_PASS);
+
+const transporter =
+  gmailUser && gmailPass
+    ? nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 465,
+        secure: true,
+        auth: {
+          user: gmailUser,
+          pass: gmailPass,
+        },
+      })
+    : null;
 
 const getFromAddress = () => {
-  const senderEmail = cleanEnv(process.env.SENDER_EMAIL);
+  const senderEmail = cleanEnv(process.env.SENDER_EMAIL) || gmailUser;
 
   return senderEmail ? `Classy Store <${senderEmail}>` : undefined;
 };
 
-const sendViaResendApi = async ({ to, subject, html }) => {
+const sendViaGmailSmtp = async ({ to, subject, html }) => {
   const from = getFromAddress();
 
-  if (!resend || !from) {
+  if (!transporter || !from) {
     throw new Error(
-      "Resend email is not configured. Please set RESEND_API_KEY and SENDER_EMAIL."
+      "Gmail SMTP is not configured. Please set GMAIL_USER, GMAIL_PASS, and SENDER_EMAIL."
     );
   }
 
-  return resend.emails.send({
+  return transporter.sendMail({
     from,
-    to: [to],
+    to,
     subject,
     html,
   });
 };
 
 export const verifyEmailTransport = async () => {
-  if (!resendApiKey) {
-    console.warn("Email transport skipped: RESEND_API_KEY is missing.");
+  if (!gmailUser || !gmailPass) {
+    console.warn("Email transport skipped: GMAIL_USER or GMAIL_PASS is missing.");
     return false;
   }
 
@@ -45,21 +58,32 @@ export const verifyEmailTransport = async () => {
     return false;
   }
 
-  console.log("Email transport ready via Resend API.");
-  return true;
+  try {
+    await transporter.verify();
+    console.log("Email transport ready via Gmail SMTP.");
+    return true;
+  } catch (error) {
+    console.error("Email transport verification failed:", {
+      message: error?.message,
+      code: error?.code,
+      response: error?.response,
+      responseCode: error?.responseCode,
+    });
+    return false;
+  }
 };
 
 const sendEmail = async ({ to, subject, html }) => {
   const from = getFromAddress();
 
-  if (!from || !resendApiKey) {
+  if (!from || !gmailUser || !gmailPass) {
     throw new Error(
-      "Email is not configured. Please set RESEND_API_KEY and SENDER_EMAIL."
+      "Email is not configured. Please set GMAIL_USER, GMAIL_PASS, and SENDER_EMAIL."
     );
   }
 
   try {
-    return await sendViaResendApi({ to, subject, html });
+    return await sendViaGmailSmtp({ to, subject, html });
   } catch (error) {
     console.error("Email send failed:", {
       to,

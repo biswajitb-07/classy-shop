@@ -253,12 +253,7 @@ const DashboardShellFallback = () => {
           isDark ? "border-slate-800 bg-slate-900/95" : "border-slate-200 bg-white/95"
         }`}
       />
-      <div className="flex min-h-screen">
-        <aside
-          className={`hidden w-[18rem] shrink-0 border-r lg:block ${
-            isDark ? "border-slate-800 bg-slate-950" : "border-slate-200 bg-white"
-          }`}
-        />
+      <div className="min-h-screen overflow-y-auto">
         {isSupportRoute ? (
           <SupportChatsSkeleton isDark={isDark} />
         ) : (

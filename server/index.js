@@ -63,8 +63,7 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
-// Frontend apps are deployed separately, so CORS must explicitly allow both
-// user and vendor origins to send cookies to this backend.
+
 const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL].filter(
   Boolean,
 );
@@ -72,9 +71,7 @@ const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL].filter(
 app.use(
   cors({
     origin(origin, callback) {
-      // Mobile webviews, direct REST tools, and same-origin server calls may
-      // omit the Origin header, so only reject when a foreign browser origin
-      // is explicitly present.
+  
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
         return;
