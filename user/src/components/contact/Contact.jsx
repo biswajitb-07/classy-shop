@@ -93,8 +93,9 @@ const Contact = () => {
   const buttonVariants = {
     enabled: {
       scale: 1,
-      backgroundColor: "#ef4444",
+      backgroundColor: "#ff0000",
       transition: { duration: 0.2 },
+      opacity: 1,
     },
     disabled: {
       scale: 1,
@@ -328,9 +329,7 @@ const Contact = () => {
                   />
                 </div>
                 <motion.button
-                  className={`w-full py-2 px-4 rounded text-white ${
-                    isChecked && !isSubscribing ? "" : "opacity-50 cursor-not-allowed"
-                  }`}
+                  className={`w-full py-2 px-4 rounded text-white`}
                   disabled={!isChecked || isSubscribing}
                   onClick={handleNewsletterSubmit}
                   variants={buttonVariants}

@@ -90,18 +90,6 @@ const NewsletterSubscribers = () => {
 
         <div className="mb-6 flex flex-wrap gap-3">
           <Link
-            to="/community/users"
-            className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white px-4 py-2 text-sm font-bold text-sky-600 transition hover:bg-sky-50"
-          >
-            Users
-          </Link>
-          <Link
-            to="/community/vendors"
-            className="inline-flex items-center gap-2 rounded-full border border-rose-200 bg-white px-4 py-2 text-sm font-bold text-rose-600 transition hover:bg-rose-50"
-          >
-            <HiOutlineBuildingStorefront size={16} /> Vendor Data
-          </Link>
-          <Link
             to="/community/newsletter"
             className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-sm font-bold text-white shadow-sm transition hover:bg-violet-700"
           >
@@ -141,17 +129,23 @@ const NewsletterSubscribers = () => {
                         </span>
                       </td>
                       <td className="px-6 py-5 whitespace-nowrap font-medium text-slate-500">
-                        {new Date(subscriber.createdAt).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric",
-                        })}
+                        {new Date(subscriber.createdAt).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                            year: "numeric",
+                          },
+                        )}
                       </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan="4" className="px-6 py-12 text-center text-slate-500">
+                    <td
+                      colSpan="4"
+                      className="px-6 py-12 text-center text-slate-500"
+                    >
                       <FiMail className="mx-auto mb-3 text-4xl text-slate-300" />
                       <p className="text-base font-bold text-slate-800">
                         No newsletter subscribers found
