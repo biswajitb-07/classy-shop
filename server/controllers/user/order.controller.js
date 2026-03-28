@@ -357,9 +357,9 @@ export const createOrder = async (req, res) => {
       );
       cart.items = [];
       await cart.save();
-      // Delivery reliability ke liye deployed environments me email attempt
-      // ko await karte hain, lekin helper ke andar errors swallow hote hain.
-      await safelySendOrderPlacedEmail({ order, user: orderingUser });
+      // Order response ko email latency se block nahi karte; post-checkout
+      // UI should redirect instantly while mail sends in background.
+      void safelySendOrderPlacedEmail({ order, user: orderingUser });
       return res
         .status(201)
         .json({ success: true, message: "Order created successfully", order });
@@ -455,9 +455,9 @@ export const confirmPayment = async (req, res) => {
     await createVendorNotificationsForOrder(order, userId);
     cart.items = [];
     await cart.save();
-    // Delivery reliability ke liye deployed environments me email attempt
-    // ko await karte hain, lekin helper ke andar errors swallow hote hain.
-    await safelySendOrderPlacedEmail({ order, user: orderingUser });
+    // Payment success response ko email latency se block nahi karte; the
+    // order is already committed and cart is cleared before this fires.
+    void safelySendOrderPlacedEmail({ order, user: orderingUser });
     return res.status(200).json({
       success: true,
       message: "Payment confirmed successfully",

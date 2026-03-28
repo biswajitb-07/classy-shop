@@ -85,14 +85,27 @@ const CheckoutPage = () => {
     });
   };
 
-  const redirectToOrders = () => {
-    navigate("/orders", { replace: true });
+  const redirectToOrder = (orderId) => {
+    if (!orderId) {
+      navigate("/orders", { replace: true });
+      return;
+    }
+
+    // Replace checkout with cart in browser history, then push the order page.
+    // This keeps the success flow intact while making Back return to cart
+    // instead of re-opening the checkout form.
+    navigate("/cart", { replace: true });
+    window.setTimeout(() => {
+      navigate(`/order/${orderId}`);
+    }, 0);
   };
 
   const handlePlaceOrder = async () => {
     if (!validateAddress()) return;
 
     setLoading(true);
+    let shouldResetLoading = true;
+
     try {
       const response = await createOrder({
         shippingAddress,
@@ -101,7 +114,7 @@ const CheckoutPage = () => {
 
       if (paymentMethod === "cod") {
         toast.success("Order placed successfully!");
-        redirectToOrders();
+        redirectToOrder(response?.order?._id);
       } else {
         const scriptLoaded = await loadRazorpayScript();
         if (!scriptLoaded) {
@@ -118,14 +131,17 @@ const CheckoutPage = () => {
           order_id: response.razorpayOrderId,
           handler: async (razorpayResponse) => {
             try {
-              await confirmPayment({
+              const confirmedOrder = await confirmPayment({
                 razorpay_payment_id: razorpayResponse.razorpay_payment_id,
                 razorpay_order_id: razorpayResponse.razorpay_order_id,
                 razorpay_signature: razorpayResponse.razorpay_signature,
               }).unwrap();
               toast.success("Payment successful! Order confirmed.");
-              redirectToOrders();
+              redirectToOrder(
+                confirmedOrder?.order?._id
+              );
             } catch (err) {
+              setLoading(false);
               toast.error("Payment confirmation failed");
             }
           },
@@ -134,16 +150,27 @@ const CheckoutPage = () => {
             email: user.email,
             contact: shippingAddress.phone,
           },
+          modal: {
+            ondismiss: () => {
+              setLoading(false);
+            },
+          },
           theme: { color: "#F56565" },
         };
 
         const rzp = new window.Razorpay(options);
+        shouldResetLoading = false;
+        rzp.on("payment.failed", () => {
+          setLoading(false);
+        });
         rzp.open();
       }
     } catch (err) {
       toast.error(err?.data?.message || "Failed to place order");
     } finally {
-      setLoading(false);
+      if (shouldResetLoading) {
+        setLoading(false);
+      }
     }
   };
 

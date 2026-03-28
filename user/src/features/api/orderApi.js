@@ -1,4 +1,5 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { cartApi } from "./cartApi.js";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 const ORDER_API = `${BASE_URL}/api/v1/product/order`;
@@ -34,7 +35,39 @@ export const orderApi = createApi({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Order", "Cart"],
+      async onQueryStarted(arg, { queryFulfilled, dispatch }) {
+        try {
+          const result = await queryFulfilled;
+          const nextOrder = result?.data?.order;
+
+          if (!nextOrder) return;
+
+          dispatch(
+            orderApi.util.updateQueryData("getUserOrders", undefined, (draft) => {
+              if (!draft) {
+                return { success: true, orders: [nextOrder] };
+              }
+
+              const existingOrders = Array.isArray(draft.orders) ? draft.orders : [];
+              draft.success = true;
+              draft.orders = [
+                nextOrder,
+                ...existingOrders.filter((order) => order?._id !== nextOrder._id),
+              ];
+            })
+          );
+
+          dispatch(
+            cartApi.util.upsertQueryData("getCart", undefined, {
+              success: true,
+              cart: [],
+            })
+          );
+        } catch (error) {
+          console.error(error);
+        }
+      },
+      invalidatesTags: ["Order"],
     }),
     confirmPayment: builder.mutation({
       query: (body) => ({
@@ -42,7 +75,39 @@ export const orderApi = createApi({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Order", "Cart"],
+      async onQueryStarted(arg, { queryFulfilled, dispatch }) {
+        try {
+          const result = await queryFulfilled;
+          const nextOrder = result?.data?.order;
+
+          if (!nextOrder) return;
+
+          dispatch(
+            orderApi.util.updateQueryData("getUserOrders", undefined, (draft) => {
+              if (!draft) {
+                return { success: true, orders: [nextOrder] };
+              }
+
+              const existingOrders = Array.isArray(draft.orders) ? draft.orders : [];
+              draft.success = true;
+              draft.orders = [
+                nextOrder,
+                ...existingOrders.filter((order) => order?._id !== nextOrder._id),
+              ];
+            })
+          );
+
+          dispatch(
+            cartApi.util.upsertQueryData("getCart", undefined, {
+              success: true,
+              cart: [],
+            })
+          );
+        } catch (error) {
+          console.error(error);
+        }
+      },
+      invalidatesTags: ["Order"],
     }),
     updateOrderStatus: builder.mutation({
       query: ({ orderId, body }) => ({
