@@ -1,25 +1,5 @@
 import mongoose from "mongoose";
 
-const cleanEnv = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
-
-const buildMongoUri = (rawUri, dbName = "falcon") => {
-  const uri = cleanEnv(rawUri);
-
-  if (!uri) {
-    throw new Error("MONGODB_URI is missing");
-  }
-
-  if (/\/[^/?]+(\?|$)/.test(uri)) {
-    return uri;
-  }
-
-  if (uri.includes("/?")) {
-    return uri.replace("/?", `/${dbName}?`);
-  }
-
-  return `${uri.replace(/\/$/, "")}/${dbName}`;
-};
-
 const dropLegacySupportConversationIndex = async () => {
   try {
     const collection = mongoose.connection.db.collection("supportconversations");
@@ -43,7 +23,7 @@ const dropLegacySupportConversationIndex = async () => {
 
 const connectDB = async () => {
   try {
-    await mongoose.connect(buildMongoUri(process.env.MONGODB_URI), {
+    await mongoose.connect(`${process.env.MONGODB_URI}/falcon`, {
       maxPoolSize: 20,
       minPoolSize: 5,
       serverSelectionTimeoutMS: 10000,
