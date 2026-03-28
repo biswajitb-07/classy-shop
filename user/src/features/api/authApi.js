@@ -4,6 +4,11 @@ import { userLoggedIn, userLoggedOut } from "../authSlice.js";
 const BASE_URL = import.meta.env.VITE_API_URL;
 const USER_API = `${BASE_URL}/api/v1/user/`;
 
+const normalizeUser = (user) => ({
+  ...user,
+  hasPassword: user?.hasPassword ?? Boolean(user?.password),
+});
+
 export const authApi = createApi({
   reducerPath: "authApi",
   // Auth/profile endpoints rely on browser cookies, so we keep credentials
@@ -29,12 +34,7 @@ export const authApi = createApi({
       async onQueryStarted(arg, { queryFulfilled, dispatch }) {
         try {
           const result = await queryFulfilled;
-          const nextUser = {
-            ...result.data.user,
-            hasPassword:
-              result.data.user?.hasPassword ??
-              Boolean(result.data.user?.password),
-          };
+          const nextUser = normalizeUser(result.data.user);
           dispatch(
             authApi.util.upsertQueryData("loadUser", undefined, {
               success: true,
@@ -58,12 +58,7 @@ export const authApi = createApi({
           // Firebase only proves the Google account identity. The backend still
           // creates the real app session and returns the Mongo user record.
           const result = await queryFulfilled;
-          const nextUser = {
-            ...result.data.user,
-            hasPassword:
-              result.data.user?.hasPassword ??
-              Boolean(result.data.user?.password),
-          };
+          const nextUser = normalizeUser(result.data.user);
           dispatch(
             authApi.util.upsertQueryData("loadUser", undefined, {
               success: true,
@@ -95,6 +90,29 @@ export const authApi = createApi({
         method: "POST",
         body: { password },
       }),
+      async onQueryStarted(arg, { queryFulfilled, dispatch, getState }) {
+        try {
+          await queryFulfilled;
+          const currentUser = getState()?.auth?.user;
+
+          if (!currentUser) return;
+
+          const nextUser = normalizeUser({
+            ...currentUser,
+            hasPassword: true,
+          });
+
+          dispatch(
+            authApi.util.upsertQueryData("loadUser", undefined, {
+              success: true,
+              user: nextUser,
+            })
+          );
+          dispatch(userLoggedIn({ user: nextUser }));
+        } catch (error) {
+          console.error(error);
+        }
+      },
     }),
     changePassword: builder.mutation({
       query: ({ currentPassword, newPassword }) => ({
@@ -127,8 +145,9 @@ export const authApi = createApi({
           // Refresh or deep-link visits rely on this query to rebuild the
           // authenticated Redux state from the existing cookie session.
           const result = await queryFulfilled;
+          const nextUser = normalizeUser(result.data.user);
 
-          dispatch(userLoggedIn({ user: result.data.user }));
+          dispatch(userLoggedIn({ user: nextUser }));
         } catch (error) {
           console.log(error);
         }
