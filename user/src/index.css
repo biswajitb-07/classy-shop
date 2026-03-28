@@ -16,6 +16,19 @@
   --user-scroll-thumb-hover: linear-gradient(180deg, #ea580c 0%, #dc2626 100%);
   --user-shell-bg: linear-gradient(180deg, #fff7ed 0%, #ffffff 45%, #fff1f2 100%);
   --user-muted-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+  --route-loader-track: linear-gradient(
+    90deg,
+    rgba(249, 115, 22, 0.14) 0%,
+    rgba(244, 63, 94, 0.12) 48%,
+    rgba(251, 146, 60, 0.14) 100%
+  );
+  --route-loader-bar: linear-gradient(
+    90deg,
+    #f97316 0%,
+    #ef4444 50%,
+    #fb923c 100%
+  );
+  --route-loader-shadow: 0 0 20px rgba(239, 68, 68, 0.42);
   color-scheme: light;
 }
 
@@ -31,6 +44,19 @@
   --user-scroll-thumb-hover: linear-gradient(180deg, #22d3ee 0%, #6366f1 100%);
   --user-shell-bg: radial-gradient(circle at top, rgba(56, 189, 248, 0.14), transparent 30%), linear-gradient(180deg, #020617 0%, #081120 45%, #111827 100%);
   --user-muted-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.98) 100%);
+  --route-loader-track: linear-gradient(
+    90deg,
+    rgba(34, 211, 238, 0.18) 0%,
+    rgba(96, 165, 250, 0.16) 48%,
+    rgba(99, 102, 241, 0.18) 100%
+  );
+  --route-loader-bar: linear-gradient(
+    90deg,
+    #22d3ee 0%,
+    #60a5fa 46%,
+    #818cf8 100%
+  );
+  --route-loader-shadow: 0 0 20px rgba(96, 165, 250, 0.46);
   color-scheme: dark;
 }
 
@@ -112,26 +138,17 @@
   }
 
   .route-transition-track {
-    background: linear-gradient(
-      90deg,
-      rgba(56, 189, 248, 0.08) 0%,
-      rgba(96, 165, 250, 0.14) 42%,
-      rgba(129, 140, 248, 0.08) 100%
-    );
-  }
-
-  html[data-theme="dark"] .route-transition-track {
-    background: linear-gradient(
-      90deg,
-      rgba(56, 189, 248, 0.12) 0%,
-      rgba(96, 165, 250, 0.18) 42%,
-      rgba(129, 140, 248, 0.12) 100%
-    );
+    background: var(--route-loader-track);
   }
 
   .route-transition-loader {
     animation: route-loader-slide 1.05s cubic-bezier(0.22, 1, 0.36, 1) infinite;
     will-change: transform, opacity;
+  }
+
+  .route-transition-bar {
+    background: var(--route-loader-bar);
+    box-shadow: var(--route-loader-shadow);
   }
 }
 

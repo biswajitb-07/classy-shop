@@ -1,26 +1,28 @@
-import { useEffect, useState } from "react";
-import { useNavigation } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 
 const RouteTransitionLoader = () => {
-  const navigation = useNavigation();
+  const location = useLocation();
   const [visible, setVisible] = useState(false);
+  const hasMountedRef = useRef(false);
 
   useEffect(() => {
-    if (navigation.state === "idle") {
-      const timeoutId = window.setTimeout(() => setVisible(false), 180);
-      return () => window.clearTimeout(timeoutId);
+    if (!hasMountedRef.current) {
+      hasMountedRef.current = true;
+      return undefined;
     }
 
-    const timeoutId = window.setTimeout(() => setVisible(true), 120);
+    setVisible(true);
+    const timeoutId = window.setTimeout(() => setVisible(false), 520);
     return () => window.clearTimeout(timeoutId);
-  }, [navigation.state]);
+  }, [location.pathname, location.search, location.hash]);
 
   if (!visible) return null;
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-[70]">
-      <div className="vendor-route-transition-track h-[3px] overflow-hidden">
-        <div className="vendor-route-transition-loader h-full w-[34%] rounded-full bg-[linear-gradient(90deg,#22d3ee_0%,#60a5fa_52%,#818cf8_100%)] shadow-[0_0_16px_rgba(96,165,250,0.45)]" />
+      <div className="vendor-route-transition-track h-[7px] overflow-hidden">
+        <div className="vendor-route-transition-loader vendor-route-transition-bar h-full w-[46%] rounded-full" />
       </div>
     </div>
   );
