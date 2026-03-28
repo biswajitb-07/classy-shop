@@ -1,11 +1,11 @@
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useGetSiteContentQuery } from "../../features/api/contentApi.js";
+import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const BannerBox = () => {
   const navigate = useNavigate();
-  const { data } = useGetSiteContentQuery();
-  const cards = data?.content?.bannerBoxes || [];
+  const { content } = useStableSiteContent();
+  const cards = content?.bannerBoxes || [];
 
   const handleBannerClick = (link) => {
     if (!link) return;

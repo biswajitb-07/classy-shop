@@ -5,12 +5,12 @@ import {
   FaChevronLeft,
   FaChevronRight,
 } from "react-icons/fa";
-import { useGetSiteContentQuery } from "../../features/api/contentApi.js";
+import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const Feedback = () => {
   const productScrollRef = useRef(null);
-  const { data } = useGetSiteContentQuery();
-  const testimonials = data?.content?.testimonials || [];
+  const { content } = useStableSiteContent();
+  const testimonials = content?.testimonials || [];
 
   const scroll = (ref, direction) => {
     if (ref.current) {

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useGetSiteContentQuery } from "../../features/api/contentApi.js";
+import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const AUTO_PLAY_INTERVAL = 5000;
 const PROMO_AUTO_PLAY_INTERVAL = 3000;
@@ -26,9 +26,9 @@ const MidBanner = () => {
   const [current, setCurrent] = useState(0);
   const [promoCurrent, setPromoCurrent] = useState(0);
   const navigate = useNavigate();
-  const { data } = useGetSiteContentQuery();
-  const slides = data?.content?.heroSlides || [];
-  const promoSlides = data?.content?.promoBanners || [];
+  const { content } = useStableSiteContent();
+  const slides = content?.heroSlides || [];
+  const promoSlides = content?.promoBanners || [];
   const touchStartX = useRef(0);
   const touchEndX = useRef(0);
   const promoTouchStartX = useRef(0);

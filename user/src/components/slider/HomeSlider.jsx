@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import { useGetSiteContentQuery } from "../../features/api/contentApi.js";
+import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const AUTO_PLAY_INTERVAL = 5000;
 
@@ -10,8 +10,8 @@ const HomeSlider = () => {
   const [current, setCurrent] = useState(0);
   const [arrowIcon, setArrowIcon] = useState(false);
   const navigate = useNavigate();
-  const { data } = useGetSiteContentQuery();
-  const slides = data?.content?.homeSlides || [];
+  const { content, isLoading, isFetching } = useStableSiteContent();
+  const slides = content?.homeSlides || [];
 
   const nextSlide = () =>
     setCurrent((prev) => (prev === slides.length - 1 ? 0 : prev + 1));
@@ -58,7 +58,13 @@ const HomeSlider = () => {
     },
   };
 
-  if (!slides.length) return null;
+  if (!slides.length) {
+    return isLoading || isFetching ? (
+      <div className="relative w-full my-2 md:my-4 lg:my-3 overflow-hidden rounded-lg shadow-lg">
+        <div className="relative w-full aspect-[16/5.15] sm:aspect-[16/6.1] md:aspect-[16/6] lg:aspect-[16/4.8] animate-pulse bg-slate-200" />
+      </div>
+    ) : null;
+  }
 
   return (
     <div

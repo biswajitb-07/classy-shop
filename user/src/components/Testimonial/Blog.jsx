@@ -3,14 +3,14 @@ import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { CiClock2 } from "react-icons/ci";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext.jsx";
-import { useGetSiteContentQuery } from "../../features/api/contentApi.js";
+import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const Blog = () => {
   const productScrollRef = useRef(null);
   const navigate = useNavigate();
   const { isDark } = useTheme();
-  const { data } = useGetSiteContentQuery();
-  const blogPosts = data?.content?.blogPosts || [];
+  const { content } = useStableSiteContent();
+  const blogPosts = content?.blogPosts || [];
 
   const scroll = (ref, direction) => {
     if (ref.current) {
