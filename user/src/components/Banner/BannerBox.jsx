@@ -1,19 +1,16 @@
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const BannerBox = () => {
-  const navigate = useNavigate();
   const { content } = useStableSiteContent();
   const cards = content?.bannerBoxes || [];
 
   const handleBannerClick = (link) => {
     if (!link) return;
-    if (/^https?:\/\//i.test(link)) {
-      window.location.assign(link);
-      return;
-    }
-    navigate(link);
+    const normalizedLink = /^https?:\/\//i.test(link)
+      ? link
+      : `${window.location.origin}${link.startsWith("/") ? link : `/${link}`}`;
+    window.open(normalizedLink, "_blank", "noopener,noreferrer");
   };
 
   if (!cards.length) return null;

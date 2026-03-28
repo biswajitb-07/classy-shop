@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import {
   Trash2,
@@ -168,6 +168,7 @@ const SiteContentManager = () => {
     useUpdateSiteContentItemMutation();
   const [deleteSiteContentItem] = useDeleteSiteContentItemMutation();
   const [forms, setForms] = useState(emptyForms);
+  const [imagePreviews, setImagePreviews] = useState({});
   const [activeSection, setActiveSection] = useState("bannerBoxes");
   const [editingItem, setEditingItem] = useState(null);
   const [deletingTarget, setDeletingTarget] = useState(null);
@@ -194,12 +195,53 @@ const SiteContentManager = () => {
     }));
   };
 
+  const updateSectionImage = (section, file) => {
+    setForms((prev) => ({
+      ...prev,
+      [section]: {
+        ...prev[section],
+        image: file,
+      },
+    }));
+
+    setImagePreviews((prev) => {
+      if (prev[section]?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev[section]);
+      }
+
+      return {
+        ...prev,
+        [section]: file ? URL.createObjectURL(file) : "",
+      };
+    });
+  };
+
   const resetSectionForm = (section) => {
     setForms((prev) => ({
       ...prev,
       [section]: emptyForms[section],
     }));
+    setImagePreviews((prev) => {
+      if (prev[section]?.startsWith("blob:")) {
+        URL.revokeObjectURL(prev[section]);
+      }
+
+      return {
+        ...prev,
+        [section]: "",
+      };
+    });
   };
+
+  useEffect(() => {
+    return () => {
+      Object.values(imagePreviews).forEach((preview) => {
+        if (typeof preview === "string" && preview.startsWith("blob:")) {
+          URL.revokeObjectURL(preview);
+        }
+      });
+    };
+  }, [imagePreviews]);
 
   const buildBody = (section) => {
     const form = forms[section];
@@ -236,6 +278,10 @@ const SiteContentManager = () => {
       itemId: item._id,
       image: item.image || "",
     });
+    setImagePreviews((prev) => ({
+      ...prev,
+      [section]: item.image || "",
+    }));
     setForms((prev) => ({
       ...prev,
       [section]: hydrateFormFromItem(section, item),
@@ -711,11 +757,9 @@ const SiteContentManager = () => {
 
             {activeSection !== "testimonials" ? (
               <div className="space-y-3">
-                {editingItem?.section === activeSection &&
-                editingItem?.image &&
-                !forms[activeSection].image ? (
+                {imagePreviews[activeSection] ? (
                   <img
-                    src={editingItem.image}
+                    src={imagePreviews[activeSection]}
                     alt="Current content"
                     className="h-28 w-full rounded-2xl object-cover"
                   />
@@ -740,11 +784,7 @@ const SiteContentManager = () => {
                     accept="image/*"
                     className="hidden"
                     onChange={(e) =>
-                      updateForm(
-                        activeSection,
-                        "image",
-                        e.target.files?.[0] || null
-                      )
+                      updateSectionImage(activeSection, e.target.files?.[0] || null)
                     }
                   />
                 </label>

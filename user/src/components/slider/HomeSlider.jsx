@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const AUTO_PLAY_INTERVAL = 5000;
@@ -9,7 +8,6 @@ const AUTO_PLAY_INTERVAL = 5000;
 const HomeSlider = () => {
   const [current, setCurrent] = useState(0);
   const [arrowIcon, setArrowIcon] = useState(false);
-  const navigate = useNavigate();
   const { content, isLoading, isFetching } = useStableSiteContent();
   const slides = content?.homeSlides || [];
 
@@ -33,11 +31,10 @@ const HomeSlider = () => {
 
   const openBannerLink = (link) => {
     if (!link) return;
-    if (/^https?:\/\//i.test(link)) {
-      window.location.assign(link);
-      return;
-    }
-    navigate(link);
+    const normalizedLink = /^https?:\/\//i.test(link)
+      ? link
+      : `${window.location.origin}${link.startsWith("/") ? link : `/${link}`}`;
+    window.open(normalizedLink, "_blank", "noopener,noreferrer");
   };
 
   const arrowVariants = {

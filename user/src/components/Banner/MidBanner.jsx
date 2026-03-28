@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useInView } from "framer-motion";
-import { useNavigate } from "react-router-dom";
 import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
 
 const AUTO_PLAY_INTERVAL = 5000;
@@ -25,7 +24,6 @@ const ScrollReveal = ({ children }) => {
 const MidBanner = () => {
   const [current, setCurrent] = useState(0);
   const [promoCurrent, setPromoCurrent] = useState(0);
-  const navigate = useNavigate();
   const { content } = useStableSiteContent();
   const slides = content?.heroSlides || [];
   const promoSlides = content?.promoBanners || [];
@@ -70,11 +68,10 @@ const MidBanner = () => {
 
   const openLink = (link) => {
     if (!link) return;
-    if (/^https?:\/\//i.test(link)) {
-      window.location.assign(link);
-      return;
-    }
-    navigate(link);
+    const normalizedLink = /^https?:\/\//i.test(link)
+      ? link
+      : `${window.location.origin}${link.startsWith("/") ? link : `/${link}`}`;
+    window.open(normalizedLink, "_blank", "noopener,noreferrer");
   };
 
   const handleTouchStart = (e) => {
