@@ -5,7 +5,6 @@ import {
   FaMapMarkerAlt,
   FaCreditCard,
   FaMoneyBillWave,
-  FaArrowLeft,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
@@ -110,12 +109,6 @@ const OrderDetailsPage = () => {
             <p className={`${bodyText} mb-8`}>
               The order you are looking for does not exist.
             </p>
-            <button
-              onClick={() => navigate("/orders")}
-              className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
-            >
-              Back to Orders
-            </button>
           </div>
         </div>
       </div>
@@ -226,13 +219,6 @@ const OrderDetailsPage = () => {
             <FaBoxOpen className="text-red-500" />
             Order Details #{order.orderId}
           </h1>
-          <button
-            onClick={() => navigate("/orders")}
-            className="flex items-center gap-1 text-red-500 hover:text-red-600 font-medium"
-          >
-            <FaArrowLeft size={14} />
-            <span>Back</span>
-          </button>
         </div>
 
         <div className="w-24 h-1 bg-gradient-to-r from-red-500 to-pink-500 rounded-full mb-8"></div>

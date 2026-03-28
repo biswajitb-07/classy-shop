@@ -158,12 +158,6 @@ const ForgetPassword = () => {
           </form>
         )}
 
-        <button
-          onClick={() => navigate("/login")}
-          className="mt-4 text-sm text-amber-600 hover:underline w-full text-center cursor-pointer"
-        >
-          ← Back to Login
-        </button>
       </div>
     </div>
   );

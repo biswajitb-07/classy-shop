@@ -157,13 +157,6 @@ const FashionProductDetails = () => {
     <>
       <div className="container mx-auto px-4 sm:px-6 md:px-8 pb-14 md:pb-16">
         <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm sm:text-base text-red-500 hover:underline cursor-pointer"
-          >
-            ← Back
-          </button>
-
           {/* Share Button */}
           <div className="relative share-container">
             <button

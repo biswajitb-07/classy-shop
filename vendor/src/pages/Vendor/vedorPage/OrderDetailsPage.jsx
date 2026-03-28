@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaMapMarkerAlt, FaArrowLeft } from "react-icons/fa";
+import { useParams } from "react-router-dom";
+import { FaBoxOpen, FaMapMarkerAlt } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
   useGetVendorOrdersQuery,
@@ -13,8 +13,6 @@ import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
 
 const OrderDetailsPage = () => {
   const { orderId } = useParams();
-  const navigate = useNavigate();
-
   const {
     data: ordersData,
     isLoading,
@@ -97,12 +95,6 @@ const OrderDetailsPage = () => {
             <p className="text-gray-600 mb-8">
               The order you are looking for does not exist.
             </p>
-            <button
-              onClick={() => navigate("/vendor/orders")}
-              className="w-full bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-600 hover:to-blue-600 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg"
-            >
-              Back to Orders
-            </button>
           </div>
         </div>
       </div>
@@ -203,24 +195,17 @@ const OrderDetailsPage = () => {
           <h1 className="text-xl md:text-2xl font-bold text-gray-800">
             Order Details #{order.orderId}
           </h1>
-          <button
-            onClick={() => navigate("/vendor/orders")}
-            className="flex items-center gap-1 text-indigo-500 hover:text-indigo-600 font-medium"
-          >
-            <FaArrowLeft size={14} />
-            <span>Back</span>
-          </button>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-6 gap-6">
           <div className="lg:col-span-4">
             <div className="bg-white rounded-2xl shadow-md overflow-hidden p-6">
               <div className="mb-4">
-                <div className="flex justify-between items-center">
-                  <div>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex flex-col gap-2">
                     <div className="text-sm text-gray-600">Current status</div>
                     <div
-                      className={`mt-2 px-3 py-1 rounded-full text-sm font-medium ${
+                      className={`inline-flex w-fit px-3 py-1.5 rounded-full text-sm font-medium ${
                         order.orderStatus?.startsWith("return")
                           ? "bg-yellow-500 text-white"
                           : order.orderStatus === "cancelled"
@@ -236,7 +221,7 @@ const OrderDetailsPage = () => {
                     </div>
                   </div>
 
-                  <div className="mt-3 flex w-full flex-col items-stretch gap-2 sm:mt-0 sm:w-[18rem]">
+                  <div className="flex w-full flex-col items-stretch gap-3 sm:w-[18rem] sm:gap-2">
                     <select
                       value={selectedStatus}
                       onChange={handleStatusChange}
@@ -266,7 +251,7 @@ const OrderDetailsPage = () => {
                         order.orderStatus === "cancelled" ||
                         order.orderStatus === "return_completed"
                       }
-                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
+                      className="flex min-h-10 w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:min-h-0 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
                     >
                       {actionLoading ? (
                         <AuthButtonLoader size={14} />

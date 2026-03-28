@@ -70,7 +70,7 @@ const SearchResultsPage = () => {
   return (
     <div className={`min-h-screen pb-16 ${bgClass}`}>
       <div className="container mx-auto px-4 pt-10">
-        <div className="flex items-center justify-between gap-4 mb-6">
+        <div className="mb-6">
           <div>
             <p className={`text-xs uppercase tracking-[0.25em] ${bodyClass}`}>
               Marketplace search
@@ -84,13 +84,6 @@ const SearchResultsPage = () => {
                 : `${results.length} products matched your search`}
             </p>
           </div>
-
-          <button
-            onClick={() => navigate(-1)}
-            className="px-4 py-2 rounded-full bg-red-500 text-white font-semibold hover:bg-red-600 transition-colors"
-          >
-            Back
-          </button>
         </div>
 
         {!hasQuery && (

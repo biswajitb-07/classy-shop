@@ -163,26 +163,6 @@ const ForgotPassword = () => {
             ></div>
           </div>
 
-          {/* Back to login button */}
-          <div className="text-center mt-6 sm:mt-8 pt-4 sm:pt-6 border-t border-gray-200/50">
-            <button
-              onClick={() => navigate("/login")}
-              className="inline-flex items-center text-xs sm:text-sm font-medium text-red-600 hover:text-red-700 transition-colors group"
-            >
-              <svg
-                className="w-3 sm:w-4 h-3 sm:h-4 mr-1 transform group-hover:-translate-x-1 transition-transform"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M9.707 16.707a1 1 0 01-1.414 0l-6-6a1 1 0 010-1.414l6-6a1 1 0 011.414 1.414L5.414 9H17a1 1 0 110 2H5.414l4.293 4.293a1 1 0 010 1.414z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              Back to Login
-            </button>
-          </div>
         </div>
       </div>
     </div>

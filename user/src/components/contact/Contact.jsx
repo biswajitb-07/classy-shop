@@ -10,12 +10,14 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { Link } from "react-router-dom";
 import { companyPageList } from "../../utils/siteSupport.js";
+import { useNavigate } from "react-router-dom";
 
 const Contact = () => {
   const [isChecked, setIsChecked] = useState(false);
   const [openAccordion, setOpenAccordion] = useState(null);
   const [isLargeScreen, setIsLargeScreen] = useState(window.innerWidth >= 1024);
   const { isDark } = useTheme();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleResize = () => {
@@ -125,25 +127,25 @@ const Contact = () => {
                       Classyshop - Mega Super Store
                     </p>
                     <p className="text-gray-600">507-Union Trade Centre</p>
-                    <p className="text-gray-600">France</p>
+                    <p className="text-gray-600">India</p>
                   </div>
                   <div>
                     <div className="flex items-center mb-2">
                       <FaEnvelope className="mr-2 text-gray-600" />
                       <span className="font-medium">Email:</span>
                     </div>
-                    <p className="text-red-500">sales@yourcompany.com</p>
+                    <p className="text-red-500">support@classyshop.site</p>
                   </div>
                   <div>
                     <div className="flex items-center mb-2">
                       <FaPhoneAlt className="mr-2 text-gray-600" />
                       <span className="font-medium">Phone:</span>
                     </div>
-                    <p className="text-red-500">(+91) 9876-543-210</p>
+                    <p className="text-red-500">(+91) 77777777</p>
                   </div>
                 </div>
 
-                <div className={`mt-8 rounded-lg ${isDark ? "bg-slate-900 border border-slate-700" : "bg-blue-50"}`}>
+                <div onClick={() => navigate("/support")}  className={`mt-8 rounded-lg cursor-pointer ${isDark ? "bg-slate-900 border border-slate-700" : "bg-blue-50"}`}>
                   <div className="flex items-start">
                     <FaCommentDots className="mr-2 text-red-600" />
                     <span className="font-medium text-red-600">

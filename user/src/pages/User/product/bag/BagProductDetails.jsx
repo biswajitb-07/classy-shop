@@ -119,17 +119,10 @@ const BagProductDetails = () => {
     <>
       <div className="container mx-auto px-4 sm:px-6 md:px-8 pb-14 md:pb-16">
         <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <button
-            onClick={() => navigate(-1)}
-            className="text-sm sm:text-base text-red-500 hover:underline cursor-pointer"
-          >
-            ← Back
-          </button>
-
           <div className="relative share-container">
             <button
               onClick={handleShare}
-              className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-red-500 border-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-red-500 border-red-500 hover:bg-red-50 transition-colors cursor-pointer"
             >
               <IoShareSocialOutline size={18} />
               <span className="text-sm">Share</span>
