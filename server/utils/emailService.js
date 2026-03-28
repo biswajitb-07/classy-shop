@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+import dns from "dns";
+
 import {
   getOrderOutForDeliveryEmailTemplate,
   getOrderPlacedEmailTemplate,
@@ -6,6 +8,8 @@ import {
   getResetOtpEmailTemplate,
   getWelcomeEmailTemplate,
 } from "./emailTemplates.js";
+
+dns.setDefaultResultOrder("ipv4first"); 
 
 const cleanEnv = (value) => String(value || "").trim().replace(/^['"]|['"]$/g, "");
 const gmailUser = cleanEnv(process.env.GMAIL_USER);

@@ -35,10 +35,17 @@ const OrderDetailsPage = () => {
     description: "",
     payload: null,
   });
+  const [selectedStatus, setSelectedStatus] = useState("");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
+
+  useEffect(() => {
+    if (order?.orderStatus) {
+      setSelectedStatus(order.orderStatus);
+    }
+  }, [order?.orderStatus]);
 
   const openConfirm = (title, description, payload) => {
     setConfirmMeta({ title, description, payload });
@@ -142,6 +149,21 @@ const OrderDetailsPage = () => {
     );
   };
 
+  const handleStatusChange = (event) => {
+    setSelectedStatus(event.target.value);
+  };
+
+  const handleApplyStatus = () => {
+    if (!selectedStatus || selectedStatus === order.orderStatus) return;
+
+    if (selectedStatus === "cancelled") {
+      handleCancel();
+      return;
+    }
+
+    handleSetStatus(selectedStatus);
+  };
+
   const handleReturnApprove = () => {
     openConfirm(
       "Approve Return",
@@ -214,46 +236,46 @@ const OrderDetailsPage = () => {
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-2 mt-2 sm:mt-0">
-                    {statusOptions.map((option) => {
-                      const key = `status_${option.value}`;
-                      const loadingThis = actionLoading === key;
-                      return (
-                        <button
-                          key={option.value}
-                          disabled={
-                            isUpdating ||
-                            order.orderStatus === "cancelled" ||
-                            order.orderStatus === "return_completed"
-                          }
-                          onClick={() => handleSetStatus(option.value)}
-                          className="px-3 py-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-sm disabled:opacity-50 flex items-center gap-2"
-                        >
-                          {loadingThis ? (
-                            <AuthButtonLoader size={14} />
-                          ) : (
-                            option.label
-                          )}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-3 flex w-full flex-col items-stretch gap-2 sm:mt-0 sm:w-[18rem]">
+                    <select
+                      value={selectedStatus}
+                      onChange={handleStatusChange}
+                      disabled={
+                        isUpdating ||
+                        order.orderStatus === "cancelled" ||
+                        order.orderStatus === "return_completed"
+                      }
+                      className="w-full rounded-lg border border-indigo-100 bg-indigo-50 px-3 py-2.5 text-xs font-medium text-indigo-700 outline-none transition focus:border-indigo-300 disabled:cursor-not-allowed disabled:opacity-60 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
+                    >
+                      {statusOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                      {canCancel ? (
+                        <option value="cancelled">cancel</option>
+                      ) : null}
+                    </select>
 
-                    {canCancel && (
-                      <button
-                        onClick={handleCancel}
-                        disabled={isUpdating}
-                        className="px-3 py-2 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-sm disabled:opacity-50 flex items-center gap-2"
-                      >
-                        {actionLoading === "cancel" ? (
-                          <AuthButtonLoader
-                            className="text-red-600"
-                            size={14}
-                          />
-                        ) : (
-                          "Cancel"
-                        )}
-                      </button>
-                    )}
+                    <button
+                      onClick={handleApplyStatus}
+                      disabled={
+                        isUpdating ||
+                        !selectedStatus ||
+                        selectedStatus === order.orderStatus ||
+                        order.orderStatus === "cancelled" ||
+                        order.orderStatus === "return_completed"
+                      }
+                      className="flex w-full items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2.5 text-xs font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50 sm:rounded-xl sm:px-4 sm:py-3 sm:text-sm"
+                    >
+                      {actionLoading ? (
+                        <AuthButtonLoader size={14} />
+                      ) : selectedStatus === "cancelled" ? (
+                        "Cancel Order"
+                      ) : (
+                        "Update Status"
+                      )}
+                    </button>
                   </div>
                 </div>
               </div>
