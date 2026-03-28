@@ -16,6 +16,10 @@ import ProductModal from "./ProductModal";
 import { useSelector } from "react-redux";
 import { recordProductView } from "../../utils/aiShopping.js";
 import { shareProduct } from "../../utils/shareProduct.js";
+import {
+  getProductDetailPath,
+  getProductType,
+} from "../../utils/productCatalog.js";
 
 const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
   const [selectedProduct, setSelectedProduct] = useState(null);
@@ -65,7 +69,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
       return;
     }
 
-    const productType = product.category;
+    const productType = getProductType(product);
     try {
       if (isInWishlist(product._id)) {
         await removeFromWishlist({
@@ -98,7 +102,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
       storage = options.storage;
     }
 
-    const productType = product.category;
+    const productType = getProductType(product);
 
     if (productType === "Electronics") {
       if (!fromModal) {
@@ -222,7 +226,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
 
   const handleShare = async (product, e) => {
     e.stopPropagation();
-    const productUrl = `${window.location.origin}/${product.category.toLowerCase()}/${product.category.toLowerCase()}-product-details/${product._id}`;
+    const productUrl = `${window.location.origin}${getProductDetailPath(product)}`;
 
     try {
       const result = await shareProduct({ product, productUrl });
@@ -237,11 +241,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
 
   const goToProduct = (product) => {
     recordProductView(product);
-    navigate(
-      `/${product.category.toLowerCase()}/${product.category.toLowerCase()}-product-details/${
-        product._id
-      }`,
-    );
+    navigate(getProductDetailPath(product));
   };
 
   return (
@@ -331,9 +331,10 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
                       )}
                     </button>
 
-                    {((p.category === "Fashion" || p.category === "Footwear") &&
+                    {((getProductType(p) === "Fashion" ||
+                      getProductType(p) === "Footwear") &&
                       p.sizes?.length > 0) ||
-                    p.category === "Electronics" ? (
+                    getProductType(p) === "Electronics" ? (
                       <button
                         onClick={(e) => {
                           e.stopPropagation();

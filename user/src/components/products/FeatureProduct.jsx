@@ -1,29 +1,13 @@
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useEffect, useRef, useState } from "react";
 import HomeProductCard from "./HomeProductCard";
-import { useGetFashionItemsQuery } from "../../features/api/fashionApi";
-import { useGetElectronicItemsQuery } from "../../features/api/electronicApi";
+import { useHomeCatalog } from "../../hooks/useHomeCatalog.js";
 
 const FeatureProduct = () => {
   const productScrollRef = useRef(null);
   const [canScrollProductLeft, setCanScrollProductLeft] = useState(false);
   const [canScrollProductRight, setCanScrollProductRight] = useState(true);
-
-  const { data: fashionData, isLoading: fashionLoading } =
-    useGetFashionItemsQuery();
-  const { data: electronicData, isLoading: electronicLoading } =
-    useGetElectronicItemsQuery();
-
-  const isLoading = fashionLoading || electronicLoading;
-
-
-  const fashionItems = fashionData?.fashionItems?.slice(0, 10) || [];
-  const electronicItems = electronicData?.electronicItems?.slice(0, 10) || [];
-
-  const combinedProducts = [...fashionItems, ...electronicItems];
-  const featureProducts = combinedProducts
-    .sort(() => Math.random() - 0.5)
-    .slice(0, 10);
+  const { featuredProducts, isLoading } = useHomeCatalog();
 
   // Check scrollability
   const checkProductScrollability = () => {
@@ -66,7 +50,7 @@ const FeatureProduct = () => {
       }
       window.removeEventListener("resize", checkProductScrollability);
     };
-  }, [featureProducts]);
+  }, [featuredProducts]);
 
   return (
     <section className="container mx-auto px-4 py-9">
@@ -105,7 +89,7 @@ const FeatureProduct = () => {
         <div className="snap-start">
           <HomeProductCard
             productScrollRef={productScrollRef}
-            products={featureProducts}
+            products={featuredProducts}
             isLoading={isLoading}
           />
         </div>

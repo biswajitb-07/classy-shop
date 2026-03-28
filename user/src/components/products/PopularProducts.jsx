@@ -1,43 +1,7 @@
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useRef, useState, useEffect } from "react";
 import HomeProductCard from "./HomeProductCard";
-import { useGetFashionItemsQuery } from "../../features/api/fashionApi";
-import { useGetVendorCategoriesQuery } from "../../features/api/categoryApi";
-import { useGetElectronicItemsQuery } from "../../features/api/electronicApi";
-import { useGetBagItemsQuery } from "../../features/api/bagApi";
-import { useGetFootwearItemsQuery } from "../../features/api/footwearApi";
-import { useGetGroceryItemsQuery } from "../../features/api/groceryApi";
-import { useGetBeautyItemsQuery } from "../../features/api/beautyApi";
-import { useGetWellnessItemsQuery } from "../../features/api/wellnessApi";
-import { useGetJewelleryItemsQuery } from "../../features/api/jewelleryApi";
-
-const CATEGORY_ORDER = [
-  "Fashion",
-  "Electronics",
-  "Bags",
-  "Footwear",
-  "Groceries",
-  "Beauty",
-  "Wellness",
-  "Jewellery",
-];
-
-const normalizeCategoryName = (name = "") => {
-  const normalized = String(name).trim().toLowerCase();
-
-  if (normalized === "bag" || normalized === "bags") return "Bags";
-  if (normalized === "grocery" || normalized === "groceries") return "Groceries";
-  if (normalized === "electronic" || normalized === "electronics") {
-    return "Electronics";
-  }
-  if (normalized === "fashion") return "Fashion";
-  if (normalized === "footwear") return "Footwear";
-  if (normalized === "beauty") return "Beauty";
-  if (normalized === "wellness") return "Wellness";
-  if (normalized === "jewellery" || normalized === "jewelry") return "Jewellery";
-
-  return name;
-};
+import { useHomeCatalog } from "../../hooks/useHomeCatalog.js";
 
 const PopularProduct = () => {
   const productScrollRef = useRef(null);
@@ -46,60 +10,15 @@ const PopularProduct = () => {
   const [canScrollNavRight, setCanScrollNavRight] = useState(false);
   const [canScrollProductLeft, setCanScrollProductLeft] = useState(false);
   const [canScrollProductRight, setCanScrollProductRight] = useState(false);
+  const { categories } = useHomeCatalog();
   const [selectedCategory, setSelectedCategory] = useState("Fashion");
 
-  const { data: fashionData, isLoading: fashionLoading } =
-    useGetFashionItemsQuery();
-  const { data: categories } = useGetVendorCategoriesQuery();
-  const { data: electronicData, isLoading: electronicLoading } =
-    useGetElectronicItemsQuery();
-  const { data: bagData, isLoading: bagLoading } = useGetBagItemsQuery();
-  const { data: footwearData, isLoading: footwearLoading } =
-    useGetFootwearItemsQuery();
-  const { data: groceryData, isLoading: groceryLoading } =
-    useGetGroceryItemsQuery();
-  const { data: beautyData, isLoading: beautyLoading } = useGetBeautyItemsQuery();
-  const { data: wellnessData, isLoading: wellnessLoading } =
-    useGetWellnessItemsQuery();
-  const { data: jewelleryData, isLoading: jewelleryLoading } =
-    useGetJewelleryItemsQuery();
-
-  const categoryData = CATEGORY_ORDER.filter((categoryName) =>
-    (categories?.[0]?.categories || []).some(
-      (category) => normalizeCategoryName(category?.name) === categoryName,
-    ),
-  );
-
-  const visibleCategories = categoryData.length ? categoryData : CATEGORY_ORDER;
-
-  const categoryProductsMap = {
-    Fashion: fashionData?.fashionItems || [],
-    Electronics: electronicData?.electronicItems || [],
-    Bags: bagData?.bagItems || [],
-    Footwear: footwearData?.footwearItems || [],
-    Groceries: groceryData?.groceryItems || [],
-    Beauty: beautyData?.beautyItems || [],
-    Wellness: wellnessData?.wellnessItems || [],
-    Jewellery: jewelleryData?.jewelleryItems || [],
-  };
-
-  const categoryLoadingMap = {
-    Fashion: fashionLoading,
-    Electronics: electronicLoading,
-    Bags: bagLoading,
-    Footwear: footwearLoading,
-    Groceries: groceryLoading,
-    Beauty: beautyLoading,
-    Wellness: wellnessLoading,
-    Jewellery: jewelleryLoading,
-  };
-
-  const getPopularProducts = () => {
-    return (categoryProductsMap[selectedCategory] || []).slice(0, 7);
-  };
-
-  const popularProducts = getPopularProducts();
-  const isLoading = categoryLoadingMap[selectedCategory] ?? false;
+  const visibleCategories = categories;
+  const selectedCategoryData =
+    visibleCategories.find((category) => category.key === selectedCategory) ||
+    visibleCategories[0];
+  const popularProducts = (selectedCategoryData?.products || []).slice(0, 7);
+  const isLoading = selectedCategoryData?.isLoading ?? false;
 
   const checkNavScrollability = () => {
     if (navScrollRef.current) {
@@ -162,15 +81,19 @@ const PopularProduct = () => {
       }
       window.removeEventListener("resize", handleResize);
     };
-  }, [categoryData, popularProducts]);
+  }, [popularProducts, visibleCategories]);
 
   const handleCategoryClick = (category) => {
     setSelectedCategory(category);
   };
 
   useEffect(() => {
-    if (!visibleCategories.includes(selectedCategory)) {
-      setSelectedCategory(visibleCategories[0] || "Fashion");
+    const hasSelectedCategory = visibleCategories.some(
+      (category) => category.key === selectedCategory
+    );
+
+    if (!hasSelectedCategory) {
+      setSelectedCategory(visibleCategories[0]?.key || "Fashion");
     }
   }, [selectedCategory, visibleCategories]);
 
@@ -217,17 +140,17 @@ const PopularProduct = () => {
               overscrollBehaviorX: "contain",
             }}
           >
-            {visibleCategories.map((categoryName) => (
+            {visibleCategories.map((category) => (
               <button
-                key={categoryName}
-                onClick={() => handleCategoryClick(categoryName)}
+                key={category.key}
+                onClick={() => handleCategoryClick(category.key)}
                 className={`flex-shrink-0 whitespace-nowrap transition cursor-pointer snap-start text-base ${
-                  selectedCategory === categoryName
+                  selectedCategory === category.key
                     ? "text-red-600"
                     : "hover:text-red-500 text-gray-700"
                 }`}
               >
-                {categoryName}
+                {category.label}
               </button>
             ))}
           </div>

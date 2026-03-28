@@ -1,35 +1,13 @@
 import { FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useRef, useState, useEffect } from "react";
 import HomeProductCard from "./HomeProductCard";
-import { useGetFashionItemsQuery } from "../../features/api/fashionApi";
-import { useGetElectronicItemsQuery } from "../../features/api/electronicApi";
+import { useHomeCatalog } from "../../hooks/useHomeCatalog.js";
 
 const LatestProduct = () => {
   const productScrollRef = useRef(null);
   const [canScrollProductLeft, setCanScrollProductLeft] = useState(false);
   const [canScrollProductRight, setCanScrollProductRight] = useState(true);
-
-  const { data: fashionData, isLoading: fashionLoading } =
-    useGetFashionItemsQuery();
-  const { data: electronicData, isLoading: electronicLoading } =
-    useGetElectronicItemsQuery();
-
-  const isLoading = fashionLoading || electronicLoading;
-
-  const fashionItems = fashionData?.fashionItems?.slice(0, 10) || [];
-  const electronicItems = electronicData?.electronicItems?.slice(0, 10) || [];
-  const combinedProducts = [...fashionItems, ...electronicItems];
-
-  const shuffleArray = (array) => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
-  const finalProducts = shuffleArray(combinedProducts).slice(0, 10);
+  const { latestProducts, isLoading } = useHomeCatalog();
 
   const checkProductScrollability = () => {
     if (productScrollRef.current) {
@@ -71,7 +49,7 @@ const LatestProduct = () => {
       }
       window.removeEventListener("resize", checkProductScrollability);
     };
-  }, [finalProducts]);
+  }, [latestProducts]);
 
   return (
     <section className="container mx-auto px-4 py-5">
@@ -106,7 +84,7 @@ const LatestProduct = () => {
         <div className="snap-start">
           <HomeProductCard
             productScrollRef={productScrollRef}
-            products={finalProducts}
+            products={latestProducts}
             isLoading={isLoading}
           />
         </div>
