@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowRight, FaRegStar, FaStar, FaStarHalfAlt, FaLink } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { useTheme } from "../../context/ThemeContext.jsx";
+import Search from "../../components/Search.jsx";
 import { useMarketplaceSearch } from "../../components/search/useMarketplaceSearch.js";
 
 const SearchResultsPage = () => {
@@ -16,6 +17,9 @@ const SearchResultsPage = () => {
 
   const results = useMemo(() => matchedProducts, [matchedProducts]);
   const hasQuery = Boolean(query.trim());
+  const resultCountText = hasQuery
+    ? `${results.length} products matched "${query}"`
+    : `${results.length} products available`;
 
   const bgClass = isDark
     ? "bg-slate-950 text-slate-100"
@@ -70,18 +74,22 @@ const SearchResultsPage = () => {
   return (
     <div className={`min-h-screen pb-16 ${bgClass}`}>
       <div className="container mx-auto px-4 pt-10">
+        <div className="mb-8">
+          <Search />
+        </div>
+
         <div className="mb-6">
           <div>
             <p className={`text-xs uppercase tracking-[0.25em] ${bodyClass}`}>
               Marketplace search
             </p>
             <h1 className={`text-2xl md:text-4xl font-bold ${headingClass} mt-2`}>
-              {hasQuery ? `Results for "${query}"` : "Search products"}
+              {hasQuery ? `Results for "${query}"` : "All products"}
             </h1>
             <p className={`mt-2 ${bodyClass}`}>
               {isLoading
                 ? "Loading products..."
-                : `${results.length} products matched your search`}
+                : resultCountText}
             </p>
           </div>
         </div>
@@ -89,7 +97,7 @@ const SearchResultsPage = () => {
         {!hasQuery && (
           <div className={`mb-6 rounded-2xl p-4 ${panelClass}`}>
             <p className={bodyClass}>
-              Start typing in the search bar to find products across fashion,
+              Start typing in the search bar to filter products across fashion,
               electronics, bags, beauty, grocery, jewellery, footwear, and wellness.
             </p>
           </div>

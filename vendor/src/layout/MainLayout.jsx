@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { setSidebarOpen } from "../features/authSlice";
 import { useState, useEffect } from "react";
+import RouteTransitionLoader from "../component/router/RouteTransitionLoader.jsx";
 
 const MainLayout = () => {
   const { isOpen } = useSelector((state) => state.auth);
@@ -25,6 +26,7 @@ const MainLayout = () => {
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-[var(--app-bg)] text-[var(--app-text)] transition-colors duration-300">
+      <RouteTransitionLoader />
       {/* Sidebar - fixed */}
       <Sidebar />
 

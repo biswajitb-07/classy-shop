@@ -6,6 +6,7 @@ import Footer from "../components/footer/Footer.jsx";
 import OAuthToast from "../pages/User/auth/OAuthToast.jsx";
 import Features from "../components/Features.jsx";
 import CategoryPanel from "../components/category/CategoryPanel.jsx";
+import SearchPanel from "../components/search/SearchPanel.jsx";
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
 import ScrollToTop from "../components/router/ScrollToTop.jsx";
@@ -18,6 +19,7 @@ const SupportFloatingButton = lazy(
 const MainLayout = () => {
   const [visible, setVisible] = useState(true);
   const [isOpenCatPanel, setIsOpenCatPanel] = useState(false);
+  const [isOpenSearchPanel, setIsOpenSearchPanel] = useState(false);
   const [shouldRenderAI, setShouldRenderAI] = useState(false);
   const lastScrollYRef = useRef(0);
   const tickingRef = useRef(false);
@@ -30,6 +32,10 @@ const MainLayout = () => {
     // One toggle drives both desktop category exposure and the slide-in mobile
     // category drawer so the navigation data stays in sync.
     setIsOpenCatPanel(!isOpenCatPanel);
+  };
+
+  const openSearchPanel = () => {
+    setIsOpenSearchPanel(!isOpenSearchPanel);
   };
 
   useEffect(() => {
@@ -90,11 +96,18 @@ const MainLayout = () => {
           isOpenCatPanel={isOpenCatPanel}
           categories={categoryData}
         />
-        <BottomNav />
+        <BottomNav
+          openSearchPanel={openSearchPanel}
+          isOpenSearchPanel={isOpenSearchPanel}
+        />
         <CategoryPanel
           openCategoryPanel={openCategoryPanel}
           isOpenCatPanel={isOpenCatPanel}
           categories={categoryData}
+        />
+        <SearchPanel
+          openSearchPanel={openSearchPanel}
+          isOpenSearchPanel={isOpenSearchPanel}
         />
       </div>
       <div className="mt-[5rem] md:mt-[5.5rem] lg:mt-[13.5rem] overflow-hidden">
