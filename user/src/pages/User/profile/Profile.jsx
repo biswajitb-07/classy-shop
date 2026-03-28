@@ -166,10 +166,8 @@ const Profile = () => {
         },
       });
       setHasProfileImageError(false);
-    } else if (!isUserLoading) {
-      navigate("/login");
     }
-  }, [data, isUserLoading, navigate]);
+  }, [data]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;

@@ -21,6 +21,12 @@ export const authApi = createApi({
       async onQueryStarted(arg, { queryFulfilled, dispatch }) {
         try {
           const result = await queryFulfilled;
+          dispatch(
+            authApi.util.upsertQueryData("loadUser", undefined, {
+              success: true,
+              vendor: result.data.vendor,
+            })
+          );
           dispatch(userLoggedIn({ vendor: result.data.vendor }));
         } catch (error) {
         }
