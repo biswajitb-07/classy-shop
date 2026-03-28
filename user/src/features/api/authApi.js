@@ -29,13 +29,19 @@ export const authApi = createApi({
       async onQueryStarted(arg, { queryFulfilled, dispatch }) {
         try {
           const result = await queryFulfilled;
+          const nextUser = {
+            ...result.data.user,
+            hasPassword:
+              result.data.user?.hasPassword ??
+              Boolean(result.data.user?.password),
+          };
           dispatch(
             authApi.util.upsertQueryData("loadUser", undefined, {
               success: true,
-              user: result.data.user,
+              user: nextUser,
             })
           );
-          dispatch(userLoggedIn({ user: result.data.user }));
+          dispatch(userLoggedIn({ user: nextUser }));
         } catch (error) {
           console.error(error);
         }
@@ -52,13 +58,19 @@ export const authApi = createApi({
           // Firebase only proves the Google account identity. The backend still
           // creates the real app session and returns the Mongo user record.
           const result = await queryFulfilled;
+          const nextUser = {
+            ...result.data.user,
+            hasPassword:
+              result.data.user?.hasPassword ??
+              Boolean(result.data.user?.password),
+          };
           dispatch(
             authApi.util.upsertQueryData("loadUser", undefined, {
               success: true,
-              user: result.data.user,
+              user: nextUser,
             })
           );
-          dispatch(userLoggedIn({ user: result.data.user }));
+          dispatch(userLoggedIn({ user: nextUser }));
         } catch (error) {
           console.error(error);
         }

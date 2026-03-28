@@ -655,9 +655,9 @@ const Profile = () => {
               </div>
 
               {/* Google Password Setting */}
-              {data?.user?.isGoogleUser && !data?.user?.hasPassword ? (
+              {data?.user?.isGoogleUser && data?.user?.hasPassword === false ? (
                 <div className={passwordPanelClass}>
-                  <div className="flex items-start space-x-4">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:space-x-4 sm:gap-0">
                     <div className="flex-shrink-0 w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center">
                       <FiLock className="w-6 h-6 text-amber-600" />
                     </div>
@@ -670,7 +670,7 @@ const Profile = () => {
                       </p>
                       <form
                         onSubmit={googlePasswordHandle}
-                        className="flex items-center space-x-3"
+                        className="flex flex-col gap-3 sm:flex-row sm:items-center sm:space-x-3 sm:gap-0"
                       >
                         <div className="flex-1 relative">
                           <input
@@ -685,7 +685,7 @@ const Profile = () => {
                           <button
                             type="button"
                             onClick={togglePasswordVisibility}
-                            className={`absolute inset-y-0 right-0 flex items-center pr-4 ${isDark ? "text-slate-300 hover:text-cyan-300" : "text-slate-500 hover:text-red-500"}`}
+                            className={`absolute inset-y-0 right-0 flex items-center px-4 ${isDark ? "text-slate-300 hover:text-cyan-300" : "text-slate-500 hover:text-red-500"}`}
                           >
                             {showPassword ? (
                               <FiEyeOff className="w-4 h-4 sm:w-5 sm:h-5" />
@@ -697,7 +697,7 @@ const Profile = () => {
                         <button
                           type="submit"
                           disabled={pwdLoading}
-                          className={`px-4 py-2 sm:px-6 sm:py-3 bg-gradient-to-r ${accentButtonGradient} text-white font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 text-sm sm:text-base shadow-lg`}
+                          className={`w-full sm:w-auto px-4 py-3 sm:px-6 sm:py-3 bg-gradient-to-r ${accentButtonGradient} text-white font-semibold rounded-2xl transition-all duration-300 transform hover:scale-105 disabled:opacity-50 text-sm sm:text-base shadow-lg`}
                         >
                           {pwdLoading ? <AuthButtonLoader /> : "Set Password"}
                         </button>

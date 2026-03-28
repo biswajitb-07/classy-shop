@@ -21,6 +21,17 @@ import {
 } from "../../utils/emailService.js";
 import { verifyFirebaseIdToken } from "../../utils/firebaseAdmin.js";
 
+const sanitizeUserForClient = (userDoc) => {
+  const userObject =
+    typeof userDoc?.toObject === "function" ? userDoc.toObject() : { ...userDoc };
+
+  return {
+    ...userObject,
+    password: undefined,
+    hasPassword: Boolean(userObject?.password),
+  };
+};
+
 export const register = async (req, res) => {
   try {
     // Zod validation keeps the controller small and ensures the frontend gets
@@ -135,7 +146,7 @@ export const login = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: `Welcome back ${user.name}`,
-      user,
+      user: sanitizeUserForClient(user),
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
@@ -227,7 +238,7 @@ export const firebaseGoogleLogin = async (req, res) => {
       message: isNewUser
         ? `Welcome to Classy Store, ${user.name}`
         : `Welcome back ${user.name}`,
-      user,
+      user: sanitizeUserForClient(user),
     });
   } catch (error) {
     console.error("Firebase Google login error:", error);
@@ -283,17 +294,9 @@ export const getUserProfile = async (req, res) => {
       });
     }
 
-    const userObject = user.toObject();
-
     return res.status(200).json({
       success: true,
-      user: {
-        ...userObject,
-        // The client only needs to know whether a password exists; the hash
-        // itself must never be exposed back to the browser.
-        password: undefined,
-        hasPassword: Boolean(user.password),
-      },
+      user: sanitizeUserForClient(user),
     });
   } catch (error) {
     console.log(error);
