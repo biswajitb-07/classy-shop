@@ -74,6 +74,7 @@ const InfoPage = lazy(() => import("./pages/User/support/InfoPage.jsx"));
 const SupportChatPage = lazy(
   () => import("./pages/User/support/SupportChatPage.jsx"),
 );
+const BlogPage = lazy(() => import("./pages/User/BlogPage.jsx"));
 
 // The app router keeps public auth pages outside the shared storefront layout,
 // while category/product/order pages live under MainLayout.
@@ -119,6 +120,14 @@ const appRouter = createBrowserRouter([
       {
         path: "/search",
         element: <SearchResultsPage />,
+      },
+      {
+        path: "/blog",
+        element: <BlogPage />,
+      },
+      {
+        path: "/blog/:slug",
+        element: <BlogPage />,
       },
       {
         path: "/company/:slug",

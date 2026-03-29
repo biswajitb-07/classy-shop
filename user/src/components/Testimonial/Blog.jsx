@@ -4,6 +4,7 @@ import { CiClock2 } from "react-icons/ci";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { useStableSiteContent } from "../../hooks/useStableSiteContent.js";
+import { getBlogPath } from "../../utils/blog.js";
 
 const Blog = () => {
   const productScrollRef = useRef(null);
@@ -26,13 +27,8 @@ const Blog = () => {
     }
   };
 
-  const openBlogLink = (link) => {
-    if (!link) return;
-    if (/^https?:\/\//i.test(link)) {
-      window.location.assign(link);
-      return;
-    }
-    navigate(link);
+  const openBlogPost = (post, index) => {
+    navigate(getBlogPath(post, index));
   };
 
   if (!blogPosts.length) return null;
@@ -106,9 +102,9 @@ const Blog = () => {
                 </div>
                 <button
                   type="button"
-                  onClick={() => openBlogLink(post.link)}
+                  onClick={() => openBlogPost(post, index)}
                   className={`text-red-500 text-xs font-semibold underline hover:no-underline transition ${
-                    post.link ? "cursor-pointer" : "cursor-default"
+                    "cursor-pointer"
                   }`}
                 >
                   {post.ctaLabel || "READ MORE"}
