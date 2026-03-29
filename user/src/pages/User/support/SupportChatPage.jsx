@@ -62,6 +62,8 @@ const SupportChatPage = () => {
   const fileInputRef = useRef(null);
   const selectedIdRef = useRef(null);
   const hasHydratedMessagesRef = useRef(false);
+  const chatPanelRef = useRef(null);
+  const shouldAutoScrollToChatRef = useRef(false);
 
   const {
     data: listData,
@@ -109,6 +111,31 @@ const SupportChatPage = () => {
 
   useEffect(() => {
     selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  useEffect(() => {
+    if (
+      !selectedId ||
+      !shouldAutoScrollToChatRef.current ||
+      typeof window === "undefined"
+    ) {
+      return;
+    }
+
+    const isMobileLayout = window.matchMedia("(max-width: 1023px)").matches;
+
+    if (!isMobileLayout) {
+      shouldAutoScrollToChatRef.current = false;
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      chatPanelRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+      shouldAutoScrollToChatRef.current = false;
+    });
   }, [selectedId]);
 
   const {
@@ -450,6 +477,7 @@ const SupportChatPage = () => {
       }
       const created = await createSupportConversation().unwrap();
       const createdId = created?.conversation?._id || null;
+      shouldAutoScrollToChatRef.current = true;
       setPendingSelectedId(createdId);
       setSelectedId(createdId);
       if (isCleanupReady) {
@@ -525,12 +553,12 @@ const SupportChatPage = () => {
     : "bg-[linear-gradient(135deg,#2563eb,#7c3aed)] text-white";
 
   return (
-    <section className="container mx-auto px-4 pb-10 pt-6 md:px-6 lg:px-8">
+    <section className="container mx-auto pb-10 md:px-6 lg:px-8">
       <div className={`relative overflow-hidden rounded-[38px] border backdrop-blur-xl ${shellClass}`}>
         <div className={`pointer-events-none absolute inset-0 ${shellGlowClass}`} />
 
-        <div className="relative grid min-h-[48rem] gap-0 lg:grid-cols-[19rem_minmax(0,1fr)]">
-          <aside className="relative flex flex-col overflow-hidden border-b border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(66,153,225,0.34),transparent_18%),radial-gradient(circle_at_bottom_center,rgba(255,72,145,0.16),transparent_28%),linear-gradient(180deg,#121936_0%,#171d40_55%,#1d1736_100%)] p-5 text-white lg:border-b-0 lg:border-r lg:border-r-white/10 lg:p-7">
+        <div className="relative grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-stretch">
+          <aside className="relative flex min-h-[28rem] max-h-[40rem] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(66,153,225,0.34),transparent_18%),radial-gradient(circle_at_bottom_center,rgba(255,72,145,0.16),transparent_28%),linear-gradient(180deg,#121936_0%,#171d40_55%,#1d1736_100%)] p-5 text-white sm:max-h-[44rem] lg:min-h-[48rem] lg:max-h-[calc(100vh-13.5rem)] lg:rounded-none lg:border-0 lg:border-r lg:border-r-white/10 lg:p-7">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_22%,transparent_78%,rgba(255,111,171,0.08))]" />
 
             <div className="relative">
@@ -565,7 +593,7 @@ const SupportChatPage = () => {
               )}
             </button>
 
-            <div className="relative mt-10 flex-1">
+            <div className="relative mt-10 flex min-h-0 flex-1 flex-col overflow-hidden">
               <div className="flex items-center justify-between">
                 <p className="text-base font-semibold text-slate-300">Recent chats</p>
                 <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400/80">
@@ -573,7 +601,7 @@ const SupportChatPage = () => {
                 </span>
               </div>
 
-              <div className="mt-4 space-y-4">
+              <div className="themed-scrollbar mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
                 {isListLoading ? (
                   <div className="rounded-[28px] border border-white/10 bg-white/8 px-4 py-5 text-sm text-slate-200 backdrop-blur-xl">
                     Loading conversations...
@@ -631,7 +659,7 @@ const SupportChatPage = () => {
               </div>
             </div>
 
-            <div className="relative mt-6 flex items-center justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,111,171,0.08))] px-4 py-4 text-sm backdrop-blur-xl">
+            <div className="relative mt-4 flex shrink-0 items-center justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,111,171,0.08))] px-4 py-4 text-sm backdrop-blur-xl">
               <div className="flex items-center gap-3 text-slate-200">
                 <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
                   <MessageSquareText size={15} />
@@ -651,7 +679,10 @@ const SupportChatPage = () => {
             </div>
           </aside>
 
-          <div className={`relative flex min-h-[48rem] flex-col ${contentPanelClass}`}>
+          <div
+            ref={chatPanelRef}
+            className={`relative flex min-h-[38rem] min-w-0 flex-col overflow-hidden rounded-[30px] border ${borderSoftClass} ${contentPanelClass} sm:min-h-[42rem] lg:min-h-[48rem] lg:max-h-[calc(100vh-13.5rem)] lg:rounded-none lg:border-0`}
+          >
             <div className={`border-b px-5 py-6 md:px-8 ${borderSoftClass}`}>
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
@@ -699,7 +730,7 @@ const SupportChatPage = () => {
 
             <div
               ref={scrollRef}
-              className="relative flex-1 space-y-5 overflow-y-auto px-4 py-6 md:px-8 md:py-7"
+              className="themed-scrollbar relative min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-6 md:px-8 md:py-7"
             >
               {selectedId ? (
                 isDetailsLoading ? (

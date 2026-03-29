@@ -420,7 +420,7 @@ const SupportChats = () => {
     : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100";
 
   return (
-    <section className="px-4 py-8 md:px-6">
+    <section className="pb-8">
       <div className={`relative overflow-hidden rounded-[34px] border p-4 md:p-5 ${shellClass}`}>
         <div className={`pointer-events-none absolute inset-0 ${shellOverlayClass}`} />
 
@@ -439,8 +439,8 @@ const SupportChats = () => {
           </div>
         </div>
 
-        <div className="relative grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
-          <div className={`rounded-[28px] border p-4 ${panelClass}`}>
+        <div className="relative grid gap-4 lg:grid-cols-[minmax(22rem,0.92fr)_minmax(0,1.08fr)] lg:items-stretch">
+          <div className={`flex min-h-[28rem] max-h-[34rem] flex-col rounded-[28px] border p-4 sm:max-h-[38rem] lg:min-h-[42rem] lg:max-h-[calc(100vh-13.5rem)] ${panelClass}`}>
             <div className="mb-4 flex items-center gap-3">
               <Headset className="text-sky-300" size={18} />
               <div>
@@ -451,68 +451,70 @@ const SupportChats = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
-              {isLoading ? (
-                  <div className={`rounded-2xl border px-4 py-6 text-center ${isDark ? "border-violet-400/20 bg-slate-950/70 text-slate-400" : "border-slate-200 bg-white text-slate-500"}`}>
-                  Loading support chats...
-                </div>
-              ) : conversations.length ? (
-                conversations.map((item) => {
-                  const userId = item.user?._id;
-                  const isOnline = userId
-                    ? onlineMap[userId] ?? item.userOnline ?? false
-                    : false;
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <div className="themed-scrollbar h-full space-y-3 overflow-y-auto pr-1">
+                {isLoading ? (
+                    <div className={`rounded-2xl border px-4 py-6 text-center ${isDark ? "border-violet-400/20 bg-slate-950/70 text-slate-400" : "border-slate-200 bg-white text-slate-500"}`}>
+                    Loading support chats...
+                  </div>
+                ) : conversations.length ? (
+                  conversations.map((item) => {
+                    const userId = item.user?._id;
+                    const isOnline = userId
+                      ? onlineMap[userId] ?? item.userOnline ?? false
+                      : false;
 
-                  return (
-                    <button
-                      key={item._id}
-                      type="button"
-                      onClick={() => setSelectedId(item._id)}
-                      className={`w-full rounded-[24px] border px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition ${
-                        selectedId === item._id
-                          ? listCardSelectedClass
-                          : listCardBaseClass
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className={`truncate text-base font-bold ${headingClass}`}>
-                              {item.user?.name}
+                    return (
+                      <button
+                        key={item._id}
+                        type="button"
+                        onClick={() => setSelectedId(item._id)}
+                        className={`w-full rounded-[24px] border px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition ${
+                          selectedId === item._id
+                            ? listCardSelectedClass
+                            : listCardBaseClass
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className={`truncate text-base font-bold ${headingClass}`}>
+                                {item.user?.name}
+                              </p>
+                              <span
+                                className={`h-2.5 w-2.5 rounded-full ${
+                                  isOnline ? "bg-emerald-400" : "bg-slate-500"
+                                }`}
+                              />
+                            </div>
+                            <p className={`truncate text-xs ${mutedClass}`}>
+                              {isOnline ? "Online" : "Offline"}
                             </p>
-                            <span
-                              className={`h-2.5 w-2.5 rounded-full ${
-                                isOnline ? "bg-emerald-400" : "bg-slate-500"
-                              }`}
-                            />
                           </div>
-                          <p className={`truncate text-xs ${mutedClass}`}>
-                            {isOnline ? "Online" : "Offline"}
-                          </p>
+                          {item.unreadForVendor ? (
+                            <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">
+                              {item.unreadForVendor}
+                            </span>
+                          ) : null}
                         </div>
-                        {item.unreadForVendor ? (
-                          <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">
-                            {item.unreadForVendor}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className={`mt-3 line-clamp-2 text-sm ${isDark ? "text-slate-200" : "text-slate-600"}`}>
-                        {item.lastMessage || "No messages yet"}
-                      </p>
-                      <p className={`mt-3 text-xs ${mutedClass}`}>
-                        {formatTime(item.lastMessageAt)}
-                      </p>
-                    </button>
-                  );
-                })
-              ) : (
-                  <div className={`rounded-2xl border border-dashed px-4 py-8 text-center ${isDark ? "border-violet-400/20 text-slate-400" : "border-slate-300 text-slate-500"}`}>
-                  No support conversations yet.
-                </div>
-              )}
+                        <p className={`mt-3 line-clamp-2 text-sm ${isDark ? "text-slate-200" : "text-slate-600"}`}>
+                          {item.lastMessage || "No messages yet"}
+                        </p>
+                        <p className={`mt-3 text-xs ${mutedClass}`}>
+                          {formatTime(item.lastMessageAt)}
+                        </p>
+                      </button>
+                    );
+                  })
+                ) : (
+                    <div className={`rounded-2xl border border-dashed px-4 py-8 text-center ${isDark ? "border-violet-400/20 text-slate-400" : "border-slate-300 text-slate-500"}`}>
+                    No support conversations yet.
+                  </div>
+                )}
+              </div>
             </div>
 
-            <div className={`mt-14 flex items-center justify-between rounded-[22px] border px-4 py-3 text-sm ${isDark ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(236,72,153,0.08))]" : "border-slate-200 bg-white/80"}`}>
+            <div className={`mt-4 flex shrink-0 items-center justify-between rounded-[22px] border px-4 py-3 text-sm ${isDark ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(236,72,153,0.08))]" : "border-slate-200 bg-white/80"}`}>
               <div className={`flex items-center gap-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
                 <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
                 Online Support
@@ -521,7 +523,7 @@ const SupportChats = () => {
             </div>
           </div>
 
-          <div className={`flex min-h-[42rem] flex-col rounded-[28px] border ${panelClass}`}>
+          <div className={`flex min-h-[38rem] min-w-0 flex-col rounded-[28px] border sm:min-h-[42rem] lg:max-h-[calc(100vh-13.5rem)] ${panelClass}`}>
             <div className={`border-b px-5 py-4 ${panelBorderClass}`}>
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -562,7 +564,7 @@ const SupportChats = () => {
 
             <div
               ref={scrollRef}
-              className="flex-1 space-y-4 overflow-y-auto px-4 py-5 md:px-5"
+              className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 md:px-5"
             >
               {selectedId && messages.length ? (
                 <>

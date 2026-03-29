@@ -87,8 +87,6 @@ app.get("/api/v1/health", (_req, res) => {
   res.status(200).json({ ok: true, uptime: process.uptime() });
 });
 
-// User APIs cover storefront auth, support, cart, checkout, and AI-assisted
-// product discovery. Vendor APIs power the separate dashboard application.
 app.use("/api/v1/user", userRouter);
 
 app.use("/api/v1/vendor", vendorRouter);

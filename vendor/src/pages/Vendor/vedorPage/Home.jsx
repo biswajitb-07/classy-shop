@@ -632,7 +632,7 @@ const Home = () => {
     <div
       className={`min-h-screen p-4 md:p-6 ${isDark ? "bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.96),_transparent_22%),radial-gradient(circle_at_right,_rgba(56,189,248,0.12),_transparent_26%),linear-gradient(180deg,#050816_0%,#0f172a_46%,#111827_100%)]" : "bg-[radial-gradient(circle_at_top,_rgba(244,63,94,0.18),_transparent_22%),radial-gradient(circle_at_right,_rgba(56,189,248,0.14),_transparent_26%),linear-gradient(180deg,#fff7f5_0%,#f8fafc_46%,#eef4ff_100%)]"}`}
     >
-      <div className="mx-auto max-w-7xl space-y-6">
+      <div className="mx-auto max-w-9xl space-y-6 pb-6">
         <section
           className={`relative overflow-hidden rounded-[36px] border p-5 md:p-7 xl:p-8 ${
             isDark

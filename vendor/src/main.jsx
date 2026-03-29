@@ -15,7 +15,7 @@ const SkeletonBlock = ({ className }) => (
 
 const DashboardContentSkeleton = ({ isDark }) => (
   <main className="flex-1 px-5 pb-8 pt-28">
-    <div className="mx-auto max-w-[1400px] space-y-6">
+    <div className="mx-auto max-w-9xl space-y-6">
       <SkeletonBlock
         className={`h-44 ${
           isDark ? "bg-slate-900/80" : "bg-white/85"
@@ -80,9 +80,9 @@ const SupportChatsSkeleton = ({ isDark }) => (
         />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(22rem,0.92fr)_minmax(0,1.08fr)]">
         <div
-          className={`rounded-[28px] border p-4 ${
+          className={`flex min-h-[32rem] flex-col rounded-[28px] border p-4 lg:min-h-[42rem] ${
             isDark
               ? "border-violet-400/25 bg-[linear-gradient(180deg,rgba(16,18,48,0.96),rgba(19,16,54,0.92))]"
               : "border-slate-200 bg-white/90"
@@ -128,7 +128,7 @@ const SupportChatsSkeleton = ({ isDark }) => (
         </div>
 
         <div
-          className={`flex min-h-[42rem] flex-col rounded-[28px] border ${
+          className={`flex min-h-[42rem] min-w-0 flex-col rounded-[28px] border ${
             isDark
               ? "border-violet-400/25 bg-[linear-gradient(180deg,rgba(16,18,48,0.96),rgba(19,16,54,0.92))]"
               : "border-slate-200 bg-white/90"
