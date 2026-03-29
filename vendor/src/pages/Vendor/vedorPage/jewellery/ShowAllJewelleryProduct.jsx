@@ -1082,7 +1082,7 @@ const ShowAllJewelleryProduct = () => {
   };
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-50 p-4 sm:p-6">
+    <div className="w-full min-h-screen p-4 sm:p-6">
       {renderHeader()}
       {renderFilters()}
 

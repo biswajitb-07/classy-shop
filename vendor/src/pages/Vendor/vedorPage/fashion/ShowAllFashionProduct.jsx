@@ -1119,7 +1119,7 @@ const ShowAllFashionProduct = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-200 via-blue-400 to-indigo-100 p-4 sm:p-6 w-full">
+    <div className="min-h-screen p-4 sm:p-6 w-full">
       {renderHeader()}
       {renderFilters()}
       {isLoading ? (

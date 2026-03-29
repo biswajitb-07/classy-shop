@@ -216,109 +216,24 @@ const Sidebar = () => {
               Brands Hub
             </li>
 
-            {/* Product */}
-            <li className="flex flex-col">
-              <button
-                onClick={() => toggleAccordion("product")}
-                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
-                  isActivePath(
-                    "/fashion-products",
-                    "/electronic-products",
-                    "/bag-products",
-                    "/grocery-products",
-                    "/footwear-products",
-                    "/beauty-products",
-                    "/wellness-products",
-                    "/jewellery-products"
-                  )
-                )}`}
-              >
-                <div className="flex items-center gap-4 text-sm font-bold">
-                  <RiProductHuntLine size={20} />
-                  Product
-                </div>
-                {openAccordion === "product" ? (
-                  <IoIosArrowUp />
-                ) : (
-                  <IoIosArrowDown />
-                )}
-              </button>
-              <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openAccordion === "product"
-                    ? "grid-rows-[1fr]"
-                    : "grid-rows-[0fr]"
-                }`}
-              >
-                <div className="overflow-hidden">
-                  <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
-                    <li
-                      onClick={() => navigateTo("/fashion-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/fashion-products"
-                      )}`}
-                    >
-                      Fashion Product
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/electronic-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/electronic-products"
-                      )}`}
-                    >
-                      Electronic Product
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/grocery-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/grocery-products"
-                      )}`}
-                    >
-                      Grocery Product
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/footwear-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/footwear-products"
-                      )}`}
-                    >
-                      Footwear Product
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/bag-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/bag-products"
-                      )}`}
-                    >
-                      Bag Product
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/beauty-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/beauty-products"
-                      )}`}
-                    >
-                      Beauty Product
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/wellness-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/wellness-products"
-                      )}`}
-                    >
-                      Wellness Product
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/jewellery-products")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/jewellery-products"
-                      )}`}
-                    >
-                      Jewellery Product
-                    </li>
-                  </ul>
-                </div>
-              </div>
+            <li
+              onClick={() => navigateTo("/products")}
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                isActivePath(
+                  "/products",
+                  "/fashion-products",
+                  "/electronic-products",
+                  "/bag-products",
+                  "/grocery-products",
+                  "/footwear-products",
+                  "/beauty-products",
+                  "/wellness-products",
+                  "/jewellery-products"
+                )
+              )}`}
+            >
+              <RiProductHuntLine size={20} />
+              Products Hub
             </li>
 
             <li

@@ -16,31 +16,8 @@ const Category = lazy(() => import("./pages/Vendor/category/Category"));
 const Profile = lazy(() => import("./pages/Vendor/profile/Profile"));
 const CategoryList = lazy(() => import("./pages/Vendor/category/CategoryList"));
 const BrandsHub = lazy(() => import("./pages/Vendor/vedorPage/BrandsHub"));
-const ShowAllFashionProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/fashion/ShowAllFashionProduct"),
-);
+const ProductsHub = lazy(() => import("./pages/Vendor/vedorPage/ProductsHub"));
 const Error = lazy(() => import("./component/error/Error"));
-const ShowAllElectronicProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/electronic/ShowAllElectronicProduct"),
-);
-const ShowAllGroceryProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/grocery/ShowAllGroceryProduct"),
-);
-const ShowAllFootwearProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/footwear/ShowAllFootwearProduct"),
-);
-const ShowAllBeautyProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/beauty/ShowAllBeautyProduct"),
-);
-const ShowAllWellnessProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/wellness/ShowAllWellnessProduct"),
-);
-const ShowAllJewelleryProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/jewellery/ShowAllJewelleryProduct"),
-);
-const ShowAllBagProduct = lazy(
-  () => import("./pages/Vendor/vedorPage/bag/ShowAllBagProduct"),
-);
 const Orders = lazy(() => import("./pages/Vendor/vedorPage/Orders"));
 const OrderDetailsPage = lazy(
   () => import("./pages/Vendor/vedorPage/OrderDetailsPage"),
@@ -116,12 +93,16 @@ const appRouter = createBrowserRouter([
         element: <BrandsHub />,
       },
       {
+        path: "/products",
+        element: <ProductsHub />,
+      },
+      {
         path: "/fashion-brand-list",
         element: <BrandsHub />,
       },
       {
         path: "/fashion-products",
-        element: <ShowAllFashionProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/electronic-brand-list",
@@ -129,7 +110,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/electronic-products",
-        element: <ShowAllElectronicProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/bag-brand-list",
@@ -137,7 +118,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/bag-products",
-        element: <ShowAllBagProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/grocery-brand-list",
@@ -145,7 +126,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/grocery-products",
-        element: <ShowAllGroceryProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/footwear-brand-list",
@@ -153,7 +134,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/footwear-products",
-        element: <ShowAllFootwearProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/beauty-brand-list",
@@ -161,7 +142,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/beauty-products",
-        element: <ShowAllBeautyProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/wellness-brand-list",
@@ -169,7 +150,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/wellness-products",
-        element: <ShowAllWellnessProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/jewellery-brand-list",
@@ -177,7 +158,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/jewellery-products",
-        element: <ShowAllJewelleryProduct />,
+        element: <ProductsHub />,
       },
       {
         path: "/community/users",
