@@ -113,6 +113,21 @@ export const primeUiFeedbackSounds = () => {
   void tryResumeAudio();
 };
 
+export const waitForNextPaint = () =>
+  new Promise((resolve) => {
+    if (
+      typeof window === "undefined" ||
+      typeof window.requestAnimationFrame !== "function"
+    ) {
+      setTimeout(resolve, 0);
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(resolve);
+    });
+  });
+
 export const playChatSendSound = () => {
   void playToneSequence("chat-send", [
     { frequency: 700, duration: 0.06, gain: 0.05, type: "triangle" },

@@ -23,6 +23,7 @@ import {
   playChatReceiveSound,
   playChatSendSound,
   primeUiFeedbackSounds,
+  waitForNextPaint,
 } from "../../../utils/uiFeedbackSounds.js";
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api/v1/user`;
@@ -164,7 +165,7 @@ const SupportChatPage = () => {
     const socket = connectUserSocket();
     const syncChatList = () => {
       if (!isCleanupReady) return;
-      refetchList();
+      return refetchList();
     };
 
     const syncSelectedConversation = (conversationId) => {
@@ -173,8 +174,10 @@ const SupportChatPage = () => {
         conversationId &&
         String(conversationId) === String(selectedIdRef.current)
       ) {
-        refetchDetails();
+        return refetchDetails();
       }
+
+      return Promise.resolve();
     };
 
     const handleConnect = () => {
@@ -215,15 +218,19 @@ const SupportChatPage = () => {
     };
 
     socket.on("connect", handleConnect);
-    socket.on("support:message", (payload) => {
+    socket.on("support:message", async (payload) => {
+      await Promise.all([
+        syncChatList(),
+        syncSelectedConversation(payload?.conversationId),
+      ]);
+
       if (
         payload?.message?.senderRole === "vendor" &&
         String(payload?.conversationId) === String(selectedIdRef.current)
       ) {
+        await waitForNextPaint();
         playChatReceiveSound();
       }
-      syncChatList();
-      syncSelectedConversation(payload?.conversationId);
     });
     socket.on("support:conversation:update", (payload) => {
       syncChatList();
@@ -390,19 +397,18 @@ const SupportChatPage = () => {
 
     try {
       await sendSupportMessage(formData).unwrap();
-      playChatSendSound();
       setDraft("");
       setAttachmentFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       emitTyping(false);
-      if (isCleanupReady) {
-        refetchList();
-      }
-      if (conversationId && selectedIdRef.current) {
-        refetchDetails();
-      }
+      await Promise.all([
+        isCleanupReady ? refetchList() : Promise.resolve(),
+        conversationId && selectedIdRef.current ? refetchDetails() : Promise.resolve(),
+      ]);
+      await waitForNextPaint();
+      playChatSendSound();
     } catch (error) {
       toast.error(error?.data?.message || "Failed to send support message");
     }

@@ -25,6 +25,7 @@ import { connectUserSocket } from "../../lib/socket.js";
 import {
   playNotificationSound,
   primeUiFeedbackSounds,
+  waitForNextPaint,
 } from "../../utils/uiFeedbackSounds.js";
 
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
@@ -85,9 +86,10 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     if (!user?._id) return undefined;
 
     const socket = connectUserSocket();
-    const handleNotificationUpdate = () => {
+    const handleNotificationUpdate = async () => {
+      await refetchNotifications();
+      await waitForNextPaint();
       playNotificationSound();
-      refetchNotifications();
     };
 
     socket.on("user:notifications:update", handleNotificationUpdate);

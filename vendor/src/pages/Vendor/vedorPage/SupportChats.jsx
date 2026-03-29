@@ -21,6 +21,7 @@ import {
   playChatReceiveSound,
   playChatSendSound,
   primeUiFeedbackSounds,
+  waitForNextPaint,
 } from "../../../utils/uiFeedbackSounds";
 
 const formatTime = (value) =>
@@ -93,7 +94,7 @@ const SupportChats = () => {
   useEffect(() => {
     const socket = getVendorSocket();
     const syncChatList = () => {
-      refetchList();
+      return refetchList();
     };
 
     const syncSelectedConversation = (conversationId) => {
@@ -101,8 +102,10 @@ const SupportChats = () => {
         conversationId &&
         String(conversationId) === String(selectedIdRef.current)
       ) {
-        refetchDetails();
+        return refetchDetails();
       }
+
+      return Promise.resolve();
     };
 
     const handleConnect = () => {
@@ -166,15 +169,19 @@ const SupportChats = () => {
     };
 
     socket.on("connect", handleConnect);
-    socket.on("support:message", (payload) => {
+    socket.on("support:message", async (payload) => {
+      await Promise.all([
+        syncChatList(),
+        syncSelectedConversation(payload?.conversationId),
+      ]);
+
       if (
         payload?.message?.senderRole === "user" &&
         String(payload?.conversationId) === String(selectedIdRef.current)
       ) {
+        await waitForNextPaint();
         playChatReceiveSound();
       }
-      syncChatList();
-      syncSelectedConversation(payload?.conversationId);
     });
     socket.on("support:conversation:update", (payload) => {
       syncChatList();
@@ -310,15 +317,15 @@ const SupportChats = () => {
 
     try {
       await sendSupportReply({ conversationId: selectedId, formData }).unwrap();
-      playChatSendSound();
       setReply("");
       setAttachmentFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       emitTyping(false);
-      refetchList();
-      refetchDetails();
+      await Promise.all([refetchList(), refetchDetails()]);
+      await waitForNextPaint();
+      playChatSendSound();
     } catch (error) {
       toast.error(error?.data?.message || "Failed to send reply");
     }
