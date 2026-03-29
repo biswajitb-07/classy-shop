@@ -9,45 +9,184 @@ import { Suspense } from "react";
 import { ThemeProvider } from "./context/ThemeContext.jsx";
 import { useTheme } from "./context/ThemeContext.jsx";
 
-const SkeletonBlock = ({ className }) => (
-  <div className={`animate-pulse rounded-[24px] ${className}`} />
+const SkeletonBlock = ({ className, style }) => (
+  <div
+    className={`animate-pulse rounded-[24px] ${className}`}
+    style={style}
+  />
+);
+
+const DashboardSkeletonCard = ({ isDark, className = "", children }) => (
+  <div
+    className={`rounded-[28px] border p-5 ${
+      isDark
+        ? "border-slate-800 bg-slate-900/85 shadow-[0_16px_40px_rgba(2,6,23,0.42)]"
+        : "border-slate-200/80 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_60%,#eef2ff_100%)] shadow-[0_16px_40px_rgba(148,163,184,0.16)]"
+    } ${className}`}
+  >
+    {children}
+  </div>
 );
 
 const DashboardContentSkeleton = ({ isDark }) => (
   <main className="flex-1 px-5 pb-8 pt-28">
     <div className="mx-auto max-w-9xl space-y-6">
-      <SkeletonBlock
-        className={`h-44 ${
-          isDark ? "bg-slate-900/80" : "bg-white/85"
-        }`}
-      />
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        {Array.from({ length: 4 }).map((_, index) => (
+      <DashboardSkeletonCard isDark={isDark} className="overflow-hidden">
+        <div className="space-y-4">
           <SkeletonBlock
-            key={index}
-            className={`h-32 ${
-              isDark ? "bg-slate-900/80" : "bg-white/85"
+            className={`h-4 w-32 rounded-full ${
+              isDark ? "bg-slate-700" : "bg-sky-100"
             }`}
           />
+          <SkeletonBlock
+            className={`h-12 w-full max-w-[34rem] ${
+              isDark ? "bg-slate-800" : "bg-slate-200"
+            }`}
+          />
+          <SkeletonBlock
+            className={`h-4 w-full max-w-[28rem] ${
+              isDark ? "bg-slate-800" : "bg-slate-200"
+            }`}
+          />
+          <div className="flex flex-wrap gap-3 pt-2">
+            <SkeletonBlock
+              className={`h-12 w-40 rounded-full ${
+                isDark ? "bg-slate-800" : "bg-slate-200"
+              }`}
+            />
+            <SkeletonBlock
+              className={`h-12 w-40 rounded-full ${
+                isDark ? "bg-slate-800" : "bg-slate-200"
+              }`}
+            />
+            <SkeletonBlock
+              className={`h-12 w-36 rounded-full ${
+                isDark ? "bg-slate-800" : "bg-emerald-100"
+              }`}
+            />
+          </div>
+        </div>
+      </DashboardSkeletonCard>
+
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <DashboardSkeletonCard key={index} isDark={isDark} className="space-y-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="space-y-3">
+                <SkeletonBlock
+                  className={`h-3 w-24 rounded-full ${
+                    isDark ? "bg-slate-700" : "bg-slate-200"
+                  }`}
+                />
+                <SkeletonBlock
+                  className={`h-8 w-28 ${
+                    isDark ? "bg-slate-800" : "bg-slate-300"
+                  }`}
+                />
+              </div>
+              <SkeletonBlock
+                className={`h-12 w-12 rounded-2xl ${
+                  isDark ? "bg-slate-800" : "bg-sky-100"
+                }`}
+              />
+            </div>
+            <SkeletonBlock
+              className={`h-3 w-32 rounded-full ${
+                isDark ? "bg-slate-700" : "bg-slate-200"
+              }`}
+            />
+          </DashboardSkeletonCard>
         ))}
       </div>
       <div className="grid gap-6 xl:grid-cols-2">
-        <SkeletonBlock
-          className={`h-[24rem] ${
-            isDark ? "bg-slate-900/80" : "bg-white/85"
-          }`}
-        />
-        <SkeletonBlock
-          className={`h-[24rem] ${
-            isDark ? "bg-slate-900/80" : "bg-white/85"
-          }`}
-        />
+        {Array.from({ length: 2 }).map((_, index) => (
+          <DashboardSkeletonCard
+            key={index}
+            isDark={isDark}
+            className="h-[24rem] space-y-5"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="space-y-3">
+                <SkeletonBlock
+                  className={`h-4 w-36 rounded-full ${
+                    isDark ? "bg-slate-700" : "bg-slate-200"
+                  }`}
+                />
+                <SkeletonBlock
+                  className={`h-8 w-28 ${
+                    isDark ? "bg-slate-800" : "bg-slate-300"
+                  }`}
+                />
+              </div>
+              <SkeletonBlock
+                className={`h-8 w-24 rounded-full ${
+                  isDark ? "bg-slate-800" : "bg-slate-200"
+                }`}
+              />
+            </div>
+            <div className="flex h-[16rem] items-end gap-3">
+              {Array.from({ length: 7 }).map((__, barIndex) => (
+                <SkeletonBlock
+                  key={barIndex}
+                  className={`flex-1 rounded-[18px] ${
+                    isDark ? "bg-slate-800" : "bg-slate-200"
+                  }`}
+                  style={{
+                    height: `${45 + ((barIndex % 4) + 1) * 24}px`,
+                  }}
+                />
+              ))}
+            </div>
+          </DashboardSkeletonCard>
+        ))}
       </div>
-      <SkeletonBlock
-        className={`h-[18rem] ${
-          isDark ? "bg-slate-900/80" : "bg-white/85"
-        }`}
-      />
+      <DashboardSkeletonCard isDark={isDark} className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-3">
+            <SkeletonBlock
+              className={`h-4 w-40 rounded-full ${
+                isDark ? "bg-slate-700" : "bg-slate-200"
+              }`}
+            />
+            <SkeletonBlock
+              className={`h-3 w-56 rounded-full ${
+                isDark ? "bg-slate-800" : "bg-slate-200"
+              }`}
+            />
+          </div>
+          <SkeletonBlock
+            className={`h-10 w-28 rounded-full ${
+              isDark ? "bg-slate-800" : "bg-slate-200"
+            }`}
+          />
+        </div>
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, index) => (
+            <div
+              key={index}
+              className={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)_auto] items-center gap-3 rounded-[22px] px-4 py-4 ${
+                isDark ? "bg-slate-900/70" : "bg-white/90"
+              }`}
+            >
+              <SkeletonBlock
+                className={`h-4 w-full ${
+                  isDark ? "bg-slate-800" : "bg-slate-200"
+                }`}
+              />
+              <SkeletonBlock
+                className={`h-4 w-full ${
+                  isDark ? "bg-slate-800" : "bg-slate-200"
+                }`}
+              />
+              <SkeletonBlock
+                className={`h-9 w-20 rounded-full ${
+                  isDark ? "bg-slate-800" : "bg-slate-200"
+                }`}
+              />
+            </div>
+          ))}
+        </div>
+      </DashboardSkeletonCard>
     </div>
   </main>
 );

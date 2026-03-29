@@ -196,109 +196,24 @@ const Sidebar = () => {
               </div>
             </li>
 
-            {/* Brands */}
-            <li className="flex flex-col">
-              <button
-                onClick={() => toggleAccordion("brands")}
-                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
-                  isActivePath(
-                    "/fashion-brand-list",
-                    "/electronic-brand-list",
-                    "/bag-brand-list",
-                    "/grocery-brand-list",
-                    "/footwear-brand-list",
-                    "/beauty-brand-list",
-                    "/wellness-brand-list",
-                    "/jewellery-brand-list"
-                  )
-                )}`}
-              >
-                <div className="flex items-center gap-4 text-sm font-bold">
-                  <TbBrandSnapchat size={20} />
-                  Brands
-                </div>
-                {openAccordion === "brands" ? (
-                  <IoIosArrowUp />
-                ) : (
-                  <IoIosArrowDown />
-                )}
-              </button>
-              <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openAccordion === "brands"
-                    ? "grid-rows-[1fr]"
-                    : "grid-rows-[0fr]"
-                }`}
-              >
-                <div className="overflow-hidden">
-                  <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
-                    <li
-                      onClick={() => navigateTo("/fashion-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/fashion-brand-list"
-                      )}`}
-                    >
-                      Fashion Brands
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/electronic-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/electronic-brand-list"
-                      )}`}
-                    >
-                      Electronic Brands
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/bag-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/bag-brand-list"
-                      )}`}
-                    >
-                      Bag Brands
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/grocery-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/grocery-brand-list"
-                      )}`}
-                    >
-                      Grocery Brands
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/footwear-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/footwear-brand-list"
-                      )}`}
-                    >
-                      Footwear Brands
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/beauty-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/beauty-brand-list"
-                      )}`}
-                    >
-                      Beauty Brands
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/wellness-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/wellness-brand-list"
-                      )}`}
-                    >
-                      Wellness Brands
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/jewellery-brand-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/jewellery-brand-list"
-                      )}`}
-                    >
-                      Jewellerey Brands
-                    </li>
-                  </ul>
-                </div>
-              </div>
+            <li
+              onClick={() => navigateTo("/brands")}
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                isActivePath(
+                  "/brands",
+                  "/fashion-brand-list",
+                  "/electronic-brand-list",
+                  "/bag-brand-list",
+                  "/grocery-brand-list",
+                  "/footwear-brand-list",
+                  "/beauty-brand-list",
+                  "/wellness-brand-list",
+                  "/jewellery-brand-list"
+                )
+              )}`}
+            >
+              <TbBrandSnapchat size={20} />
+              Brands Hub
             </li>
 
             {/* Product */}

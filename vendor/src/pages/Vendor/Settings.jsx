@@ -17,7 +17,7 @@ const Settings = () => {
   const mutedText = isDark ? "text-[#94a3b8]" : "text-[#64748b]";
 
   return (
-    <div className={`mx-auto max-w-5xl px-1 py-2 transition-colors duration-300 ${pageBg}`}>
+    <div className={`mx-auto max-w-7xl px-1 py-2 transition-colors duration-300`}>
       <div className="mb-6 flex items-end justify-between gap-4">
         <div>
           <p className={`mb-2 inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-[0.18em] shadow-sm ${isDark ? "border-slate-700 bg-slate-900" : "border-slate-200 bg-white"} ${mutedText}`}>

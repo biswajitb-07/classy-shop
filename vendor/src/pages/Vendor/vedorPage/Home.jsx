@@ -605,23 +605,162 @@ const Home = () => {
       >
         <div className="space-y-6 animate-pulse">
           <div
-            className={`h-64 rounded-[34px] ${isDark ? "bg-slate-900/80" : "bg-white/80"}`}
-          />
+            className={`rounded-[34px] border p-6 ${
+              isDark
+                ? "border-slate-800 bg-slate-900/80"
+                : "border-slate-200/80 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_60%,#eef2ff_100%)] shadow-[0_16px_40px_rgba(148,163,184,0.16)]"
+            }`}
+          >
+            <div className="space-y-4">
+              <div
+                className={`h-4 w-32 rounded-full ${
+                  isDark ? "bg-slate-700" : "bg-sky-100"
+                }`}
+              />
+              <div
+                className={`h-12 max-w-[34rem] rounded-[24px] ${
+                  isDark ? "bg-slate-800" : "bg-slate-200"
+                }`}
+              />
+              <div
+                className={`h-4 max-w-[28rem] rounded-[24px] ${
+                  isDark ? "bg-slate-800" : "bg-slate-200"
+                }`}
+              />
+              <div className="flex flex-wrap gap-3 pt-2">
+                <div
+                  className={`h-12 w-40 rounded-full ${
+                    isDark ? "bg-slate-800" : "bg-slate-200"
+                  }`}
+                />
+                <div
+                  className={`h-12 w-40 rounded-full ${
+                    isDark ? "bg-slate-800" : "bg-slate-200"
+                  }`}
+                />
+                <div
+                  className={`h-12 w-36 rounded-full ${
+                    isDark ? "bg-slate-800" : "bg-emerald-100"
+                  }`}
+                />
+              </div>
+            </div>
+          </div>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {Array.from({ length: 4 }).map((_, index) => (
               <div
                 key={index}
-                className={`h-32 rounded-[26px] ${isDark ? "bg-slate-900/80" : "bg-white/80"}`}
-              />
+                className={`rounded-[26px] border p-4 ${
+                  isDark
+                    ? "border-slate-800 bg-slate-900/80"
+                    : "border-slate-200/80 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_60%,#eef2ff_100%)] shadow-[0_14px_30px_rgba(148,163,184,0.14)]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="space-y-3">
+                    <div
+                      className={`h-3 w-24 rounded-full ${
+                        isDark ? "bg-slate-700" : "bg-slate-200"
+                      }`}
+                    />
+                    <div
+                      className={`h-8 w-28 rounded-[20px] ${
+                        isDark ? "bg-slate-800" : "bg-slate-300"
+                      }`}
+                    />
+                  </div>
+                  <div
+                    className={`h-12 w-12 rounded-2xl ${
+                      isDark ? "bg-slate-800" : "bg-sky-100"
+                    }`}
+                  />
+                </div>
+                <div
+                  className={`mt-4 h-3 w-32 rounded-full ${
+                    isDark ? "bg-slate-700" : "bg-slate-200"
+                  }`}
+                />
+              </div>
             ))}
           </div>
           <div className="grid gap-6 xl:grid-cols-2">
-            <div
-              className={`h-[28rem] rounded-[30px] ${isDark ? "bg-slate-900/80" : "bg-white/80"}`}
-            />
-            <div
-              className={`h-[28rem] rounded-[30px] ${isDark ? "bg-slate-900/80" : "bg-white/80"}`}
-            />
+            {Array.from({ length: 2 }).map((_, index) => (
+              <div
+                key={index}
+                className={`rounded-[30px] border p-5 ${
+                  isDark
+                    ? "border-slate-800 bg-slate-900/80"
+                    : "border-slate-200/80 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_60%,#eef2ff_100%)] shadow-[0_16px_40px_rgba(148,163,184,0.16)]"
+                }`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="space-y-3">
+                    <div
+                      className={`h-4 w-36 rounded-full ${
+                        isDark ? "bg-slate-700" : "bg-slate-200"
+                      }`}
+                    />
+                    <div
+                      className={`h-8 w-28 rounded-[20px] ${
+                        isDark ? "bg-slate-800" : "bg-slate-300"
+                      }`}
+                    />
+                  </div>
+                  <div
+                    className={`h-8 w-24 rounded-full ${
+                      isDark ? "bg-slate-800" : "bg-slate-200"
+                    }`}
+                  />
+                </div>
+                <div className="mt-6 flex h-[16rem] items-end gap-3">
+                  {Array.from({ length: 7 }).map((__, barIndex) => (
+                    <div
+                      key={barIndex}
+                      className={`flex-1 rounded-[18px] ${
+                        isDark ? "bg-slate-800" : "bg-slate-200"
+                      }`}
+                      style={{
+                        height: `${45 + ((barIndex % 4) + 1) * 24}px`,
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <div
+            className={`rounded-[30px] border p-5 ${
+              isDark
+                ? "border-slate-800 bg-slate-900/80"
+                : "border-slate-200/80 bg-[linear-gradient(180deg,#ffffff_0%,#f8fafc_60%,#eef2ff_100%)] shadow-[0_16px_40px_rgba(148,163,184,0.16)]"
+            }`}
+          >
+            <div className="space-y-3">
+              {Array.from({ length: 5 }).map((_, index) => (
+                <div
+                  key={index}
+                  className={`grid grid-cols-[minmax(0,1.4fr)_minmax(0,0.7fr)_auto] items-center gap-3 rounded-[22px] px-4 py-4 ${
+                    isDark ? "bg-slate-950/55" : "bg-white/90"
+                  }`}
+                >
+                  <div
+                    className={`h-4 rounded-[20px] ${
+                      isDark ? "bg-slate-800" : "bg-slate-200"
+                    }`}
+                  />
+                  <div
+                    className={`h-4 rounded-[20px] ${
+                      isDark ? "bg-slate-800" : "bg-slate-200"
+                    }`}
+                  />
+                  <div
+                    className={`h-9 w-20 rounded-full ${
+                      isDark ? "bg-slate-800" : "bg-slate-200"
+                    }`}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>
@@ -630,7 +769,7 @@ const Home = () => {
 
   return (
     <div
-      className={`min-h-screen p-4 md:p-6 ${isDark ? "bg-[radial-gradient(circle_at_top,_rgba(15,23,42,0.96),_transparent_22%),radial-gradient(circle_at_right,_rgba(56,189,248,0.12),_transparent_26%),linear-gradient(180deg,#050816_0%,#0f172a_46%,#111827_100%)]" : "bg-[radial-gradient(circle_at_top,_rgba(244,63,94,0.18),_transparent_22%),radial-gradient(circle_at_right,_rgba(56,189,248,0.14),_transparent_26%),linear-gradient(180deg,#fff7f5_0%,#f8fafc_46%,#eef4ff_100%)]"}`}
+      className={`min-h-screen`}
     >
       <div className="mx-auto max-w-9xl space-y-6 pb-6">
         <section

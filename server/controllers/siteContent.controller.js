@@ -4,6 +4,57 @@ import {
   uploadMediaVendor,
 } from "../utils/cloudinary.js";
 
+const CURATED_TESTIMONIALS = [
+  {
+    name: "Riya Malhotra",
+    role: "Home Decor Shopper",
+    content:
+      "I ordered decor pieces and soft furnishings for my apartment, and the entire experience felt premium. The product photos matched what I received, delivery was on time, and the finish quality made my living room look far more polished.",
+  },
+  {
+    name: "Arjun Sen",
+    role: "Tech Enthusiast",
+    content:
+      "What impressed me most was how easy it was to compare gadgets and check detailed specs before buying. The checkout was smooth, updates were clear, and customer support answered my questions without making me wait for hours.",
+  },
+  {
+    name: "Neha Kapoor",
+    role: "Repeat Customer",
+    content:
+      "I keep coming back because the store feels reliable. From fashion picks to everyday essentials, recommendations are relevant, returns are simple to understand, and the overall shopping journey feels thoughtful instead of confusing.",
+  },
+];
+
+const CURATED_BLOG_POSTS = [
+  {
+    image: "/blog/blog-1.jpg",
+    title: "5 Living Room Updates That Make a Small Space Feel Premium",
+    excerpt:
+      "From softer textures to smarter furniture placement, these practical living room updates can instantly make a compact home look brighter, calmer, and more expensive without a full redesign.",
+    dateLabel: "12 FEBRUARY, 2026",
+    link: "",
+    ctaLabel: "READ MORE",
+  },
+  {
+    image: "/blog/blog-2.jpg",
+    title: "How Immersive Tech Is Changing At-Home Entertainment",
+    excerpt:
+      "VR headsets and smart wearables are no longer niche gadgets. Here is what to look for in comfort, display quality, audio, and everyday usability before bringing immersive tech home.",
+    dateLabel: "4 MARCH, 2026",
+    link: "",
+    ctaLabel: "READ MORE",
+  },
+  {
+    image: "/blog/blog-3.jpg",
+    title: "Wireless Earbuds Buying Guide for Work, Travel, and Daily Use",
+    excerpt:
+      "The best earbuds are not only about sound quality. Fit, battery life, call clarity, and case design matter just as much when you want one pair that works through meetings, commutes, and workouts.",
+    dateLabel: "18 MARCH, 2026",
+    link: "",
+    ctaLabel: "READ MORE",
+  },
+];
+
 const LOCAL_DEFAULTS = {
   homeSlides: [
     {
@@ -118,53 +169,10 @@ const LOCAL_DEFAULTS = {
     },
   ],
   testimonials: [
-    {
-      name: "Patrick Goodman",
-      role: "Manager",
-      content:
-        "Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum has been the industry's standard dummy text randomised words which don't look even slightly believable.",
-    },
-    {
-      name: "Lules Charls",
-      role: "Helper",
-      content:
-        "Galley of type and scrambled it to make a type specimen book. Lorem Ipsum is simply dummy text of the printing and typesetting i predefined chunks as necessary, making this the first true generator.",
-    },
-    {
-      name: "Jacob Goeckno",
-      role: "Unit Manager",
-      content:
-        "Letraset sheets containing Lorem with desktop publishing printer took a galley Lorem Ipsum is simply dummy text of the printing model sentence structures, to generate Lorem Ipsum which looks",
-    },
+    ...CURATED_TESTIMONIALS,
   ],
   blogPosts: [
-    {
-      image: "/blog/blog-1.jpg",
-      title: "Living Room",
-      excerpt:
-        "Nullam ullamcorper ornare molestie. Suspendisse posuere, diam in bibendum lobortis, turpis ipsum aliquam...",
-      dateLabel: "5 APRIL, 2023",
-      link: "",
-      ctaLabel: "READ MORE",
-    },
-    {
-      image: "/blog/blog-2.jpg",
-      title: "Living Room",
-      excerpt:
-        "Nullam ullamcorper ornare molestie. Suspendisse posuere, diam in bibendum lobortis, turpis ipsum aliquam...",
-      dateLabel: "5 APRIL, 2023",
-      link: "",
-      ctaLabel: "READ MORE",
-    },
-    {
-      image: "/blog/blog-3.jpg",
-      title: "Living Room",
-      excerpt:
-        "Nullam ullamcorper ornare molestie. Suspendisse posuere, diam in bibendum lobortis, turpis ipsum aliquam...",
-      dateLabel: "5 APRIL, 2023",
-      link: "",
-      ctaLabel: "READ MORE",
-    },
+    ...CURATED_BLOG_POSTS,
   ],
 };
 
@@ -271,8 +279,79 @@ async function ensureSiteContent() {
   let content = await SiteContent.findOne();
   if (!content) {
     content = await SiteContent.create(LOCAL_DEFAULTS);
+    return content;
   }
+
+  const didNormalize = normalizeLegacyContent(content);
+  if (didNormalize) {
+    await content.save();
+  }
+
   return content;
+}
+
+function normalizeImagePath(url = "") {
+  return String(url)
+    .toLowerCase()
+    .split("?")[0]
+    .replace(/\\/g, "/");
+}
+
+function getCuratedBlogByImage(image = "", index = 0) {
+  const normalizedImage = normalizeImagePath(image);
+  const matchedPost = CURATED_BLOG_POSTS.find((post) =>
+    normalizedImage.endsWith(normalizeImagePath(post.image))
+  );
+
+  return matchedPost || CURATED_BLOG_POSTS[index % CURATED_BLOG_POSTS.length];
+}
+
+function isLegacyTestimonial(item = {}) {
+  const signature = `${item.name || ""} ${item.role || ""} ${item.content || ""}`;
+  return /patrick goodman|lules charls|jacob goeckno|lorem ipsum|galley of type|desktop publishing|letraset/i.test(
+    signature
+  );
+}
+
+function isLegacyBlogPost(item = {}) {
+  const signature = `${item.title || ""} ${item.excerpt || ""} ${item.dateLabel || ""}`;
+  return (
+    /\bnullam ullamcorper ornare molestie\b/i.test(signature) ||
+    (String(item.title || "").trim().toLowerCase() === "living room" &&
+      String(item.dateLabel || "").trim().toUpperCase() === "5 APRIL, 2023")
+  );
+}
+
+function normalizeLegacyContent(content) {
+  let changed = false;
+
+  if ((content.testimonials || []).some(isLegacyTestimonial)) {
+    content.testimonials = (content.testimonials || []).map((item, index) => {
+      if (!isLegacyTestimonial(item)) return item;
+      changed = true;
+      return CURATED_TESTIMONIALS[index % CURATED_TESTIMONIALS.length];
+    });
+  }
+
+  if ((content.blogPosts || []).some(isLegacyBlogPost)) {
+    content.blogPosts = (content.blogPosts || []).map((item, index) => {
+      if (!isLegacyBlogPost(item)) return item;
+
+      changed = true;
+      const curated = getCuratedBlogByImage(item.image, index);
+
+      return {
+        image: item.image || curated.image,
+        title: curated.title,
+        excerpt: curated.excerpt,
+        dateLabel: curated.dateLabel,
+        link: item.link || curated.link,
+        ctaLabel: item.ctaLabel || curated.ctaLabel,
+      };
+    });
+  }
+
+  return changed;
 }
 
 function validateSection(section) {

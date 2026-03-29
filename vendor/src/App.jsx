@@ -15,27 +15,13 @@ const MainLayout = lazy(() => import("./layout/MainLayout"));
 const Category = lazy(() => import("./pages/Vendor/category/Category"));
 const Profile = lazy(() => import("./pages/Vendor/profile/Profile"));
 const CategoryList = lazy(() => import("./pages/Vendor/category/CategoryList"));
-const FashionBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/fashion/FashionBrandManager"),
-);
+const BrandsHub = lazy(() => import("./pages/Vendor/vedorPage/BrandsHub"));
 const ShowAllFashionProduct = lazy(
   () => import("./pages/Vendor/vedorPage/fashion/ShowAllFashionProduct"),
-);
-const ElectronicBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/electronic/ElectronicBrandManager"),
 );
 const Error = lazy(() => import("./component/error/Error"));
 const ShowAllElectronicProduct = lazy(
   () => import("./pages/Vendor/vedorPage/electronic/ShowAllElectronicProduct"),
-);
-const BagBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/bag/BagBrandManager"),
-);
-const GroceryBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/grocery/GroceryBrandManager"),
-);
-const FootwearBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/footwear/FootwearBrandManager"),
 );
 const ShowAllGroceryProduct = lazy(
   () => import("./pages/Vendor/vedorPage/grocery/ShowAllGroceryProduct"),
@@ -43,20 +29,11 @@ const ShowAllGroceryProduct = lazy(
 const ShowAllFootwearProduct = lazy(
   () => import("./pages/Vendor/vedorPage/footwear/ShowAllFootwearProduct"),
 );
-const BeautyBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/beauty/BeautyBrandManager"),
-);
-const WellnessBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/wellness/wellnessBrandManager"),
-);
 const ShowAllBeautyProduct = lazy(
   () => import("./pages/Vendor/vedorPage/beauty/ShowAllBeautyProduct"),
 );
 const ShowAllWellnessProduct = lazy(
   () => import("./pages/Vendor/vedorPage/wellness/ShowAllWellnessProduct"),
-);
-const JewelleryBrandManager = lazy(
-  () => import("./pages/Vendor/vedorPage/jewellery/jewelleryBrandManager"),
 );
 const ShowAllJewelleryProduct = lazy(
   () => import("./pages/Vendor/vedorPage/jewellery/ShowAllJewelleryProduct"),
@@ -135,8 +112,12 @@ const appRouter = createBrowserRouter([
         element: <CategoryList />,
       },
       {
+        path: "/brands",
+        element: <BrandsHub />,
+      },
+      {
         path: "/fashion-brand-list",
-        element: <FashionBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/fashion-products",
@@ -144,7 +125,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/electronic-brand-list",
-        element: <ElectronicBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/electronic-products",
@@ -152,7 +133,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/bag-brand-list",
-        element: <BagBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/bag-products",
@@ -160,7 +141,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/grocery-brand-list",
-        element: <GroceryBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/grocery-products",
@@ -168,7 +149,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/footwear-brand-list",
-        element: <FootwearBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/footwear-products",
@@ -176,7 +157,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/beauty-brand-list",
-        element: <BeautyBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/beauty-products",
@@ -184,7 +165,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/wellness-brand-list",
-        element: <WellnessBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/wellness-products",
@@ -192,7 +173,7 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/jewellery-brand-list",
-        element: <JewelleryBrandManager />,
+        element: <BrandsHub />,
       },
       {
         path: "/jewellery-products",
