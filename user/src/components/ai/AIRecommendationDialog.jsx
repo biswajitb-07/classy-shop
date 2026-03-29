@@ -11,6 +11,7 @@ import {
 } from "../../utils/aiBehavior.js";
 
 const AI_RECOMMENDATION_URL = `${import.meta.env.VITE_API_URL}/api/v1/product/ai-chat/recommendations`;
+const AI_RECOMMENDATION_LOGIN_OPEN_KEY = "ai-recommendation-open-after-login";
 
 const getProductDiscountPercent = (product) => {
   const originalPrice = Number(product?.originalPrice || 0);
@@ -67,6 +68,9 @@ const AIRecommendationDialog = () => {
     }
 
     let isMounted = true;
+    const shouldOpenAfterLogin =
+      typeof window !== "undefined" &&
+      window.sessionStorage.getItem(AI_RECOMMENDATION_LOGIN_OPEN_KEY) === "1";
 
     const loadRecommendation = ({ shouldAutoOpen = false } = {}) => {
       setIsLoading(true);
@@ -101,10 +105,9 @@ const AIRecommendationDialog = () => {
             }
 
             if (shouldAutoOpen) {
-              return true;
-            }
-
-            if (!currentOpen && !hadProducts) {
+              if (typeof window !== "undefined") {
+                window.sessionStorage.removeItem(AI_RECOMMENDATION_LOGIN_OPEN_KEY);
+              }
               return true;
             }
 
@@ -127,7 +130,9 @@ const AIRecommendationDialog = () => {
         });
     };
 
-    loadRecommendation({ shouldAutoOpen: true });
+    loadRecommendation({
+      shouldAutoOpen: shouldOpenAfterLogin,
+    });
     const handleBehaviorUpdated = () => loadRecommendation();
     window.addEventListener(AI_BEHAVIOR_UPDATED_EVENT, handleBehaviorUpdated);
 

@@ -3,11 +3,22 @@ import { userLoggedIn, userLoggedOut } from "../authSlice.js";
 
 const BASE_URL = import.meta.env.VITE_API_URL;
 const USER_API = `${BASE_URL}/api/v1/user/`;
+const AI_RECOMMENDATION_LOGIN_OPEN_KEY = "ai-recommendation-open-after-login";
 
 const normalizeUser = (user) => ({
   ...user,
   hasPassword: user?.hasPassword ?? Boolean(user?.password),
 });
+
+const markRecommendationDialogForLoginOpen = () => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(AI_RECOMMENDATION_LOGIN_OPEN_KEY, "1");
+};
+
+const clearRecommendationDialogLoginOpen = () => {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(AI_RECOMMENDATION_LOGIN_OPEN_KEY);
+};
 
 export const authApi = createApi({
   reducerPath: "authApi",
@@ -35,6 +46,7 @@ export const authApi = createApi({
         try {
           const result = await queryFulfilled;
           const nextUser = normalizeUser(result.data.user);
+          markRecommendationDialogForLoginOpen();
           dispatch(
             authApi.util.upsertQueryData("loadUser", undefined, {
               success: true,
@@ -59,6 +71,7 @@ export const authApi = createApi({
           // creates the real app session and returns the Mongo user record.
           const result = await queryFulfilled;
           const nextUser = normalizeUser(result.data.user);
+          markRecommendationDialogForLoginOpen();
           dispatch(
             authApi.util.upsertQueryData("loadUser", undefined, {
               success: true,
@@ -78,6 +91,7 @@ export const authApi = createApi({
       }),
       async onQueryStarted(arg, { dispatch }) {
         try {
+          clearRecommendationDialogLoginOpen();
           dispatch(userLoggedOut());
         } catch (error) {
           console.error(error);
