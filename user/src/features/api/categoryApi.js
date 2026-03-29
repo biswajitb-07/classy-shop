@@ -15,6 +15,9 @@ export const categoryApi = createApi({
         url: "",
         method: "GET",
       }),
+      keepUnusedDataFor: 1800,
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
     }),
   }),
 });

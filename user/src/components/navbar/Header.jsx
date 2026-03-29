@@ -22,6 +22,10 @@ import CartPanel from "../shipping/CartPanel";
 import { useTheme } from "../../context/ThemeContext";
 import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
 import { connectUserSocket } from "../../lib/socket.js";
+import {
+  playNotificationSound,
+  primeUiFeedbackSounds,
+} from "../../utils/uiFeedbackSounds.js";
 
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const [isOpenCartPanel, setIsOpenCartPanel] = useState(false);
@@ -32,14 +36,17 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const { user } = useSelector((store) => store.auth);
-  const { data: cartData } = useGetCartQuery();
-  const { data: wishlistData } = useGetWishlistQuery();
+  const { data: cartData } = useGetCartQuery(undefined, {
+    skip: !user,
+  });
+  const { data: wishlistData } = useGetWishlistQuery(undefined, {
+    skip: !user,
+  });
   const { data: notificationData, refetch: refetchNotifications } =
     useGetUserNotificationsQuery(undefined, {
-    skip: !user,
-    pollingInterval: 5000,
-    refetchOnFocus: true,
-    refetchOnReconnect: true,
+      skip: !user,
+      refetchOnFocus: true,
+      refetchOnReconnect: true,
     });
   const [deleteUserNotification] = useDeleteUserNotificationMutation();
   const [clearUserNotifications, { isLoading: isClearingNotifications }] =
@@ -71,10 +78,15 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   }, []);
 
   useEffect(() => {
+    primeUiFeedbackSounds();
+  }, []);
+
+  useEffect(() => {
     if (!user?._id) return undefined;
 
     const socket = connectUserSocket();
     const handleNotificationUpdate = () => {
+      playNotificationSound();
       refetchNotifications();
     };
 

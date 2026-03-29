@@ -37,6 +37,9 @@ export const categoryApi = createApi({
         url: "/category",
         method: "GET",
       }),
+      keepUnusedDataFor: 1800,
+      refetchOnFocus: false,
+      refetchOnReconnect: false,
       providesTags: ["category"],
     }),
     updateCategory: builder.mutation({

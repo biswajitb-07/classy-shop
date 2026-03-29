@@ -11,8 +11,9 @@ const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
   const [query, setQuery] = useState("");
   const inputRef = useRef(null);
   const deferredQuery = useDeferredValue(query);
+  const shouldLoadSearchResults = Boolean(deferredQuery.trim());
   const { matchedProducts, isLoading, getProductPath } =
-    useMarketplaceSearch(deferredQuery);
+    useMarketplaceSearch(deferredQuery, { enabled: shouldLoadSearchResults });
 
   useEffect(() => {
     const root = document.documentElement;

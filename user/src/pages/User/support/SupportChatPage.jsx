@@ -19,6 +19,11 @@ import {
 import { useTheme } from "../../../context/ThemeContext.jsx";
 import { connectUserSocket } from "../../../lib/socket.js";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
+import {
+  playChatReceiveSound,
+  playChatSendSound,
+  primeUiFeedbackSounds,
+} from "../../../utils/uiFeedbackSounds.js";
 
 const API_BASE_URL = `${import.meta.env.VITE_API_URL}/api/v1/user`;
 
@@ -55,6 +60,7 @@ const SupportChatPage = () => {
   const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
   const selectedIdRef = useRef(null);
+  const hasHydratedMessagesRef = useRef(false);
 
   const {
     data: listData,
@@ -151,6 +157,10 @@ const SupportChatPage = () => {
   }, []);
 
   useEffect(() => {
+    primeUiFeedbackSounds();
+  }, []);
+
+  useEffect(() => {
     const socket = connectUserSocket();
     const syncChatList = () => {
       if (!isCleanupReady) return;
@@ -206,6 +216,12 @@ const SupportChatPage = () => {
 
     socket.on("connect", handleConnect);
     socket.on("support:message", (payload) => {
+      if (
+        payload?.message?.senderRole === "vendor" &&
+        String(payload?.conversationId) === String(selectedIdRef.current)
+      ) {
+        playChatReceiveSound();
+      }
       syncChatList();
       syncSelectedConversation(payload?.conversationId);
     });
@@ -288,6 +304,17 @@ const SupportChatPage = () => {
   }, [messages, vendorTyping]);
 
   useEffect(() => {
+    if (!messages.length) {
+      hasHydratedMessagesRef.current = true;
+      return;
+    }
+
+    if (!hasHydratedMessagesRef.current) {
+      hasHydratedMessagesRef.current = true;
+    }
+  }, [messages]);
+
+  useEffect(() => {
     setVendorTyping(false);
   }, [selectedId]);
 
@@ -363,6 +390,7 @@ const SupportChatPage = () => {
 
     try {
       await sendSupportMessage(formData).unwrap();
+      playChatSendSound();
       setDraft("");
       setAttachmentFile(null);
       if (fileInputRef.current) {

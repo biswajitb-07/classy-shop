@@ -73,15 +73,18 @@ const normalizeText = (value) =>
     .replace(/\s+/g, " ")
     .trim();
 
-export const useMarketplaceSearch = (searchTerm = "") => {
-  const fashion = useGetFashionItemsQuery();
-  const electronics = useGetElectronicItemsQuery();
-  const bags = useGetBagItemsQuery();
-  const beauty = useGetBeautyItemsQuery();
-  const grocery = useGetGroceryItemsQuery();
-  const jewellery = useGetJewelleryItemsQuery();
-  const footwear = useGetFootwearItemsQuery();
-  const wellness = useGetWellnessItemsQuery();
+export const useMarketplaceSearch = (searchTerm = "", options = {}) => {
+  const shouldFetchCatalog = options.enabled ?? true;
+  const queryOptions = { skip: !shouldFetchCatalog };
+
+  const fashion = useGetFashionItemsQuery(undefined, queryOptions);
+  const electronics = useGetElectronicItemsQuery(undefined, queryOptions);
+  const bags = useGetBagItemsQuery(undefined, queryOptions);
+  const beauty = useGetBeautyItemsQuery(undefined, queryOptions);
+  const grocery = useGetGroceryItemsQuery(undefined, queryOptions);
+  const jewellery = useGetJewelleryItemsQuery(undefined, queryOptions);
+  const footwear = useGetFootwearItemsQuery(undefined, queryOptions);
+  const wellness = useGetWellnessItemsQuery(undefined, queryOptions);
 
   const sources = [
     {
@@ -127,6 +130,10 @@ export const useMarketplaceSearch = (searchTerm = "") => {
   ];
 
   const catalog = useMemo(() => {
+    if (!shouldFetchCatalog) {
+      return [];
+    }
+
     return sources.flatMap(({ label, routePrefix, detailPath, data }) =>
       data.map((product) => ({
         ...product,
@@ -148,7 +155,7 @@ export const useMarketplaceSearch = (searchTerm = "") => {
         ),
       }))
     );
-  }, [sources]);
+  }, [shouldFetchCatalog, sources]);
 
   const matchedProducts = useMemo(() => {
     const term = normalizeText(searchTerm);
@@ -164,7 +171,7 @@ export const useMarketplaceSearch = (searchTerm = "") => {
       .slice(0, 6);
   }, [catalog, searchTerm]);
 
-  const isLoading = sources.some((source) => source.isLoading);
+  const isLoading = shouldFetchCatalog && sources.some((source) => source.isLoading);
 
   const getProductPath = (product, searchTerm = "") => {
     const basePath = `/${product.routePrefix}/${product.detailPath}/${product._id}`;

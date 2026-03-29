@@ -11,8 +11,9 @@ const Search = () => {
   const [isOpen, setIsOpen] = useState(false);
   const wrapperRef = useRef(null);
   const deferredQuery = useDeferredValue(query);
+  const shouldLoadSuggestions = Boolean(deferredQuery.trim());
   const { suggestionProducts, isLoading, getProductPath } =
-    useMarketplaceSearch(deferredQuery);
+    useMarketplaceSearch(deferredQuery, { enabled: shouldLoadSuggestions });
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -33,7 +34,9 @@ const Search = () => {
     if (!term) return;
     setIsOpen(false);
     window.sessionStorage.setItem("classy-store-search-term", term);
-    window.location.assign(`/search?q=${encodeURIComponent(term)}`);
+    navigate(`/search?q=${encodeURIComponent(term)}`, {
+      state: { fromSearch: true, query: term },
+    });
   };
 
   const onSubmit = (event) => {

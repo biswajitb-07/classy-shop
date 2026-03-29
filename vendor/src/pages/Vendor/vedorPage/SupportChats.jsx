@@ -17,6 +17,11 @@ import {
 } from "../../../features/api/supportApi";
 import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
 import { useTheme } from "../../../context/ThemeContext";
+import {
+  playChatReceiveSound,
+  playChatSendSound,
+  primeUiFeedbackSounds,
+} from "../../../utils/uiFeedbackSounds";
 
 const formatTime = (value) =>
   value
@@ -80,6 +85,10 @@ const SupportChats = () => {
 
   const messages = useMemo(() => detailsData?.messages || [], [detailsData?.messages]);
   const conversation = detailsData?.conversation;
+
+  useEffect(() => {
+    primeUiFeedbackSounds();
+  }, []);
 
   useEffect(() => {
     const socket = getVendorSocket();
@@ -158,6 +167,12 @@ const SupportChats = () => {
 
     socket.on("connect", handleConnect);
     socket.on("support:message", (payload) => {
+      if (
+        payload?.message?.senderRole === "user" &&
+        String(payload?.conversationId) === String(selectedIdRef.current)
+      ) {
+        playChatReceiveSound();
+      }
       syncChatList();
       syncSelectedConversation(payload?.conversationId);
     });
@@ -295,6 +310,7 @@ const SupportChats = () => {
 
     try {
       await sendSupportReply({ conversationId: selectedId, formData }).unwrap();
+      playChatSendSound();
       setReply("");
       setAttachmentFile(null);
       if (fileInputRef.current) {
