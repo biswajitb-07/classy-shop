@@ -3,12 +3,108 @@ import { Bot, MessageCircle, Send, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
 import { buildProductPath } from "../../utils/aiShopping.js";
 
-const AI_CHAT_URL = `${import.meta.env.VITE_API_URL}/api/v1/product/ai-chat`;
+const AI_CHAT_STREAM_URL = `${import.meta.env.VITE_API_URL}/api/v1/product/ai-chat/stream`;
+const TYPING_FRAME_MS = 18;
+const TYPING_CHARS_PER_FRAME = 3;
+const QUICK_PROMPT_POOL = [
+  "50% off items dikhao",
+  "30% off fashion products dikhao",
+  "4 star se upar fashion products dikhao",
+  "Mujhe cheap fashion items suggest karo",
+  "Under Rs 1000 ke products dikhao",
+  "Order kaise track kare",
+  "Theme change kaise kare",
+  "Terms and conditions samjhao",
+  "Mera latest order batao",
+  "Wishlist kaise use kare",
+  "Cart me item kaise add kare",
+  "Above 40% off products dikhao",
+];
+
+const getDailyQuickPrompts = () => {
+  const now = new Date();
+  const daySeed = Number(
+    `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, "0")}${String(
+      now.getDate(),
+    ).padStart(2, "0")}`,
+  );
+  const prompts = [];
+  let offset = daySeed % QUICK_PROMPT_POOL.length;
+
+  while (prompts.length < 3 && prompts.length < QUICK_PROMPT_POOL.length) {
+    const prompt = QUICK_PROMPT_POOL[offset % QUICK_PROMPT_POOL.length];
+    if (!prompts.includes(prompt)) {
+      prompts.push(prompt);
+    }
+    offset += 3;
+  }
+
+  return prompts;
+};
+
+const getProductDiscountPercent = (product) => {
+  const originalPrice = Number(product?.originalPrice || 0);
+  const discountedPrice = Number(product?.discountedPrice || 0);
+
+  if (!originalPrice || discountedPrice >= originalPrice) {
+    return 0;
+  }
+
+  return Math.round(((originalPrice - discountedPrice) / originalPrice) * 100);
+};
+
+const readSseResponse = async ({ response, onEvent }) => {
+  if (!response.body) {
+    throw new Error("Streaming response body is unavailable");
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  const flushEvent = async (rawEvent) => {
+    const lines = rawEvent.split("\n").filter(Boolean);
+    if (!lines.length) return;
+
+    const eventName =
+      lines.find((line) => line.startsWith("event:"))?.slice(6).trim() || "message";
+    const dataText = lines
+      .filter((line) => line.startsWith("data:"))
+      .map((line) => line.slice(5).trim())
+      .join("\n");
+
+    await onEvent({
+      event: eventName,
+      data: dataText ? JSON.parse(dataText) : null,
+    });
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() || "";
+
+    for (const part of parts) {
+      await flushEvent(part);
+    }
+  }
+
+  buffer += decoder.decode();
+  if (buffer.trim()) {
+    await flushEvent(buffer);
+  }
+};
 
 const AIChatbotWidget = () => {
+  const quickPrompts = getDailyQuickPrompts();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [activeStreamId, setActiveStreamId] = useState(null);
   const [messages, setMessages] = useState([
     {
       role: "assistant",
@@ -20,14 +116,113 @@ const AIChatbotWidget = () => {
   const latestRequestIdRef = useRef(0);
   const messagesContainerRef = useRef(null);
   const messageEndRef = useRef(null);
+  const typingQueueRef = useRef("");
+  const typingTimerRef = useRef(null);
+  const typingDrainResolversRef = useRef([]);
+  const activeStreamIdRef = useRef(null);
+
+  const resolveTypingDrains = () => {
+    typingDrainResolversRef.current.forEach((resolve) => resolve());
+    typingDrainResolversRef.current = [];
+  };
+
+  const updateMessageById = (messageId, updater) => {
+    setMessages((current) =>
+      current.map((item) =>
+        item.id === messageId ? updater(item) : item,
+      ),
+    );
+  };
+
+  const clearTypingTimer = () => {
+    if (typingTimerRef.current) {
+      clearTimeout(typingTimerRef.current);
+      typingTimerRef.current = null;
+    }
+  };
+
+  const finishStreamingVisuals = (messageId = null) => {
+    const finalMessageId = messageId || activeStreamIdRef.current;
+    clearTypingTimer();
+    typingQueueRef.current = "";
+    resolveTypingDrains();
+    activeStreamIdRef.current = null;
+    setActiveStreamId((current) =>
+      current === finalMessageId ? null : current,
+    );
+  };
+
+  const waitForTypingDrain = () =>
+    new Promise((resolve) => {
+      if (!typingQueueRef.current && !typingTimerRef.current) {
+        resolve();
+        return;
+      }
+
+      typingDrainResolversRef.current.push(resolve);
+    });
+
+  const startTypingPump = (messageId) => {
+    if (typingTimerRef.current) return;
+
+    const pump = () => {
+      if (!typingQueueRef.current) {
+        typingTimerRef.current = null;
+        resolveTypingDrains();
+        return;
+      }
+
+      const nextSlice = typingQueueRef.current.slice(0, TYPING_CHARS_PER_FRAME);
+      typingQueueRef.current = typingQueueRef.current.slice(TYPING_CHARS_PER_FRAME);
+
+      updateMessageById(messageId, (item) => ({
+        ...item,
+        text: `${item.text || ""}${nextSlice}`,
+      }));
+
+      typingTimerRef.current = setTimeout(pump, TYPING_FRAME_MS);
+    };
+
+    typingTimerRef.current = setTimeout(pump, TYPING_FRAME_MS);
+  };
+
+  const queueTypingChunk = (messageId, chunk) => {
+    if (!chunk) return;
+
+    typingQueueRef.current += chunk;
+    startTypingPump(messageId);
+  };
+
+  const removeMessageById = (messageId) => {
+    setMessages((current) => current.filter((item) => item.id !== messageId));
+  };
+
+  const cancelActiveStream = ({ removeMessage = false } = {}) => {
+    const messageId = activeStreamIdRef.current;
+
+    if (requestControllerRef.current) {
+      requestControllerRef.current.abort();
+      requestControllerRef.current = null;
+    }
+
+    clearTypingTimer();
+    typingQueueRef.current = "";
+    resolveTypingDrains();
+
+    if (removeMessage && messageId) {
+      removeMessageById(messageId);
+    }
+
+    activeStreamIdRef.current = null;
+    setActiveStreamId(null);
+    setIsTyping(false);
+  };
 
   useEffect(() => {
     // Abort the in-flight AI request if the widget unmounts so React does not
     // try to update state after navigation or layout teardown.
     return () => {
-      if (requestControllerRef.current) {
-        requestControllerRef.current.abort();
-      }
+      cancelActiveStream();
     };
   }, []);
 
@@ -64,18 +259,36 @@ const AIChatbotWidget = () => {
     if (requestControllerRef.current) {
       // Only the latest prompt should win. Cancelling the older request avoids
       // stale replies appearing after the user sends a new message quickly.
-      requestControllerRef.current.abort();
+      cancelActiveStream({ removeMessage: true });
     }
 
     const controller = new AbortController();
     requestControllerRef.current = controller;
+    const assistantMessageId = `assistant-${currentRequestId}`;
+    activeStreamIdRef.current = assistantMessageId;
+    setActiveStreamId(assistantMessageId);
+
+    setMessages((current) =>
+      [
+        ...current,
+        {
+          id: assistantMessageId,
+          role: "assistant",
+          text: "",
+          products: [],
+        },
+      ].slice(-8),
+    );
 
     try {
-      const response = await fetch(AI_CHAT_URL, {
+      let receivedDoneEvent = false;
+      const response = await fetch(AI_CHAT_STREAM_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Accept: "text/event-stream",
         },
+        credentials: "include",
         signal: controller.signal,
         body: JSON.stringify({
           message: currentMessage,
@@ -91,33 +304,60 @@ const AIChatbotWidget = () => {
         throw new Error("AI request failed");
       }
 
-      const data = await response.json();
-      const reply = {
-        role: "assistant",
-        text:
-          data?.reply?.reply ||
-          "I could not generate a response right now. Please try again.",
-        products: data?.reply?.products || [],
-      };
+      await readSseResponse({
+        response,
+        onEvent: async ({ event, data }) => {
+          if (latestRequestIdRef.current !== currentRequestId) {
+            return;
+          }
 
-      // We append the assistant reply only if it still belongs to the most
-      // recent request; aborted older requests should never win the race.
-      setMessages((current) => [...current, reply].slice(-8));
+          if (event === "start") {
+            return;
+          }
+
+          if (event === "chunk") {
+            setIsTyping(false);
+            queueTypingChunk(assistantMessageId, data?.chunk || "");
+            return;
+          }
+
+          if (event === "done") {
+            receivedDoneEvent = true;
+            await waitForTypingDrain();
+            finishStreamingVisuals(assistantMessageId);
+
+            updateMessageById(assistantMessageId, (item) => ({
+              ...item,
+              text:
+                data?.reply?.reply ||
+                item.text ||
+                "I could not generate a response right now. Please try again.",
+              products: data?.reply?.products || [],
+            }));
+            return;
+          }
+
+          if (event === "error") {
+            throw new Error(data?.message || "AI request failed");
+          }
+        },
+      });
+
+      if (!receivedDoneEvent && latestRequestIdRef.current === currentRequestId) {
+        throw new Error("AI stream ended before completion");
+      }
     } catch (error) {
       if (error?.name === "AbortError") {
         return;
       }
 
-      setMessages((current) =>
-        [
-          ...current,
-          {
-            role: "assistant",
-            text:
-              "AI support is unavailable right now. Please try again in a moment.",
-          },
-        ].slice(-8),
-      );
+      finishStreamingVisuals(assistantMessageId);
+      updateMessageById(assistantMessageId, (item) => ({
+        ...item,
+        text:
+          "AI support is unavailable right now. Please try again in a moment.",
+        products: [],
+      }));
     } finally {
       setIsTyping(false);
       if (latestRequestIdRef.current === currentRequestId) {
@@ -157,14 +397,31 @@ const AIChatbotWidget = () => {
           >
             {messages.map((item, index) => (
               <div
-                key={`${item.role}-${index}`}
+                key={item.id || `${item.role}-${index}`}
                 className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm leading-6 ${
                   item.role === "assistant"
                     ? "bg-slate-100 text-slate-700"
                     : "ml-auto bg-gradient-to-r from-orange-500 to-rose-500 text-white"
                 }`}
               >
-                <p>{item.content || item.text}</p>
+                {item.id === activeStreamId && !(item.content || item.text) ? (
+                  <div className="flex items-center gap-1.5">
+                    {[0, 1, 2].map((dot) => (
+                      <span
+                        key={dot}
+                        className="h-2.5 w-2.5 animate-bounce rounded-full bg-slate-400"
+                        style={{ animationDelay: `${dot * 0.15}s` }}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap">
+                    {item.content || item.text}
+                    {item.id === activeStreamId ? (
+                      <span className="ml-1 inline-block h-4 w-2 animate-pulse rounded-sm bg-current align-middle opacity-70" />
+                    ) : null}
+                  </p>
+                )}
                 {item.products?.length ? (
                   <div className="mt-3 space-y-2">
                     {item.products.map((product) => (
@@ -179,6 +436,17 @@ const AIChatbotWidget = () => {
                         <p className="mt-1 text-xs text-slate-500">
                           {product.brand || product.sourceLabel || product.category}
                         </p>
+                        <p className="mt-2 text-xs text-slate-600">
+                          {product.discountedPrice || product.originalPrice
+                            ? `Rs ${Number(
+                                product.discountedPrice || product.originalPrice || 0,
+                              ).toLocaleString("en-IN")}`
+                            : "Price unavailable"}
+                          {getProductDiscountPercent(product)
+                            ? ` • ${getProductDiscountPercent(product)}% off`
+                            : ""}
+                          {product.rating ? ` • ${product.rating} rating` : ""}
+                        </p>
                         <p className="mt-1 text-xs font-medium text-orange-500">
                           Open product
                         </p>
@@ -188,7 +456,7 @@ const AIChatbotWidget = () => {
                 ) : null}
               </div>
             ))}
-            {isTyping ? (
+            {isTyping && !activeStreamId ? (
               <div className="max-w-[85%] rounded-2xl bg-slate-100 px-4 py-3 text-slate-700">
                 <div className="flex items-center gap-1.5">
                   {[0, 1, 2].map((dot) => (
@@ -206,11 +474,7 @@ const AIChatbotWidget = () => {
 
           <div className="border-t border-slate-200 px-4 py-4">
             <div className="mb-3 flex flex-wrap gap-2">
-              {[
-                "50% off items dikhao",
-                "Mujhe cheap fashion items suggest karo",
-                "Order kaise track kare",
-              ].map(
+              {quickPrompts.map(
                 (prompt) => (
                   <button
                     key={prompt}
