@@ -12,6 +12,7 @@ import PageLoader from "../../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import { useSelector } from "react-redux";
 import { shareProduct } from "../../../../utils/shareProduct.js";
+import useTrackAiProductClick from "../../../../hooks/useTrackAiProductClick.js";
 
 const FootwearProductDetails = () => {
   const { data, isLoading } = useGetFootwearItemsQuery();
@@ -29,6 +30,8 @@ const FootwearProductDetails = () => {
   const product =
     !isLoading &&
     data?.footwearItems?.find((item) => String(item._id) === productId);
+
+  useTrackAiProductClick(product);
 
   const relatedProducts =
     !isLoading &&

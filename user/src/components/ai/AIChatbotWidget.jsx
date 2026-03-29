@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Bot, MessageCircle, Send, Sparkles } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
 import { buildProductPath } from "../../utils/aiShopping.js";
+import {
+  buildAiBehaviorProductPayload,
+  trackAiBehavior,
+} from "../../utils/aiBehavior.js";
 
 const AI_CHAT_STREAM_URL = `${import.meta.env.VITE_API_URL}/api/v1/product/ai-chat/stream`;
 const TYPING_FRAME_MS = 18;
@@ -53,6 +58,9 @@ const getProductDiscountPercent = (product) => {
   return Math.round(((originalPrice - discountedPrice) / originalPrice) * 100);
 };
 
+const getProductImageSrc = (product) =>
+  Array.isArray(product?.image) ? product.image[0] || "" : product?.image || "";
+
 const readSseResponse = async ({ response, onEvent }) => {
   if (!response.body) {
     throw new Error("Streaming response body is unavailable");
@@ -101,6 +109,7 @@ const readSseResponse = async ({ response, onEvent }) => {
 
 const AIChatbotWidget = () => {
   const quickPrompts = getDailyQuickPrompts();
+  const { isAuthenticated } = useSelector((state) => state.auth);
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
@@ -242,6 +251,15 @@ const AIChatbotWidget = () => {
     }
   }, [isOpen, messages, isTyping]);
 
+  useEffect(() => {
+    if (isAuthenticated) {
+      return;
+    }
+
+    cancelActiveStream({ removeMessage: true });
+    setIsOpen(false);
+  }, [isAuthenticated]);
+
   const handleSend = async () => {
     if (!message.trim()) return;
 
@@ -321,6 +339,14 @@ const AIChatbotWidget = () => {
             return;
           }
 
+          if (event === "products") {
+            updateMessageById(assistantMessageId, (item) => ({
+              ...item,
+              products: data?.products || [],
+            }));
+            return;
+          }
+
           if (event === "done") {
             receivedDoneEvent = true;
             await waitForTypingDrain();
@@ -332,7 +358,7 @@ const AIChatbotWidget = () => {
                 data?.reply?.reply ||
                 item.text ||
                 "I could not generate a response right now. Please try again.",
-              products: data?.reply?.products || [],
+              products: data?.reply?.products || item.products || [],
             }));
             return;
           }
@@ -365,6 +391,58 @@ const AIChatbotWidget = () => {
       }
     }
   };
+
+  if (!isAuthenticated) {
+    return (
+      <div className="fixed bottom-[5.5rem] right-3 z-40 md:right-4 lg:bottom-5 lg:right-5">
+        {isOpen ? (
+          <div className="mb-3 w-[min(20rem,calc(100vw-1.25rem))] rounded-[28px] border border-slate-200 bg-white shadow-[0_18px_60px_rgba(15,23,42,0.18)] lg:mb-4">
+            <div className="flex items-center justify-between rounded-t-[28px] bg-slate-950 px-5 py-4 text-white">
+              <div className="flex items-center gap-3">
+                <div className="rounded-2xl bg-white/10 p-2">
+                  <Bot size={18} />
+                </div>
+                <div>
+                  <p className="text-sm font-bold">AI Chat Locked</p>
+                  <p className="text-xs text-slate-300">Login required</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsOpen(false)}
+                className="rounded-full bg-white/10 px-3 py-1 text-xs font-bold"
+              >
+                Close
+              </button>
+            </div>
+            <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
+              <p>
+                AI chat use karne ke liye pehle login karo. Login ke baad
+                personalized recommendations aur AI support dono available honge.
+              </p>
+              <Link
+                to="/login"
+                className="inline-flex rounded-2xl bg-gradient-to-r from-orange-500 to-rose-500 px-4 py-2 font-semibold text-white"
+              >
+                Login
+              </Link>
+            </div>
+          </div>
+        ) : null}
+
+        <button
+          type="button"
+          onClick={() => setIsOpen((current) => !current)}
+          className="group ml-auto flex items-center gap-3 rounded-full bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-[0_14px_40px_rgba(15,23,42,0.28)] transition-all duration-300 ease-out hover:-translate-y-1 hover:scale-105 hover:shadow-[0_20px_48px_rgba(15,23,42,0.34)] active:scale-95 lg:px-5 lg:py-4"
+        >
+          <MessageCircle
+            size={18}
+            className="transition-transform duration-300 group-hover:-rotate-12 group-hover:scale-110"
+          />
+        </button>
+      </div>
+    );
+  }
 
   return (
     // On mobile and tablet the widget sits above the bottom nav; on desktop it
@@ -428,28 +506,49 @@ const AIChatbotWidget = () => {
                       <Link
                         key={product._id}
                         to={buildProductPath(product)}
-                        className="block rounded-2xl border border-slate-200 bg-white px-3 py-3 text-slate-800 transition hover:border-orange-300 hover:bg-orange-50"
+                        onClick={() =>
+                          trackAiBehavior({
+                            eventType: "product_click",
+                            product: buildAiBehaviorProductPayload(product),
+                          })
+                        }
+                        className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-3 py-3 text-slate-800 transition hover:border-orange-300 hover:bg-orange-50"
                       >
-                        <p className="line-clamp-1 text-sm font-semibold">
-                          {product.name}
-                        </p>
-                        <p className="mt-1 text-xs text-slate-500">
-                          {product.brand || product.sourceLabel || product.category}
-                        </p>
-                        <p className="mt-2 text-xs text-slate-600">
-                          {product.discountedPrice || product.originalPrice
-                            ? `Rs ${Number(
-                                product.discountedPrice || product.originalPrice || 0,
-                              ).toLocaleString("en-IN")}`
-                            : "Price unavailable"}
-                          {getProductDiscountPercent(product)
-                            ? ` • ${getProductDiscountPercent(product)}% off`
-                            : ""}
-                          {product.rating ? ` • ${product.rating} rating` : ""}
-                        </p>
-                        <p className="mt-1 text-xs font-medium text-orange-500">
-                          Open product
-                        </p>
+                        <div className="h-18 w-18 shrink-0 overflow-hidden rounded-2xl bg-slate-100">
+                          {getProductImageSrc(product) ? (
+                            <img
+                              src={getProductImageSrc(product)}
+                              alt={product.name}
+                              className="h-full w-full object-cover"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-r from-orange-100 via-rose-100 to-red-100 text-[10px] font-bold text-orange-600">
+                              AI PICK
+                            </div>
+                          )}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="line-clamp-1 text-sm font-semibold">
+                            {product.name}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {product.brand || product.sourceLabel || product.category}
+                          </p>
+                          <p className="mt-2 text-xs text-slate-600">
+                            {product.discountedPrice || product.originalPrice
+                              ? `Rs ${Number(
+                                  product.discountedPrice || product.originalPrice || 0,
+                                ).toLocaleString("en-IN")}`
+                              : "Price unavailable"}
+                            {getProductDiscountPercent(product)
+                              ? ` • ${getProductDiscountPercent(product)}% off`
+                              : ""}
+                            {product.rating ? ` • ${product.rating} rating` : ""}
+                          </p>
+                          <p className="mt-1 text-xs font-medium text-orange-500">
+                            Open product
+                          </p>
+                        </div>
                       </Link>
                     ))}
                   </div>

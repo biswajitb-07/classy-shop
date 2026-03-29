@@ -10,7 +10,9 @@ import {
 } from "../../controllers/user/cartWishlist.controller.js";
 import {
   getAiCatalogChatReply,
+  getAiMemoryRecommendationDialog,
   streamAiCatalogChatReply,
+  trackAiBehavior,
 } from "../../controllers/ai/ai.controller.js";
 import isAuthenticatedUser from "../../middleware/user/isAuthenticatedUser.js";
 import optionalAuthenticatedUser from "../../middleware/user/optionalAuthenticatedUser.js";
@@ -27,5 +29,7 @@ cartWishlistRouter.delete("/wishlist/remove", isAuthenticatedUser, removeFromWis
 cartWishlistRouter.get("/wishlist", isAuthenticatedUser, getWishlist);
 cartWishlistRouter.post("/ai-chat", optionalAuthenticatedUser, getAiCatalogChatReply);
 cartWishlistRouter.post("/ai-chat/stream", optionalAuthenticatedUser, streamAiCatalogChatReply);
+cartWishlistRouter.post("/ai-chat/behavior", optionalAuthenticatedUser, trackAiBehavior);
+cartWishlistRouter.get("/ai-chat/recommendations", optionalAuthenticatedUser, getAiMemoryRecommendationDialog);
 
 export default cartWishlistRouter;

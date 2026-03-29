@@ -1,7 +1,12 @@
 import {
   generateAiCatalogReply,
   generateAiCatalogReplyStream,
+  getAiMemoryRecommendations,
 } from "../../services/aiCatalogChat.service.js";
+import {
+  ensureAiUserMemory,
+  recordAiBehaviorEvent,
+} from "../../services/ai/memory.service.js";
 
 const writeSseEvent = (res, event, data) => {
   res.write(`event: ${event}\n`);
@@ -75,6 +80,11 @@ export const streamAiCatalogChatReply = async (req, res) => {
       signal: abortController.signal,
       userId: req.id,
     })) {
+      if (event.type === "products") {
+        writeSseEvent(res, "products", { products: event.products || [] });
+        continue;
+      }
+
       if (event.type === "chunk") {
         writeSseEvent(res, "chunk", { chunk: event.chunk });
         continue;
@@ -94,5 +104,78 @@ export const streamAiCatalogChatReply = async (req, res) => {
     req.off("aborted", handleClientAbort);
     res.off("close", handleResponseClose);
     res.end();
+  }
+};
+
+export const trackAiBehavior = async (req, res) => {
+  try {
+    if (!req.id) {
+      return res.status(200).json({
+        success: true,
+        tracked: false,
+      });
+    }
+
+    const eventType = String(req.body?.eventType || "").trim();
+    const category = String(req.body?.category || "").trim();
+    const product = req.body?.product && typeof req.body.product === "object"
+      ? req.body.product
+      : null;
+
+    if (!eventType) {
+      return res.status(400).json({
+        success: false,
+        message: "eventType is required",
+      });
+    }
+
+    await recordAiBehaviorEvent({
+      userId: req.id,
+      eventType,
+      category,
+      product,
+    });
+
+    return res.status(200).json({
+      success: true,
+      tracked: true,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to track AI behavior",
+    });
+  }
+};
+
+export const getAiMemoryRecommendationDialog = async (req, res) => {
+  try {
+    if (!req.id) {
+      return res.status(200).json({
+        success: true,
+        recommendation: {
+          shouldShow: false,
+          reply: "",
+          products: [],
+        },
+      });
+    }
+
+    await ensureAiUserMemory(req.id);
+
+    const recommendation = await getAiMemoryRecommendations({
+      userId: req.id,
+      limit: 3,
+    });
+
+    return res.status(200).json({
+      success: true,
+      recommendation,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to load AI recommendations",
+    });
   }
 };

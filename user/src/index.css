@@ -11,9 +11,12 @@
   --app-text: #0f172a;
   --app-muted: #475569;
   --app-border: #e2e8f0;
-  --user-scroll-track: #e2e8f0;
+  --user-scroll-track: linear-gradient(180deg, #f8fafc 0%, #e2e8f0 100%);
+  --user-scroll-track-edge: rgba(255, 255, 255, 0.95);
   --user-scroll-thumb: linear-gradient(180deg, #f97316 0%, #ef4444 100%);
   --user-scroll-thumb-hover: linear-gradient(180deg, #ea580c 0%, #dc2626 100%);
+  --user-scroll-thumb-shadow: 0 10px 24px rgba(249, 115, 22, 0.28);
+  --user-scroll-thumb-border: rgba(255, 255, 255, 0.9);
   --user-shell-bg: linear-gradient(180deg, #fff7ed 0%, #ffffff 45%, #fff1f2 100%);
   --user-muted-bg: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
   --route-loader-track: linear-gradient(
@@ -39,9 +42,12 @@
   --app-text: #e5e7eb;
   --app-muted: #94a3b8;
   --app-border: #334155;
-  --user-scroll-track: rgba(15, 23, 42, 0.92);
+  --user-scroll-track: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(30, 41, 59, 0.94) 100%);
+  --user-scroll-track-edge: rgba(15, 23, 42, 0.96);
   --user-scroll-thumb: linear-gradient(180deg, #38bdf8 0%, #8b5cf6 100%);
   --user-scroll-thumb-hover: linear-gradient(180deg, #22d3ee 0%, #6366f1 100%);
+  --user-scroll-thumb-shadow: 0 10px 28px rgba(56, 189, 248, 0.22);
+  --user-scroll-thumb-border: rgba(15, 23, 42, 0.9);
   --user-shell-bg: radial-gradient(circle at top, rgba(56, 189, 248, 0.14), transparent 30%), linear-gradient(180deg, #020617 0%, #081120 45%, #111827 100%);
   --user-muted-bg: linear-gradient(180deg, rgba(15, 23, 42, 0.98) 0%, rgba(17, 24, 39, 0.98) 100%);
   --route-loader-track: linear-gradient(
@@ -164,28 +170,33 @@ html,
 body,
 .themed-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: #94a3b8 var(--user-scroll-track);
+  scrollbar-color: #94a3b8 var(--user-scroll-track-edge);
 }
 
 html::-webkit-scrollbar,
 body::-webkit-scrollbar,
 .themed-scrollbar::-webkit-scrollbar {
-  width: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 html::-webkit-scrollbar-track,
 body::-webkit-scrollbar-track,
 .themed-scrollbar::-webkit-scrollbar-track {
   background: var(--user-scroll-track);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--user-scroll-track-edge) 72%, transparent);
 }
 
 html::-webkit-scrollbar-thumb,
 body::-webkit-scrollbar-thumb,
 .themed-scrollbar::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  border: 2px solid transparent;
+  border: 1px solid var(--user-scroll-thumb-border);
   background: var(--user-scroll-thumb);
   background-clip: padding-box;
+  box-shadow: var(--user-scroll-thumb-shadow);
+  min-height: 36px;
 }
 
 html::-webkit-scrollbar-thumb:hover,
@@ -193,6 +204,12 @@ body::-webkit-scrollbar-thumb:hover,
 .themed-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--user-scroll-thumb-hover);
   background-clip: padding-box;
+}
+
+html::-webkit-scrollbar-corner,
+body::-webkit-scrollbar-corner,
+.themed-scrollbar::-webkit-scrollbar-corner {
+  background: var(--user-scroll-track-edge);
 }
 
 .user-shell {

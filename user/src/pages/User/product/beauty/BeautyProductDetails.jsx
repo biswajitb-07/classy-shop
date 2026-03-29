@@ -12,6 +12,7 @@ import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader.jsx
 import PageLoader from "../../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import { shareProduct } from "../../../../utils/shareProduct.js";
+import useTrackAiProductClick from "../../../../hooks/useTrackAiProductClick.js";
 
 const BeautyProductDetails = () => {
   const { data, isLoading } = useGetBeautyItemsQuery();
@@ -28,6 +29,8 @@ const BeautyProductDetails = () => {
   const product =
     !isLoading &&
     data?.beautyItems?.find((item) => String(item._id) === productId);
+
+  useTrackAiProductClick(product);
 
   const relatedProducts =
     !isLoading &&

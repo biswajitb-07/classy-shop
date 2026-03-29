@@ -11,6 +11,12 @@ import { User } from "../models/user/user.model.js";
 import Wellness from "../models/vendor/wellness/wellness.model.js";
 import { Wishlist } from "../models/user/wishlist.model.js";
 import { companyPages } from "../../user/src/utils/siteSupport.js";
+import { classifyAiIntent } from "./ai/intent.service.js";
+import {
+  getAiUserMemory,
+  updateAiUserMemoryFromChat,
+} from "./ai/memory.service.js";
+import { applyPersonalizedRanking } from "./ai/ranking.service.js";
 
 const DEFAULT_AI_API_URL = "https://openrouter.ai/api/v1/chat/completions";
 
@@ -310,6 +316,116 @@ const getDiscountPercent = (product) => {
 
 const getDisplayPrice = (product) =>
   Number(product.discountedPrice || product.originalPrice || 0);
+
+const hashString = (value) => {
+  const text = String(value || "");
+  let hash = 0;
+
+  for (let index = 0; index < text.length; index += 1) {
+    hash = (hash * 31 + text.charCodeAt(index)) >>> 0;
+  }
+
+  return hash;
+};
+
+const rotateRecommendationsForDay = ({
+  products = [],
+  userId,
+  limit = 3,
+}) => {
+  if (products.length <= limit) {
+    return products.slice(0, limit);
+  }
+
+  const now = new Date();
+  const dayKey = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-${String(
+    now.getUTCDate(),
+  ).padStart(2, "0")}`;
+  const candidatePool = products.slice(0, Math.max(limit * 4, 12));
+  const maxOffset = Math.max(candidatePool.length - limit, 0);
+
+  if (!maxOffset) {
+    return candidatePool.slice(0, limit);
+  }
+
+  const offset = hashString(`${userId}-${dayKey}`) % (maxOffset + 1);
+  const rotatedProducts = [
+    ...candidatePool.slice(offset),
+    ...candidatePool.slice(0, offset),
+  ];
+
+  return rotatedProducts.slice(0, limit);
+};
+
+const getNormalizedCategoryValues = (product) =>
+  [
+    product.sourceLabel,
+    product.category,
+    product.subCategory,
+    product.thirdLevelCategory,
+  ]
+    .map((value) => normalize(value))
+    .filter(Boolean);
+
+const getNormalizedBrandValue = (product) => normalize(product.brand);
+
+const getRecommendationSignals = (userMemory) => {
+  const categorySignals = [
+    ...(userMemory?.behaviorSignals?.viewedCategories || []).map((entry) => entry.value),
+    ...(userMemory?.preferences?.categories || []).map((entry) => entry.value),
+    ...(userMemory?.behaviorSignals?.clickedProducts || []).flatMap((entry) => [
+      entry.category,
+      entry.subCategory,
+      entry.thirdLevelCategory,
+    ]),
+  ]
+    .map((value) => normalize(value))
+    .filter(Boolean);
+
+  const preferredBrandSignals = [
+    ...(userMemory?.preferences?.brands || []).map((entry) => entry.value),
+  ]
+    .map((value) => normalize(value))
+    .filter(Boolean);
+
+  const clickedProductIds = new Set(
+    (userMemory?.behaviorSignals?.clickedProducts || [])
+      .map((entry) => String(entry.productId || ""))
+      .filter(Boolean),
+  );
+
+  return {
+    categorySignals: [...new Set(categorySignals)],
+    preferredBrandSignals: [...new Set(preferredBrandSignals)],
+    clickedProductIds,
+  };
+};
+
+const matchesRecommendationSignals = (product, signals) => {
+  const productCategories = getNormalizedCategoryValues(product);
+  const productBrand = getNormalizedBrandValue(product);
+
+  if (signals.clickedProductIds.has(String(product._id || ""))) {
+    return true;
+  }
+
+  if (
+    signals.categorySignals.length &&
+    productCategories.some((value) => signals.categorySignals.includes(value))
+  ) {
+    return true;
+  }
+
+  if (
+    signals.preferredBrandSignals.length &&
+    productBrand &&
+    signals.preferredBrandSignals.includes(productBrand)
+  ) {
+    return true;
+  }
+
+  return false;
+};
 
 const containsAnyWholeTerm = (text, terms = []) =>
   terms.some((term) => hasWholeTerm(text, term));
@@ -1095,7 +1211,7 @@ const getShoppingRelaxedScore = (product, filters, query) => {
   };
 };
 
-const getShoppingSearchContext = (catalog, query) => {
+const getShoppingSearchContext = (catalog, query, userMemory = null) => {
   const normalizedQuery = normalize(query);
   const filters = extractShoppingFilters(query);
   const shoppingIntent = isShoppingQuery(query);
@@ -1135,7 +1251,8 @@ const getShoppingSearchContext = (catalog, query) => {
     );
   }
 
-  const exactMatches = scopedCatalog
+  const exactMatches = applyPersonalizedRanking({
+    products: scopedCatalog
     .filter((product) => matchesShoppingFilters(product, filters))
     .map((product) => ({
       ...product,
@@ -1144,23 +1261,13 @@ const getShoppingSearchContext = (catalog, query) => {
     .filter(
       (product) =>
         product.aiCandidateScore > 0 || countExplicitFilters(filters) > 0,
-    )
-    .sort((left, right) => {
-      if (filters.budgetPreference) {
-        return (
-          getDisplayPrice(left) - getDisplayPrice(right) ||
-          right.aiCandidateScore - left.aiCandidateScore
-        );
-      }
+    ),
+    userMemory,
+    budgetPreference: filters.budgetPreference,
+  });
 
-      return (
-        right.aiCandidateScore - left.aiCandidateScore ||
-        getDiscountPercent(right) - getDiscountPercent(left) ||
-        Number(right.rating || 0) - Number(left.rating || 0)
-      );
-    });
-
-  const relaxedMatches = scopedCatalog
+  const relaxedMatches = applyPersonalizedRanking({
+    products: scopedCatalog
     .map((product) => {
       const relaxed = getShoppingRelaxedScore(
         product,
@@ -1173,14 +1280,11 @@ const getShoppingSearchContext = (catalog, query) => {
         matchedRules: relaxed.matchedRules,
       };
     })
-    .filter((product) => product.aiCandidateScore > 0)
-    .sort((left, right) => {
-      if (right.matchedRules !== left.matchedRules) {
-        return right.matchedRules - left.matchedRules;
-      }
-
-      return right.aiCandidateScore - left.aiCandidateScore;
-    });
+    .filter((product) => product.aiCandidateScore > 0),
+    userMemory,
+    budgetPreference: filters.budgetPreference,
+    relaxed: true,
+  });
 
   const candidatesSource = exactMatches.length ? exactMatches : relaxedMatches;
 
@@ -1199,6 +1303,9 @@ const getShoppingSearchContext = (catalog, query) => {
           brand,
           sourceLabel,
           aiCandidateScore,
+          personalizationScore,
+          behaviorScore,
+          finalScore,
           category,
           subCategory,
           thirdLevelCategory,
@@ -1215,6 +1322,9 @@ const getShoppingSearchContext = (catalog, query) => {
           brand,
           sourceLabel,
           aiCandidateScore,
+          personalizationScore,
+          behaviorScore,
+          finalScore,
           category,
           subCategory,
           thirdLevelCategory,
@@ -1291,13 +1401,18 @@ const buildPromptContext = ({
   messages,
   candidates,
   filters,
+  intent,
   userContext,
+  userMemory,
 }) =>
   [
     "Conversation history:",
     mapMessagesToPrompt(messages) || "No previous messages.",
     "",
     `Current user message: ${message}`,
+    "",
+    "Detected intent:",
+    JSON.stringify(intent || {}, null, 2),
     "",
     "Recognized shopping filters:",
     JSON.stringify(filters || {}, null, 2),
@@ -1328,6 +1443,9 @@ const buildPromptContext = ({
     "",
     "Signed-in user context:",
     buildUserContextSummary(userContext),
+    "",
+    "Stored AI user memory:",
+    buildAiMemorySummary(userMemory),
     "",
     "Available product catalog candidates:",
     candidates.length ? JSON.stringify(candidates, null, 2) : "[]",
@@ -1435,6 +1553,35 @@ const buildUserContextSummary = (userContext) => {
       cartCount: userContext.cartCount,
       wishlistCount: userContext.wishlistCount,
       latestOrder: userContext.latestOrder || undefined,
+    },
+    null,
+    2,
+  );
+};
+
+const buildAiMemorySummary = (userMemory) => {
+  if (!userMemory) {
+    return "No stored AI memory is available for this user.";
+  }
+
+  return JSON.stringify(
+    {
+      topCategories: (userMemory.preferences?.categories || [])
+        .slice(0, 3)
+        .map((entry) => entry.value),
+      topBrands: (userMemory.preferences?.brands || [])
+        .slice(0, 3)
+        .map((entry) => entry.value),
+      pricePreferences: (userMemory.preferences?.priceRanges || [])
+        .slice(0, 3)
+        .map((entry) => entry.value),
+      budgetLevel: userMemory.preferences?.budgetLevel || undefined,
+      recentQueries: (userMemory.recentQueries || [])
+        .slice(0, 3)
+        .map((entry) => entry.message),
+      viewedCategories: (userMemory.behaviorSignals?.viewedCategories || [])
+        .slice(0, 3)
+        .map((entry) => entry.value),
     },
     null,
     2,
@@ -1953,7 +2100,7 @@ export const loadCatalogForAi = async () => {
       const products = await model
         .find()
         .select(
-          "name brand rating originalPrice discountedPrice inStock description category subCategory thirdLevelCategory",
+          "name brand image rating originalPrice discountedPrice inStock description category subCategory thirdLevelCategory",
         )
         .lean();
 
@@ -1970,35 +2117,75 @@ export const loadCatalogForAi = async () => {
   return sourceResults.flat();
 };
 
-export const generateAiCatalogReply = async ({
+const prepareAiCatalogReplyContext = async ({
   message,
   messages = [],
-  signal,
   userId,
 }) => {
+  const [catalog, userContext, userMemory] = await Promise.all([
+    loadCatalogForAi(),
+    loadAiUserContext(userId),
+    getAiUserMemory(userId),
+  ]);
+  const { candidates, filters, exactMatches, relaxedMatches, brandIntent, taxonomyIntent } =
+    getShoppingSearchContext(catalog, message, userMemory);
+  const intent = classifyAiIntent({ message, filters });
+
+  await updateAiUserMemoryFromChat({
+    userId,
+    message,
+    filters,
+    brandIntent,
+    taxonomyIntent,
+    intent: intent.intent,
+  });
+
+  return {
+    message,
+    messages,
+    catalog,
+    userContext,
+    userMemory,
+    candidates,
+    filters,
+    exactMatches,
+    relaxedMatches,
+    brandIntent,
+    taxonomyIntent,
+    intent,
+    prompt: buildPromptContext({
+      message,
+      messages,
+      candidates,
+      filters,
+      intent,
+      userContext,
+      userMemory,
+    }),
+    candidateIdSet: new Set(candidates.map((item) => String(item._id))),
+    productMap: new Map(candidates.map((item) => [String(item._id), item])),
+  };
+};
+
+const generateAiCatalogReplyFromContext = async ({ context, signal }) => {
   if (!process.env.AI_API_KEY) {
     throw new Error("AI_API_KEY is not configured");
   }
 
-  const [catalog, userContext] = await Promise.all([
-    loadCatalogForAi(),
-    loadAiUserContext(userId),
-  ]);
-  const { candidates, filters, exactMatches, relaxedMatches } =
-    getShoppingSearchContext(catalog, message);
-  const candidateIdSet = new Set(candidates.map((item) => String(item._id)));
-  const prompt = buildPromptContext({
+  const {
     message,
-    messages,
+    catalog,
     candidates,
     filters,
+    exactMatches,
+    relaxedMatches,
+    taxonomyIntent,
     userContext,
-  });
-  const productMap = new Map(
-    candidates.map((item) => [String(item._id), item]),
-  );
-  // Strong direct matches are handled before calling the external model so the
-  // assistant stays fast, cheaper, and more predictable for common queries.
+    prompt,
+    candidateIdSet,
+    productMap,
+  } = context;
+
   const deterministicReply = buildDeterministicCatalogReply({
     message,
     catalog,
@@ -2006,6 +2193,7 @@ export const generateAiCatalogReply = async ({
     filters,
     exactMatches,
     relaxedMatches,
+    taxonomyIntent,
     userContext,
   });
 
@@ -2038,8 +2226,6 @@ export const generateAiCatalogReply = async ({
         response_format: {
           type: "json_object",
         },
-        // Low temperature helps keep product ids stable and reduces random
-        // suggestions outside the grounded candidate set.
         temperature: 0.2,
         max_tokens: 500,
       }),
@@ -2071,8 +2257,6 @@ export const generateAiCatalogReply = async ({
     }
 
     console.error("AI provider failed, using catalog fallback:", error.message);
-    // If the provider is down or rate-limited, the chatbot still returns a
-    // grounded answer instead of surfacing a dead generic error to users.
     return buildFallbackReply({
       message,
       catalog,
@@ -2080,10 +2264,110 @@ export const generateAiCatalogReply = async ({
       filters,
       exactMatches,
       relaxedMatches,
+      taxonomyIntent,
       userContext,
     });
   }
 };
+
+export const getAiMemoryRecommendations = async ({ userId, limit = 3 }) => {
+  if (!userId) {
+    return {
+      shouldShow: false,
+      reply: "",
+      products: [],
+    };
+  }
+
+  const [catalog, userMemory] = await Promise.all([
+    loadCatalogForAi(),
+    getAiUserMemory(userId),
+  ]);
+
+  const hasMemorySignals = Boolean(
+    userMemory &&
+      (
+        userMemory.preferences?.categories?.length ||
+        userMemory.preferences?.brands?.length ||
+        userMemory.behaviorSignals?.clickedProducts?.length ||
+        userMemory.behaviorSignals?.viewedCategories?.length
+      ),
+  );
+
+  if (!hasMemorySignals) {
+    return {
+      shouldShow: false,
+      reply: "",
+      products: [],
+    };
+  }
+
+  const recommendationSignals = getRecommendationSignals(userMemory);
+  const relevantCatalog = catalog
+    .filter((product) => Number(product.inStock || 0) > 0)
+    .filter((product) => matchesRecommendationSignals(product, recommendationSignals));
+
+  if (!relevantCatalog.length) {
+    return {
+      shouldShow: false,
+      reply: "",
+      products: [],
+    };
+  }
+
+  const rankedProducts = applyPersonalizedRanking({
+    products: relevantCatalog
+      .map((product) => ({
+        ...product,
+        aiCandidateScore:
+          Number(product.rating || 0) * 8 +
+          getDiscountPercent(product) * 1.2,
+      })),
+    userMemory,
+  });
+
+  const recommendedProducts = rotateRecommendationsForDay({
+    products: rankedProducts,
+    userId,
+    limit,
+  });
+
+  if (!recommendedProducts.length) {
+    return {
+      shouldShow: false,
+      reply: "",
+      products: [],
+    };
+  }
+
+  const categoryLabel =
+    userMemory.preferences?.categories?.[0]?.value ||
+    userMemory.behaviorSignals?.viewedCategories?.[0]?.value ||
+    "your interests";
+
+  return {
+    shouldShow: true,
+    reply: `Aapki recent activity ke hisaab se maine ${categoryLabel} se related kuch products select kiye hain.`,
+    products: recommendedProducts.map(
+      ({ finalScore, personalizationScore, behaviorScore, ...product }) => product,
+    ),
+  };
+};
+
+export const generateAiCatalogReply = async ({
+  message,
+  messages = [],
+  signal,
+  userId,
+}) =>
+  generateAiCatalogReplyFromContext({
+    context: await prepareAiCatalogReplyContext({
+      message,
+      messages,
+      userId,
+    }),
+    signal,
+  });
 
 export async function* generateAiCatalogReplyStream({
   message,
@@ -2092,14 +2376,25 @@ export async function* generateAiCatalogReplyStream({
   userId,
 }) {
   throwIfAborted(signal);
-  const reply = await generateAiCatalogReply({
+  const context = await prepareAiCatalogReplyContext({
     message,
     messages,
-    signal,
     userId,
   });
 
+  const reply = await generateAiCatalogReplyFromContext({
+    context,
+    signal,
+  });
+
   throwIfAborted(signal);
+
+  if (reply.products?.length) {
+    yield {
+      type: "products",
+      products: reply.products,
+    };
+  }
 
   for await (const chunk of streamLocalReply(reply.reply, signal)) {
     yield { type: "chunk", chunk };

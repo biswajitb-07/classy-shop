@@ -12,6 +12,7 @@ import PageLoader from "../../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import { shareProduct } from "../../../../utils/shareProduct.js";
 import { useSelector } from "react-redux";
+import useTrackAiProductClick from "../../../../hooks/useTrackAiProductClick.js";
 
 const ElectronicsProductDetails = () => {
   const { data, isLoading } = useGetElectronicItemsQuery();
@@ -30,6 +31,8 @@ const ElectronicsProductDetails = () => {
   const product =
     !isLoading &&
     data?.electronicItems?.find((item) => String(item._id) === productId);
+
+  useTrackAiProductClick(product);
 
   const relatedProducts =
     !isLoading &&

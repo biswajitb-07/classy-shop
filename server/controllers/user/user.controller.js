@@ -20,6 +20,7 @@ import {
   sendWelcomeEmail,
 } from "../../utils/emailService.js";
 import { verifyFirebaseIdToken } from "../../utils/firebaseAdmin.js";
+import { ensureAiUserMemory } from "../../services/ai/memory.service.js";
 
 const sanitizeUserForClient = (userDoc) => {
   const userObject =
@@ -143,6 +144,7 @@ export const login = async (req, res) => {
     // The frontend uses cookie-based auth, so successful login mainly means
     // issuing signed cookies rather than returning a token to localStorage.
     setUserAuthCookies(res, user._id);
+    await ensureAiUserMemory(user._id);
     return res.status(200).json({
       success: true,
       message: `Welcome back ${user.name}`,
@@ -214,6 +216,7 @@ export const firebaseGoogleLogin = async (req, res) => {
 
     await user.save();
     setUserAuthCookies(res, user._id);
+    await ensureAiUserMemory(user._id);
     emitVendorSummaryUpdate();
 
     if (!user.welcomeMailSent) {

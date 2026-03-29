@@ -13,6 +13,9 @@ import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
 import ScrollToTop from "../components/router/ScrollToTop.jsx";
 
 const AIChatbotWidget = lazy(() => import("../components/ai/AIChatbotWidget.jsx"));
+const AIRecommendationDialog = lazy(
+  () => import("../components/ai/AIRecommendationDialog.jsx"),
+);
 const SupportFloatingButton = lazy(
   () => import("../components/support/SupportFloatingButton.jsx"),
 );
@@ -122,6 +125,7 @@ const MainLayout = () => {
           storefront pages without duplicating it in each screen. */}
       {shouldRenderAI ? (
         <Suspense fallback={null}>
+          <AIRecommendationDialog />
           <SupportFloatingButton />
           <AIChatbotWidget />
         </Suspense>
