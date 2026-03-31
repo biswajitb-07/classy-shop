@@ -6,6 +6,10 @@ import {
   useGetVendorOrdersQuery,
   useUpdateOrderStatusMutation,
 } from "../../../features/api/orderApi";
+import {
+  useAssignDeliveryPartnerMutation,
+  useGetDeliveryPartnersQuery,
+} from "../../../features/api/authApi";
 import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
 import ConfirmDialog from "../../../component/ConfirmDialog";
@@ -275,6 +279,9 @@ const OrderDetailsPage = () => {
 
   const [updateOrderStatus, { isLoading: isUpdating }] =
     useUpdateOrderStatusMutation();
+  const { data: deliveryPartnersData } = useGetDeliveryPartnersQuery();
+  const [assignDeliveryPartner, { isLoading: isAssigningDeliveryPartner }] =
+    useAssignDeliveryPartnerMutation();
 
   const [actionLoading, setActionLoading] = useState(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -284,6 +291,7 @@ const OrderDetailsPage = () => {
     payload: null,
   });
   const [selectedStatus, setSelectedStatus] = useState("");
+  const [selectedDeliveryPartner, setSelectedDeliveryPartner] = useState("");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -294,6 +302,10 @@ const OrderDetailsPage = () => {
       setSelectedStatus(order.orderStatus);
     }
   }, [order?.orderStatus]);
+
+  useEffect(() => {
+    setSelectedDeliveryPartner(order?.assignedDeliveryPartner?._id || "");
+  }, [order?.assignedDeliveryPartner?._id]);
 
   const getVariantDisplay = (productType, variant) => {
     if (!variant || variant === "default") return "Default";
@@ -470,6 +482,26 @@ const OrderDetailsPage = () => {
       },
     );
   };
+
+  const handleAssignDeliveryPartner = async () => {
+    if (!selectedDeliveryPartner) {
+      toast.error("Please select a delivery partner");
+      return;
+    }
+
+    try {
+      await assignDeliveryPartner({
+        orderId: order._id,
+        deliveryPartnerId: selectedDeliveryPartner,
+      }).unwrap();
+      toast.success("Delivery partner assigned");
+      await refetch();
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to assign delivery partner");
+    }
+  };
+
+  const deliveryPartners = deliveryPartnersData?.deliveryPartners || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-16">
@@ -695,6 +727,52 @@ const OrderDetailsPage = () => {
                     {getStatusLabel(order.orderStatus)}
                   </span>
                 </div>
+                <div className="flex justify-between items-start gap-3">
+                  <span>Delivery partner</span>
+                  <span className="text-right font-medium text-gray-700">
+                    {order.assignedDeliveryPartner?.name || "Not assigned"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">
+                Assign Delivery Partner
+              </h2>
+              <div className="space-y-3">
+                <select
+                  value={selectedDeliveryPartner}
+                  onChange={(event) =>
+                    setSelectedDeliveryPartner(event.target.value)
+                  }
+                  className="w-full rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm outline-none focus:border-indigo-300"
+                >
+                  <option value="">Select delivery partner</option>
+                  {deliveryPartners.map((deliveryPartner) => (
+                    <option
+                      key={deliveryPartner._id}
+                      value={deliveryPartner._id}
+                    >
+                      {deliveryPartner.name} • {deliveryPartner.vehicleType}
+                      {deliveryPartner.isBlocked ? " (Blocked)" : ""}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={handleAssignDeliveryPartner}
+                  disabled={
+                    isAssigningDeliveryPartner || !selectedDeliveryPartner
+                  }
+                  className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isAssigningDeliveryPartner
+                    ? "Assigning..."
+                    : order.assignedDeliveryPartner
+                      ? "Reassign Delivery Partner"
+                      : "Assign Delivery Partner"}
+                </button>
               </div>
             </div>
 

@@ -12,6 +12,7 @@ import { HiOutlineBuildingStorefront } from "react-icons/hi2";
 import { Headphones } from "lucide-react";
 import { Image as ImageIcon } from "lucide-react";
 import { TicketPercent } from "lucide-react";
+import { Bike } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setSidebarOpen, toggleSidebar } from "../../features/authSlice";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -275,6 +276,16 @@ const Sidebar = () => {
             >
               <TicketPercent size={18} />
               Coupons
+            </li>
+
+            <li
+              onClick={() => navigateTo("/delivery-partners")}
+              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
+                location.pathname === "/delivery-partners"
+              )}`}
+            >
+              <Bike size={18} />
+              Delivery Partners
             </li>
 
             <li

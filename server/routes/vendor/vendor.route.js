@@ -40,6 +40,12 @@ import {
   getCoupons,
   toggleCouponStatus,
 } from "../../controllers/vendor/coupon.controller.js";
+import {
+  assignDeliveryPartner,
+  createDeliveryPartner,
+  getDeliveryPartners,
+  toggleDeliveryPartnerBlock,
+} from "../../controllers/delivery/delivery.controller.js";
 import siteContentVendorRouter from "./siteContent.route.js";
 
 const vendorRouter = express.Router();
@@ -77,6 +83,18 @@ vendorRouter.get("/coupons", isAuthenticatedVendor, getCoupons);
 vendorRouter.post("/coupons", isAuthenticatedVendor, createCoupon);
 vendorRouter.patch("/coupons/:id/toggle", isAuthenticatedVendor, toggleCouponStatus);
 vendorRouter.delete("/coupons/:id", isAuthenticatedVendor, deleteCoupon);
+vendorRouter.get("/delivery-partners", isAuthenticatedVendor, getDeliveryPartners);
+vendorRouter.post("/delivery-partners", isAuthenticatedVendor, createDeliveryPartner);
+vendorRouter.patch(
+  "/delivery-partners/:id/block",
+  isAuthenticatedVendor,
+  toggleDeliveryPartnerBlock
+);
+vendorRouter.patch(
+  "/orders/:orderId/assign-delivery",
+  isAuthenticatedVendor,
+  assignDeliveryPartner
+);
 vendorRouter.get("/support/conversations", isAuthenticatedVendor, getVendorSupportConversations);
 vendorRouter.get(
   "/support/conversations/:conversationId",

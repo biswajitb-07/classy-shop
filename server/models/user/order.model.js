@@ -88,6 +88,15 @@ const orderSchema = new mongoose.Schema({
       default: 0,
     },
   },
+  assignedDeliveryPartner: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "DeliveryPartner",
+    default: null,
+  },
+  assignedDeliveryAt: {
+    type: Date,
+    default: null,
+  },
   shippingAddress: {
     fullName: {
       type: String,

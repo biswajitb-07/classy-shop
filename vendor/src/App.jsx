@@ -33,6 +33,9 @@ const SiteContentManager = lazy(
   () => import("./pages/Vendor/vedorPage/SiteContentManager"),
 );
 const Coupons = lazy(() => import("./pages/Vendor/vedorPage/Coupons"));
+const DeliveryPartners = lazy(
+  () => import("./pages/Vendor/vedorPage/DeliveryPartners"),
+);
 
 const appRouter = createBrowserRouter([
   {
@@ -188,6 +191,10 @@ const appRouter = createBrowserRouter([
       {
         path: "/coupons",
         element: <Coupons />,
+      },
+      {
+        path: "/delivery-partners",
+        element: <DeliveryPartners />,
       },
     ],
   },

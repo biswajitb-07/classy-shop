@@ -14,6 +14,7 @@ import { User } from "../../models/user/user.model.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
 import { UserNotification } from "../../models/user/userNotification.model.js";
 import { Coupon } from "../../models/marketing/coupon.model.js";
+import { DeliveryPartner } from "../../models/delivery/deliveryPartner.model.js";
 import {
   emitUserNotificationUpdate,
   emitVendorDashboardUpdate,
@@ -657,7 +658,9 @@ export const validateCoupon = async (req, res) => {
 export const getUserOrders = async (req, res) => {
   try {
     const userId = req.id;
-    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+    const orders = await Order.find({ userId })
+      .populate("assignedDeliveryPartner", "name email phone vehicleType isAvailable")
+      .sort({ createdAt: -1 });
     const detailedOrders = await Promise.all(
       orders.map(async (order) => {
         const detailedItems = await Promise.all(
@@ -689,7 +692,10 @@ export const getUserOrders = async (req, res) => {
 
 export const getVendorOrders = async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 }).lean();
+    const orders = await Order.find()
+      .populate("assignedDeliveryPartner", "name email phone vehicleType isAvailable")
+      .sort({ createdAt: -1 })
+      .lean();
     const detailedOrders = await Promise.all(
       orders.map(async (order) => {
         const detailedItems = await Promise.all(
@@ -1028,6 +1034,92 @@ export const orderStatusUpdate = async (req, res) => {
       return res
         .status(200)
         .json({ success: true, message: "Order updated successfully", order });
+    }
+
+    if (role === "delivery") {
+      const deliveryPartner = await DeliveryPartner.findById(req.id).select(
+        "isBlocked isAvailable"
+      );
+
+      if (!deliveryPartner || deliveryPartner.isBlocked) {
+        return res.status(403).json({
+          success: false,
+          message: "Delivery partner not authorized",
+        });
+      }
+
+      if (
+        !order.assignedDeliveryPartner ||
+        order.assignedDeliveryPartner.toString() !== req.id.toString()
+      ) {
+        return res.status(403).json({
+          success: false,
+          message: "This order is not assigned to you",
+        });
+      }
+
+      const deliveryAllowed = ["out_for_delivery", "delivered"];
+      if (!deliveryAllowed.includes(normalizedStatus)) {
+        return res.status(403).json({
+          success: false,
+          message: "Delivery partner can only mark out for delivery or delivered",
+        });
+      }
+
+      if (
+        normalizedStatus === "out_for_delivery" &&
+        !["processing", "shipped", "out_for_delivery"].includes(order.orderStatus)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Order must be processed or shipped before delivery starts",
+        });
+      }
+
+      if (
+        normalizedStatus === "delivered" &&
+        order.orderStatus !== "out_for_delivery"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Order must be out for delivery before marking delivered",
+        });
+      }
+
+      appendStatusHistoryEntry(order, {
+        from: order.orderStatus,
+        to: normalizedStatus,
+        by: req.id,
+        role: "delivery",
+        reason:
+          reason ||
+          (normalizedStatus === "delivered"
+            ? "Marked delivered by delivery partner"
+            : "Marked out for delivery by delivery partner"),
+        at: new Date(),
+      });
+
+      order.orderStatus = normalizedStatus;
+      order.updatedAt = Date.now();
+      await order.save();
+
+      await createUserNotificationForOrderStatus({
+        order,
+        status: order.orderStatus,
+        reason,
+        previousStatus,
+        vendorId: order.items?.[0]?.vendorId,
+      });
+
+      if (order.orderStatus === "out_for_delivery") {
+        await safelySendOutForDeliveryEmail({ order });
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: "Delivery status updated successfully",
+        order,
+      });
     }
 
     return res.status(403).json({ success: false, message: "Invalid role" });

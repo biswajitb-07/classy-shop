@@ -6,7 +6,12 @@ const VENDOR_API = `${BASE_URL}/api/v1/vendor/`;
 
 export const authApi = createApi({
   reducerPath: "authApi",
-  tagTypes: ["VendorNotifications", "NewsletterSubscribers", "Coupons"],
+  tagTypes: [
+    "VendorNotifications",
+    "NewsletterSubscribers",
+    "Coupons",
+    "DeliveryPartners",
+  ],
   baseQuery: fetchBaseQuery({
     baseUrl: VENDOR_API,
     credentials: "include",
@@ -238,6 +243,49 @@ export const authApi = createApi({
         { type: "Coupons", id: "LIST" },
       ],
     }),
+    getDeliveryPartners: builder.query({
+      query: () => ({
+        url: "delivery-partners",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result?.deliveryPartners
+          ? [
+              ...result.deliveryPartners.map((deliveryPartner) => ({
+                type: "DeliveryPartners",
+                id: deliveryPartner._id,
+              })),
+              { type: "DeliveryPartners", id: "LIST" },
+            ]
+          : [{ type: "DeliveryPartners", id: "LIST" }],
+    }),
+    createDeliveryPartner: builder.mutation({
+      query: (body) => ({
+        url: "delivery-partners",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: [{ type: "DeliveryPartners", id: "LIST" }],
+    }),
+    toggleDeliveryPartnerBlock: builder.mutation({
+      query: ({ id, isBlocked }) => ({
+        url: `delivery-partners/${id}/block`,
+        method: "PATCH",
+        body: { isBlocked },
+      }),
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: "DeliveryPartners", id },
+        { type: "DeliveryPartners", id: "LIST" },
+      ],
+    }),
+    assignDeliveryPartner: builder.mutation({
+      query: ({ orderId, deliveryPartnerId }) => ({
+        url: `orders/${orderId}/assign-delivery`,
+        method: "PATCH",
+        body: { deliveryPartnerId },
+      }),
+      invalidatesTags: [{ type: "DeliveryPartners", id: "LIST" }],
+    }),
   }),
 });
 
@@ -268,4 +316,8 @@ export const {
   useCreateCouponMutation,
   useToggleCouponStatusMutation,
   useDeleteCouponMutation,
+  useGetDeliveryPartnersQuery,
+  useCreateDeliveryPartnerMutation,
+  useToggleDeliveryPartnerBlockMutation,
+  useAssignDeliveryPartnerMutation,
 } = authApi;

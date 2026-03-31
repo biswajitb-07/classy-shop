@@ -28,6 +28,7 @@ import wellnessBrandRouter from "./routes/vendor/wellness/wellnessBrand.route.js
 import wellnessRouter from "./routes/vendor/wellness/wellness.route.js";
 import jewelleryBrandRouter from "./routes/vendor/jewellery/jewelleryBrand.route.js";
 import jewelleryRouter from "./routes/vendor/jewellery/jewellery.route.js";
+import deliveryRouter from "./routes/delivery/delivery.route.js";
 import { initSocket } from "./socket/socket.js";
 import { verifyEmailTransport } from "./utils/emailService.js";
 
@@ -64,7 +65,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL].filter(
+const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL, process.env.DELIVERY_URL].filter(
   Boolean,
 );
 
@@ -115,6 +116,7 @@ app.use("/api/v1/vendor/jewellery", jewelleryRouter);
 app.use("/api/v1/product", cartWishlistRouter);
 app.use("/api/v1/vendor/orders", orderRouter);
 app.use("/api/v1/product/order", orderRouter);
+app.use("/api/v1/delivery", deliveryRouter);
 
 // Socket.IO shares the same HTTP server so realtime support chat and presence
 // updates live alongside the normal REST API.
