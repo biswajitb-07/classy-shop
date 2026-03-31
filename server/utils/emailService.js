@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 
 import {
+  getDeliveryCompletionOtpEmailTemplate,
+  getOrderDeliveredEmailTemplate,
   getOrderOutForDeliveryEmailTemplate,
   getOrderPlacedEmailTemplate,
   getPasswordChangedEmailTemplate,
@@ -129,6 +131,40 @@ export const sendOrderOutForDeliveryEmail = async ({
     to,
     subject: `Out for Delivery • ${orderId}`,
     html: getOrderOutForDeliveryEmailTemplate({
+      name,
+      orderId,
+      totalAmount,
+      items,
+    }),
+  });
+
+export const sendDeliveryCompletionOtpEmail = async ({
+  to,
+  name,
+  orderId,
+  otp,
+}) =>
+  sendEmail({
+    to,
+    subject: `Delivery OTP • ${orderId}`,
+    html: getDeliveryCompletionOtpEmailTemplate({
+      name,
+      orderId,
+      otp,
+    }),
+  });
+
+export const sendOrderDeliveredEmail = async ({
+  to,
+  name,
+  orderId,
+  totalAmount,
+  items,
+}) =>
+  sendEmail({
+    to,
+    subject: `Delivered • ${orderId}`,
+    html: getOrderDeliveredEmailTemplate({
       name,
       orderId,
       totalAmount,

@@ -26,6 +26,10 @@ const footwearSchema = new mongoose.Schema(
       type: Number,
       default: 0,
     },
+    baseRating: {
+      type: Number,
+      default: null,
+    },
     reviews: {
       type: Number,
       default: 0,

@@ -97,6 +97,24 @@ const orderSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
+  deliveryConfirmation: {
+    otpHash: {
+      type: String,
+      default: "",
+    },
+    otpExpireAt: {
+      type: Number,
+      default: 0,
+    },
+    otpSentAt: {
+      type: Date,
+      default: null,
+    },
+    otpVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+  },
   shippingAddress: {
     fullName: {
       type: String,

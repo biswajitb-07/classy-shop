@@ -1,7 +1,8 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { userLoggedIn, userLoggedOut } from "../authSlice";
+import { resolveApiBaseUrl } from "../../lib/apiBase";
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = resolveApiBaseUrl();
 const DELIVERY_API = `${BASE_URL}/api/v1/delivery/`;
 
 export const authApi = createApi({
@@ -10,7 +11,11 @@ export const authApi = createApi({
     baseUrl: DELIVERY_API,
     credentials: "include",
   }),
-  tagTypes: ["DeliveryProfile", "DeliverySummary"],
+  tagTypes: [
+    "DeliveryProfile",
+    "DeliverySummary",
+    "DeliveryNotifications",
+  ],
   endpoints: (builder) => ({
     loginUser: builder.mutation({
       query: (body) => ({
@@ -77,6 +82,39 @@ export const authApi = createApi({
         { type: "DeliverySummary", id: "HOME" },
       ],
     }),
+    getDeliveryNotifications: builder.query({
+      query: () => ({
+        url: "notifications",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result?.notifications
+          ? [
+              ...result.notifications.map((notification) => ({
+                type: "DeliveryNotifications",
+                id: notification._id,
+              })),
+              { type: "DeliveryNotifications", id: "LIST" },
+            ]
+          : [{ type: "DeliveryNotifications", id: "LIST" }],
+    }),
+    deleteDeliveryNotification: builder.mutation({
+      query: (id) => ({
+        url: `notifications/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "DeliveryNotifications", id },
+        { type: "DeliveryNotifications", id: "LIST" },
+      ],
+    }),
+    clearDeliveryNotifications: builder.mutation({
+      query: () => ({
+        url: "notifications",
+        method: "DELETE",
+      }),
+      invalidatesTags: [{ type: "DeliveryNotifications", id: "LIST" }],
+    }),
   }),
 });
 
@@ -86,4 +124,7 @@ export const {
   useLoadUserQuery,
   useGetDashboardSummaryQuery,
   useToggleAvailabilityMutation,
+  useGetDeliveryNotificationsQuery,
+  useDeleteDeliveryNotificationMutation,
+  useClearDeliveryNotificationsMutation,
 } = authApi;

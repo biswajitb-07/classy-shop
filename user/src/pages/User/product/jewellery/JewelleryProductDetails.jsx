@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
 import { useSelector } from "react-redux";
 import RelatedProduct from "../../../../components/products/RelatedProduct.jsx";
+import ProductReviewsSection from "../../../../components/products/ProductReviewsSection.jsx";
 import { useAddToCartMutation } from "../../../../features/api/cartApi.js";
 import { useGetJewelleryItemsQuery } from "../../../../features/api/jewelleryApi.js";
 import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader.jsx";
@@ -15,7 +16,7 @@ import { shareProduct } from "../../../../utils/shareProduct.js";
 import useTrackAiProductClick from "../../../../hooks/useTrackAiProductClick.js";
 
 const JewelleryProductDetails = () => {
-  const { data, isLoading } = useGetJewelleryItemsQuery();
+  const { data, isLoading, refetch } = useGetJewelleryItemsQuery();
   const { productId } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useSelector((s) => s.auth);
@@ -235,6 +236,14 @@ const JewelleryProductDetails = () => {
           </div>
         </div>
       </div>
+      <ProductReviewsSection
+        productId={product._id}
+        productType="Jewellery"
+        productName={product.name}
+        rating={product.rating}
+        reviewsCount={product.reviews}
+        onReviewChanged={refetch}
+      />
       <hr className="text-red-500 h-1 my-6" />
       <RelatedProduct products={relatedProducts} isLoading={isLoading} />
     </>

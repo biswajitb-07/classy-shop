@@ -119,6 +119,7 @@ export const addElectronicItem = async (req, res) => {
       brand: brand.trim(),
       image: imageUrls,
       rating: rating || 0,
+      baseRating: rating || 0,
       originalPrice,
       discountedPrice,
       inStock,
@@ -231,6 +232,8 @@ export const updateElectronicItem = async (req, res) => {
         brand,
         image: imageUrls,
         rating: ratingValue,
+        baseRating:
+          rating !== undefined ? ratingValue : electronicItem.baseRating,
         originalPrice,
         discountedPrice,
         inStock,

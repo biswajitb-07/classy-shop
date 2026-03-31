@@ -102,6 +102,7 @@ export const addFootwearItem = async (req, res) => {
       brand: brand.trim(),
       image: imageUrls,
       rating: rating || 0,
+      baseRating: rating || 0,
       originalPrice,
       discountedPrice,
       inStock,
@@ -187,6 +188,8 @@ export const updateFootwearItem = async (req, res) => {
         brand,
         image: imageUrls,
         rating: ratingValue,
+        baseRating:
+          rating !== undefined ? ratingValue : footwearItem.baseRating,
         originalPrice,
         discountedPrice,
         inStock,

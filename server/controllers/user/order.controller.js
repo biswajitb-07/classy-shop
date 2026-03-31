@@ -21,6 +21,8 @@ import {
   emitVendorNotificationUpdate,
 } from "../../socket/socket.js";
 import {
+  sendDeliveryCompletionOtpEmail,
+  sendOrderDeliveredEmail,
   sendOrderOutForDeliveryEmail,
   sendOrderPlacedEmail,
 } from "../../utils/emailService.js";
@@ -45,6 +47,31 @@ const formatStatusLabel = (status) =>
   status
     ?.replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const maskEmail = (email) => {
+  const normalized = String(email || "").trim();
+  const [localPart, domain] = normalized.split("@");
+
+  if (!localPart || !domain) return "";
+
+  if (localPart.length <= 2) {
+    return `${localPart[0] || "*"}***@${domain}`;
+  }
+
+  return `${localPart.slice(0, 2)}***${localPart.slice(-1)}@${domain}`;
+};
+
+const createOtpHash = (value) =>
+  crypto.createHash("sha256").update(String(value || "")).digest("hex");
+
+const clearDeliveryConfirmation = (order, verifiedAt = null) => {
+  order.deliveryConfirmation = {
+    otpHash: "",
+    otpExpireAt: 0,
+    otpSentAt: null,
+    otpVerifiedAt: verifiedAt,
+  };
+};
 
 const appendStatusHistoryEntry = (
   order,
@@ -274,6 +301,26 @@ const safelySendOutForDeliveryEmail = async ({ order }) => {
     });
   } catch (error) {
     console.error("Failed to send out-for-delivery email:", error);
+  }
+};
+
+const safelySendDeliveredEmail = async ({ order }) => {
+  if (!order?.userId) return;
+
+  try {
+    const user = await User.findById(order.userId).select("name email").lean();
+    if (!user?.email) return;
+
+    const items = await buildOrderEmailItems(order.items);
+    await sendOrderDeliveredEmail({
+      to: user.email,
+      name: user.name,
+      orderId: order.orderId,
+      totalAmount: order.totalAmount,
+      items,
+    });
+  } catch (error) {
+    console.error("Failed to send delivered email:", error);
   }
 };
 
@@ -725,6 +772,201 @@ export const getVendorOrders = async (req, res) => {
   }
 };
 
+export const sendDeliveryCompletionOtp = async (req, res) => {
+  try {
+    if (req.role !== "delivery") {
+      return res.status(403).json({
+        success: false,
+        message: "Only delivery partners can request delivery OTP",
+      });
+    }
+
+    const order = await Order.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (
+      !order.assignedDeliveryPartner ||
+      order.assignedDeliveryPartner.toString() !== req.id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "This order is not assigned to you",
+      });
+    }
+
+    if (order.orderStatus !== "out_for_delivery") {
+      return res.status(400).json({
+        success: false,
+        message: "OTP can only be sent when order is out for delivery",
+      });
+    }
+
+    const user = await User.findById(order.userId).select("name email").lean();
+    if (!user?.email) {
+      return res.status(400).json({
+        success: false,
+        message: "Customer email is not available for this order",
+      });
+    }
+
+    const otp = String(Math.floor(100000 + Math.random() * 900000));
+    const otpExpireAt = Date.now() + 10 * 60 * 1000;
+
+    await sendDeliveryCompletionOtpEmail({
+      to: user.email,
+      name: user.name,
+      orderId: order.orderId,
+      otp,
+    });
+
+    order.deliveryConfirmation = {
+      otpHash: createOtpHash(otp),
+      otpExpireAt,
+      otpSentAt: new Date(),
+      otpVerifiedAt: null,
+    };
+    order.updatedAt = Date.now();
+    await order.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Delivery OTP sent to customer email",
+      deliveryConfirmation: {
+        sentTo: maskEmail(user.email),
+        otpSentAt: order.deliveryConfirmation.otpSentAt,
+        otpExpireAt,
+      },
+    });
+  } catch (error) {
+    console.error("sendDeliveryCompletionOtp error:", error);
+    return res.status(500).json({
+      success: false,
+      message:
+        error?.message ===
+        "Email is not configured. Please set RESEND_API_KEY and SENDER_EMAIL."
+          ? error.message
+          : "Failed to send delivery OTP",
+    });
+  }
+};
+
+export const verifyDeliveryCompletionOtp = async (req, res) => {
+  try {
+    if (req.role !== "delivery") {
+      return res.status(403).json({
+        success: false,
+        message: "Only delivery partners can verify delivery OTP",
+      });
+    }
+
+    const otp = String(req.body?.otp || "").trim();
+    if (!otp) {
+      return res.status(400).json({
+        success: false,
+        message: "OTP is required",
+      });
+    }
+
+    const order = await Order.findById(req.params.orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (
+      !order.assignedDeliveryPartner ||
+      order.assignedDeliveryPartner.toString() !== req.id.toString()
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "This order is not assigned to you",
+      });
+    }
+
+    if (order.orderStatus !== "out_for_delivery") {
+      return res.status(400).json({
+        success: false,
+        message: "Order must be out for delivery before completion",
+      });
+    }
+
+    const confirmation = order.deliveryConfirmation || {};
+    if (!confirmation.otpHash || !confirmation.otpExpireAt) {
+      return res.status(400).json({
+        success: false,
+        message: "Send OTP first before verifying delivery",
+      });
+    }
+
+    if (Date.now() > Number(confirmation.otpExpireAt || 0)) {
+      clearDeliveryConfirmation(order);
+      order.updatedAt = Date.now();
+      await order.save();
+
+      return res.status(400).json({
+        success: false,
+        message: "OTP expired. Please send a new OTP",
+      });
+    }
+
+    if (createOtpHash(otp) !== confirmation.otpHash) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid OTP",
+      });
+    }
+
+    const previousStatus = order.orderStatus;
+    const vendorIds = Array.from(
+      new Set((order.items || []).map((item) => String(item.vendorId)).filter(Boolean))
+    );
+
+    appendStatusHistoryEntry(order, {
+      from: order.orderStatus,
+      to: "delivered",
+      by: req.id,
+      role: "delivery",
+      reason: "Delivered after OTP verification with customer",
+      at: new Date(),
+    });
+
+    order.orderStatus = "delivered";
+    clearDeliveryConfirmation(order, new Date());
+    order.updatedAt = Date.now();
+    await order.save();
+
+    await createUserNotificationForOrderStatus({
+      order,
+      status: order.orderStatus,
+      reason: "Delivery verified with OTP",
+      previousStatus,
+      vendorId: order.items?.[0]?.vendorId,
+    });
+
+    vendorIds.forEach((vendorId) => emitVendorDashboardUpdate(vendorId));
+    void safelySendDeliveredEmail({ order });
+
+    return res.status(200).json({
+      success: true,
+      message: "Delivery OTP verified and order marked delivered",
+      order,
+    });
+  } catch (error) {
+    console.error("verifyDeliveryCompletionOtp error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to verify delivery OTP",
+    });
+  }
+};
+
 export const orderStatusUpdate = async (req, res) => {
   try {
     const { status, reason } = req.body;
@@ -875,7 +1117,6 @@ export const orderStatusUpdate = async (req, res) => {
         "processing",
         "shipped",
         "out_for_delivery",
-        "delivered",
         "cancelled",
         "return_approved",
         "return_rejected",
@@ -1058,13 +1299,30 @@ export const orderStatusUpdate = async (req, res) => {
         });
       }
 
-      const deliveryAllowed = ["out_for_delivery", "delivered"];
+      const deliveryAllowed = [
+        "out_for_delivery",
+        "cancelled",
+        "return_completed",
+        "delivered",
+      ];
       if (!deliveryAllowed.includes(normalizedStatus)) {
         return res.status(403).json({
           success: false,
-          message: "Delivery partner can only mark out for delivery or delivered",
+          message:
+            "Delivery partner can only update delivery, cancellation, or return-completion statuses",
         });
       }
+
+      if (normalizedStatus === "delivered") {
+        return res.status(403).json({
+          success: false,
+          message: "Use delivery OTP verification flow to mark order delivered",
+        });
+      }
+
+      const vendorIds = Array.from(
+        new Set((order.items || []).map((item) => String(item.vendorId)).filter(Boolean))
+      );
 
       if (
         normalizedStatus === "out_for_delivery" &&
@@ -1083,6 +1341,116 @@ export const orderStatusUpdate = async (req, res) => {
         return res.status(400).json({
           success: false,
           message: "Order must be out for delivery before marking delivered",
+        });
+      }
+
+      if (
+        normalizedStatus === "cancelled" &&
+        !["processing", "shipped", "out_for_delivery"].includes(order.orderStatus)
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Only active delivery orders can be cancelled by the delivery partner",
+        });
+      }
+
+      if (
+        normalizedStatus === "return_completed" &&
+        order.orderStatus !== "return_approved"
+      ) {
+        return res.status(400).json({
+          success: false,
+          message:
+            "Return pickup can only be completed after vendor approval",
+        });
+      }
+
+      if (normalizedStatus === "cancelled") {
+        if (
+          order.paymentMethod === "razorpay" &&
+          order.paymentStatus === "completed"
+        ) {
+          order.paymentStatus = "refund";
+          order.refundRequestedAt = new Date();
+        }
+
+        appendStatusHistoryEntry(order, {
+          from: order.orderStatus,
+          to: "cancelled",
+          by: req.id,
+          role: "delivery",
+          reason: reason || "Cancelled by delivery partner",
+          at: new Date(),
+        });
+
+        if (order.stockAdjusted && !order.stockRestored) {
+          await adjustInventoryForOrderItems(order.items, "increase");
+          order.stockRestored = true;
+        }
+
+        order.orderStatus = "cancelled";
+        order.updatedAt = Date.now();
+        await order.save();
+
+        await createUserNotificationForOrderStatus({
+          order,
+          status: order.orderStatus,
+          reason: reason || "Delivery partner cancelled this order",
+          previousStatus,
+          vendorId: order.items?.[0]?.vendorId,
+        });
+
+        vendorIds.forEach((vendorId) => emitVendorDashboardUpdate(vendorId));
+
+        return res.status(200).json({
+          success: true,
+          message: "Order cancelled successfully",
+          order,
+        });
+      }
+
+      if (normalizedStatus === "return_completed") {
+        if (
+          order.paymentMethod === "razorpay" &&
+          order.paymentStatus === "completed"
+        ) {
+          order.paymentStatus = "refund";
+          order.refundCompletedAt = new Date();
+        }
+
+        appendStatusHistoryEntry(order, {
+          from: order.orderStatus,
+          to: "return_completed",
+          by: req.id,
+          role: "delivery",
+          reason: reason || "Return pickup completed by delivery partner",
+          at: new Date(),
+        });
+
+        if (order.stockAdjusted && !order.stockRestored) {
+          await adjustInventoryForOrderItems(order.items, "increase");
+          order.stockRestored = true;
+        }
+
+        order.orderStatus = "return_completed";
+        order.updatedAt = Date.now();
+        await order.save();
+
+        await createUserNotificationForOrderStatus({
+          order,
+          status: order.orderStatus,
+          reason: reason || "Return pickup completed by delivery partner",
+          previousStatus,
+          vendorId: order.items?.[0]?.vendorId,
+        });
+
+        vendorIds.forEach((vendorId) => emitVendorDashboardUpdate(vendorId));
+
+        return res.status(200).json({
+          success: true,
+          message: "Return marked completed successfully",
+          order,
         });
       }
 
@@ -1114,6 +1482,8 @@ export const orderStatusUpdate = async (req, res) => {
       if (order.orderStatus === "out_for_delivery") {
         await safelySendOutForDeliveryEmail({ order });
       }
+
+      vendorIds.forEach((vendorId) => emitVendorDashboardUpdate(vendorId));
 
       return res.status(200).json({
         success: true,

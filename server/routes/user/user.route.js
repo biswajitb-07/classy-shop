@@ -28,6 +28,12 @@ import {
   getUserSupportConversation,
   sendUserSupportMessage,
 } from "../../controllers/support/support.controller.js";
+import {
+  deleteProductReview,
+  getProductReviewMeta,
+  getProductReviews,
+  upsertProductReview,
+} from "../../controllers/user/review.controller.js";
 import siteContentUserRouter from "./siteContent.route.js";
 
 const userRouter = express.Router();
@@ -54,6 +60,10 @@ userRouter.post("/reset-password", resetPassword);
 userRouter.post("/change-password", isAuthenticatedUser, changePassword);
 userRouter.post("/newsletter/subscribe", subscribeNewsletter);
 userRouter.get("/socket-auth", isAuthenticatedUser, getUserSocketAuth);
+userRouter.get("/reviews", getProductReviews);
+userRouter.get("/reviews/meta", isAuthenticatedUser, getProductReviewMeta);
+userRouter.post("/reviews", isAuthenticatedUser, upsertProductReview);
+userRouter.delete("/reviews", isAuthenticatedUser, deleteProductReview);
 
 userRouter.get("/profile", isAuthenticatedUser, getUserProfile);
 userRouter.put(

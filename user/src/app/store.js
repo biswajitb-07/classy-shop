@@ -15,6 +15,7 @@ import { orderApi } from "../features/api/orderApi.js";
 import { supportApi } from "../features/api/supportApi.js";
 import { contentApi } from "../features/api/contentApi.js";
 import { newsletterApi } from "../features/api/newsletterApi.js";
+import { reviewApi } from "../features/api/reviewApi.js";
 
 export const appStore = configureStore({
   reducer: rootRedcuer,
@@ -34,7 +35,8 @@ export const appStore = configureStore({
       orderApi.middleware,
       supportApi.middleware,
       contentApi.middleware,
-      newsletterApi.middleware
+      newsletterApi.middleware,
+      reviewApi.middleware
     ),
 });
 

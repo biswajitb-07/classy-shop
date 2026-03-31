@@ -65,9 +65,18 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-const allowedOrigins = [process.env.USER_URL, process.env.VENDOR_URL, process.env.DELIVERY_URL].filter(
-  Boolean,
-);
+const defaultDevOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:3002",
+];
+
+const allowedOrigins = [
+  process.env.USER_URL,
+  process.env.VENDOR_URL,
+  process.env.DELIVERY_URL,
+  ...(isProduction ? [] : defaultDevOrigins),
+].filter(Boolean);
 
 app.use(
   cors({

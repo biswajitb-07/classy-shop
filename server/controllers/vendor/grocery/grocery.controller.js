@@ -98,6 +98,7 @@ export const addGroceryItem = async (req, res) => {
       vendorId,
       image: imageUrls,
       rating: rating || 0,
+      baseRating: rating || 0,
       originalPrice,
       discountedPrice,
       inStock,
@@ -179,6 +180,8 @@ export const updateGroceryItem = async (req, res) => {
         name,
         image: imageUrls,
         rating: ratingValue,
+        baseRating:
+          rating !== undefined ? ratingValue : groceryItem.baseRating,
         originalPrice,
         discountedPrice,
         inStock,

@@ -43,6 +43,7 @@ import {
 import {
   assignDeliveryPartner,
   createDeliveryPartner,
+  deleteDeliveryPartner,
   getDeliveryPartners,
   toggleDeliveryPartnerBlock,
 } from "../../controllers/delivery/delivery.controller.js";
@@ -89,6 +90,11 @@ vendorRouter.patch(
   "/delivery-partners/:id/block",
   isAuthenticatedVendor,
   toggleDeliveryPartnerBlock
+);
+vendorRouter.delete(
+  "/delivery-partners/:id",
+  isAuthenticatedVendor,
+  deleteDeliveryPartner
 );
 vendorRouter.patch(
   "/orders/:orderId/assign-delivery",

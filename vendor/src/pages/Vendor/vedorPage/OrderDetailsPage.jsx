@@ -292,6 +292,7 @@ const OrderDetailsPage = () => {
   });
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedDeliveryPartner, setSelectedDeliveryPartner] = useState("");
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -394,7 +395,6 @@ const OrderDetailsPage = () => {
     { value: "processing", label: "processing" },
     { value: "shipped", label: "shipped" },
     { value: "out_for_delivery", label: "out for delivery" },
-    { value: "delivered", label: "delivered" },
   ];
   const canCancel =
     order.orderStatus !== "delivered" && order.orderStatus !== "cancelled";
@@ -443,6 +443,11 @@ const OrderDetailsPage = () => {
   const handleApplyStatus = () => {
     if (!selectedStatus || selectedStatus === order.orderStatus) return;
 
+    if (selectedStatus === "out_for_delivery") {
+      setAssignDialogOpen(true);
+      return;
+    }
+
     if (selectedStatus === "cancelled") {
       handleCancel();
       return;
@@ -483,25 +488,48 @@ const OrderDetailsPage = () => {
     );
   };
 
-  const handleAssignDeliveryPartner = async () => {
+  const handleAssignAndMarkOutForDelivery = async () => {
     if (!selectedDeliveryPartner) {
       toast.error("Please select a delivery partner");
       return;
     }
+
+    setActionLoading("assign_out_for_delivery");
 
     try {
       await assignDeliveryPartner({
         orderId: order._id,
         deliveryPartnerId: selectedDeliveryPartner,
       }).unwrap();
-      toast.success("Delivery partner assigned");
+
+      await updateOrderStatus({
+        orderId: order._id,
+        body: {
+          status: "out_for_delivery",
+          reason: "Status changed to out for delivery by vendor",
+          __actionKey: "status_out_for_delivery",
+        },
+      }).unwrap();
+
+      setAssignDialogOpen(false);
+      toast.success("Delivery partner assigned and order marked out for delivery");
       await refetch();
     } catch (error) {
-      toast.error(error?.data?.message || "Failed to assign delivery partner");
+      toast.error(
+        error?.data?.message ||
+          error?.message ||
+          "Failed to assign delivery partner"
+      );
+    } finally {
+      setActionLoading(null);
     }
   };
 
-  const deliveryPartners = deliveryPartnersData?.deliveryPartners || [];
+  const deliveryPartners = (deliveryPartnersData?.deliveryPartners || []).filter(
+    (deliveryPartner) =>
+      !deliveryPartner.isBlocked ||
+      deliveryPartner._id === order.assignedDeliveryPartner?._id
+  );
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 pb-16">
@@ -737,46 +765,6 @@ const OrderDetailsPage = () => {
             </div>
 
             <div className="bg-white rounded-2xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">
-                Assign Delivery Partner
-              </h2>
-              <div className="space-y-3">
-                <select
-                  value={selectedDeliveryPartner}
-                  onChange={(event) =>
-                    setSelectedDeliveryPartner(event.target.value)
-                  }
-                  className="w-full rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm outline-none focus:border-indigo-300"
-                >
-                  <option value="">Select delivery partner</option>
-                  {deliveryPartners.map((deliveryPartner) => (
-                    <option
-                      key={deliveryPartner._id}
-                      value={deliveryPartner._id}
-                    >
-                      {deliveryPartner.name} • {deliveryPartner.vehicleType}
-                      {deliveryPartner.isBlocked ? " (Blocked)" : ""}
-                    </option>
-                  ))}
-                </select>
-
-                <button
-                  onClick={handleAssignDeliveryPartner}
-                  disabled={
-                    isAssigningDeliveryPartner || !selectedDeliveryPartner
-                  }
-                  className="w-full rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isAssigningDeliveryPartner
-                    ? "Assigning..."
-                    : order.assignedDeliveryPartner
-                      ? "Reassign Delivery Partner"
-                      : "Assign Delivery Partner"}
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl shadow-md p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
                 <FaMapMarkerAlt className="text-indigo-500" />
                 Shipping Address
@@ -857,6 +845,66 @@ const OrderDetailsPage = () => {
         onCancel={() => setConfirmOpen(false)}
         loading={isUpdating}
       />
+
+      {assignDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/45"
+            onClick={() => setAssignDialogOpen(false)}
+          />
+          <div className="relative mx-4 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <h3 className="text-xl font-bold text-gray-800">
+              Assign Delivery Partner
+            </h3>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              `Out for delivery` mark karne se pehle delivery partner select karo.
+            </p>
+
+            <div className="mt-5 space-y-3">
+              <select
+                value={selectedDeliveryPartner}
+                onChange={(event) => setSelectedDeliveryPartner(event.target.value)}
+                className="delivery-partner-select w-full rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm outline-none focus:border-indigo-300"
+              >
+                <option value="">Select delivery partner</option>
+                {deliveryPartners.map((deliveryPartner) => (
+                  <option
+                    key={deliveryPartner._id}
+                    value={deliveryPartner._id}
+                  >
+                    {deliveryPartner.name} • {deliveryPartner.vehicleType}
+                  </option>
+                ))}
+              </select>
+
+              <div className="flex gap-3 justify-end pt-2">
+                <button
+                  onClick={() => setAssignDialogOpen(false)}
+                  disabled={isAssigningDeliveryPartner || isUpdating}
+                  className="rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleAssignAndMarkOutForDelivery}
+                  disabled={
+                    isAssigningDeliveryPartner ||
+                    isUpdating ||
+                    !selectedDeliveryPartner
+                  }
+                  className="flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {actionLoading === "assign_out_for_delivery" ? (
+                    <AuthButtonLoader size={16} />
+                  ) : (
+                    "Assign & Mark Out for Delivery"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

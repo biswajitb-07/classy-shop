@@ -98,6 +98,7 @@ export const addWellnessItem = async (req, res) => {
       vendorId,
       image: imageUrls,
       rating: rating || 0,
+      baseRating: rating || 0,
       originalPrice,
       discountedPrice,
       inStock,
@@ -179,6 +180,8 @@ export const updateWellnessItem = async (req, res) => {
         name,
         image: imageUrls,
         rating: ratingValue,
+        baseRating:
+          rating !== undefined ? ratingValue : wellnessItem.baseRating,
         originalPrice,
         discountedPrice,
         inStock,

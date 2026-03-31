@@ -9,10 +9,16 @@ import Beauty from "../../models/vendor/beauty/beauty.model.js";
 import Wellness from "../../models/vendor/wellness/wellness.model.js";
 import Jewellery from "../../models/vendor/jewellery/jewellery.model.js";
 import { DeliveryPartner } from "../../models/delivery/deliveryPartner.model.js";
+import { DeliveryNotification } from "../../models/delivery/deliveryNotification.model.js";
 import {
   clearDeliveryAuthCookies,
   setDeliveryAuthCookies,
 } from "../../utils/authCookies.js";
+import {
+  emitDeliveryAssignment,
+  emitDeliveryDashboardUpdate,
+  emitDeliveryNotificationUpdate,
+} from "../../socket/socket.js";
 import {
   createDeliveryPartnerSchema,
   deliveryLoginSchema,
@@ -156,6 +162,62 @@ export const toggleDeliveryPartnerBlock = async (req, res) => {
   }
 };
 
+export const deleteDeliveryPartner = async (req, res) => {
+  try {
+    const deliveryPartnerId = req.params.id;
+
+    const activeAssignedOrders = await Order.countDocuments({
+      assignedDeliveryPartner: deliveryPartnerId,
+      orderStatus: {
+        $in: ["processing", "shipped", "out_for_delivery"],
+      },
+    });
+
+    if (activeAssignedOrders > 0) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "This delivery partner still has active assigned orders. Reassign or complete them before deleting.",
+      });
+    }
+
+    const deletedPartner = await DeliveryPartner.findByIdAndDelete(
+      deliveryPartnerId
+    ).select("-password");
+
+    if (!deletedPartner) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery partner not found",
+      });
+    }
+
+    await Promise.all([
+      Order.updateMany(
+        { assignedDeliveryPartner: deliveryPartnerId },
+        {
+          $set: {
+            assignedDeliveryPartner: null,
+            assignedDeliveryAt: null,
+          },
+        }
+      ),
+      DeliveryNotification.deleteMany({ deliveryPartnerId }),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Delivery partner deleted successfully",
+      deliveryPartner: deletedPartner,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete delivery partner",
+    });
+  }
+};
+
 export const assignDeliveryPartner = async (req, res) => {
   try {
     const { deliveryPartnerId } = req.body;
@@ -189,6 +251,22 @@ export const assignDeliveryPartner = async (req, res) => {
     order.assignedDeliveryAt = new Date();
     order.updatedAt = Date.now();
     await order.save();
+
+    await DeliveryNotification.create({
+      deliveryPartnerId: deliveryPartner._id,
+      orderId: order._id,
+      type: "assignment",
+      title: "New Delivery Assignment",
+      message: `Order #${order.orderId} has been assigned to you.`,
+    });
+
+    emitDeliveryAssignment({
+      deliveryPartnerId: deliveryPartner._id,
+      orderId: order._id,
+      message: `New order #${order.orderId} assigned to you`,
+    });
+    emitDeliveryDashboardUpdate(deliveryPartner._id);
+    emitDeliveryNotificationUpdate(deliveryPartner._id);
 
     return res.status(200).json({
       success: true,
@@ -382,6 +460,66 @@ export const getAssignedOrders = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to load assigned orders",
+    });
+  }
+};
+
+export const getDeliveryNotifications = async (req, res) => {
+  try {
+    const notifications = await DeliveryNotification.find({
+      deliveryPartnerId: req.id,
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      notifications,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load notifications",
+    });
+  }
+};
+
+export const deleteDeliveryNotification = async (req, res) => {
+  try {
+    const notification = await DeliveryNotification.findOneAndDelete({
+      _id: req.params.id,
+      deliveryPartnerId: req.id,
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        message: "Notification not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Notification deleted",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to delete notification",
+    });
+  }
+};
+
+export const clearDeliveryNotifications = async (req, res) => {
+  try {
+    await DeliveryNotification.deleteMany({ deliveryPartnerId: req.id });
+
+    return res.status(200).json({
+      success: true,
+      message: "All notifications cleared",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to clear notifications",
     });
   }
 };

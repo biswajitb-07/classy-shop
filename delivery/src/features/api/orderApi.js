@@ -1,6 +1,7 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
+import { resolveApiBaseUrl } from "../../lib/apiBase";
 
-const BASE_URL = import.meta.env.VITE_API_URL;
+const BASE_URL = resolveApiBaseUrl();
 const DELIVERY_API = `${BASE_URL}/api/v1/delivery/`;
 
 export const orderApi = createApi({
@@ -35,8 +36,33 @@ export const orderApi = createApi({
         { type: "Order", id: "LIST" },
       ],
     }),
+    sendDeliveryCompletionOtp: builder.mutation({
+      query: (orderId) => ({
+        url: `orders/${orderId}/delivery-otp/send`,
+        method: "POST",
+      }),
+      invalidatesTags: (_result, _error, orderId) => [
+        { type: "Order", id: orderId },
+        { type: "Order", id: "LIST" },
+      ],
+    }),
+    verifyDeliveryCompletionOtp: builder.mutation({
+      query: ({ orderId, otp }) => ({
+        url: `orders/${orderId}/delivery-otp/verify`,
+        method: "POST",
+        body: { otp },
+      }),
+      invalidatesTags: (_result, _error, { orderId }) => [
+        { type: "Order", id: orderId },
+        { type: "Order", id: "LIST" },
+      ],
+    }),
   }),
 });
 
-export const { useGetAssignedOrdersQuery, useUpdateOrderStatusMutation } =
-  orderApi;
+export const {
+  useGetAssignedOrdersQuery,
+  useUpdateOrderStatusMutation,
+  useSendDeliveryCompletionOtpMutation,
+  useVerifyDeliveryCompletionOtpMutation,
+} = orderApi;

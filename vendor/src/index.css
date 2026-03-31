@@ -205,6 +205,39 @@ html[data-theme="dark"] [class*="border-white"] {
   border-color: rgba(148, 163, 184, 0.28) !important;
 }
 
+html[data-theme="dark"] .delivery-partner-select {
+  background-color: #0f172a !important;
+  color: #e5e7eb !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .delivery-partner-select option {
+  background-color: #0f172a;
+  color: #e5e7eb;
+}
+
+html[data-theme="dark"] .delivery-form-select {
+  background-color: #0f172a !important;
+  color: #e5e7eb !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .delivery-form-select option {
+  background-color: #0f172a !important;
+  color: #e5e7eb !important;
+}
+
+html[data-theme="dark"] .vendor-dark-select {
+  background-color: #0f172a !important;
+  color: #e5e7eb !important;
+  border-color: #334155 !important;
+}
+
+html[data-theme="dark"] .vendor-dark-select option {
+  background-color: #0f172a !important;
+  color: #e5e7eb !important;
+}
+
 html[data-theme="dark"] [class*="from-red-50"],
 html[data-theme="dark"] [class*="from-blue-50"],
 html[data-theme="dark"] [class*="from-blue-100"],

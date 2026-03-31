@@ -278,6 +278,16 @@ export const authApi = createApi({
         { type: "DeliveryPartners", id: "LIST" },
       ],
     }),
+    deleteDeliveryPartner: builder.mutation({
+      query: (id) => ({
+        url: `delivery-partners/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "DeliveryPartners", id },
+        { type: "DeliveryPartners", id: "LIST" },
+      ],
+    }),
     assignDeliveryPartner: builder.mutation({
       query: ({ orderId, deliveryPartnerId }) => ({
         url: `orders/${orderId}/assign-delivery`,
@@ -319,5 +329,6 @@ export const {
   useGetDeliveryPartnersQuery,
   useCreateDeliveryPartnerMutation,
   useToggleDeliveryPartnerBlockMutation,
+  useDeleteDeliveryPartnerMutation,
   useAssignDeliveryPartnerMutation,
 } = authApi;

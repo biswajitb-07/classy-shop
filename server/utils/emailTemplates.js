@@ -44,6 +44,20 @@ const brandThemes = {
     surface: "#fff7ed",
     heading: "Your order is out for delivery",
   },
+  delivered: {
+    badge: "Delivery Completed",
+    accent: "#16a34a",
+    accentSoft: "#bbf7d0",
+    surface: "#f0fdf4",
+    heading: "Your order has been delivered",
+  },
+  deliveryOtp: {
+    badge: "Delivery Verification",
+    accent: "#0f766e",
+    accentSoft: "#99f6e4",
+    surface: "#f0fdfa",
+    heading: "Verify your delivery with OTP",
+  },
 };
 
 const buildEmailLayout = ({
@@ -346,5 +360,78 @@ export const getOrderOutForDeliveryEmailTemplate = ({
     `,
     footer:
       "If your delivery is delayed or you need help, reply to this email or contact support.",
+  });
+};
+
+export const getDeliveryCompletionOtpEmailTemplate = ({
+  name,
+  orderId,
+  otp,
+}) => {
+  const theme = brandThemes.deliveryOtp;
+
+  return buildEmailLayout({
+    theme,
+    preview: `Your delivery OTP for order ${orderId} is ${otp}.`,
+    title: theme.heading,
+    subtitle: `Share this OTP with the delivery partner only after you receive order ${orderId}.`,
+    body: `
+      <p style="margin:0 0 16px 0;">Hi <strong>${name || "there"}</strong>,</p>
+      <p style="margin:0 0 20px 0;">
+        Your order has reached the final handoff stage. Once you receive the package, please share the OTP below with the delivery partner so they can complete the delivery.
+      </p>
+      <div style="margin:0 0 20px 0;border-radius:24px;background:#ffffff;border:1px solid ${theme.accentSoft};padding:20px;text-align:center;">
+        <p style="margin:0 0 10px 0;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${theme.accent};">
+          Delivery OTP
+        </p>
+        <p style="margin:0;font-size:34px;line-height:1;font-weight:800;letter-spacing:0.24em;color:#0f172a;">
+          ${otp}
+        </p>
+      </div>
+      <div style="border-radius:20px;background:#ffffff;padding:18px 20px;border:1px solid ${theme.accentSoft};">
+        <p style="margin:0 0 10px 0;">
+          <strong>Order ID:</strong> ${orderId}
+        </p>
+        <p style="margin:0;">
+          This OTP is valid for <strong>10 minutes</strong>. Do not share it before your order is in hand.
+        </p>
+      </div>
+    `,
+    footer:
+      "For your safety, only share this OTP after receiving the order. Our team will never ask for it before delivery.",
+  });
+};
+
+export const getOrderDeliveredEmailTemplate = ({
+  name,
+  orderId,
+  totalAmount,
+  items = [],
+}) => {
+  const theme = brandThemes.delivered;
+
+  return buildEmailLayout({
+    theme,
+    preview: `Order ${orderId} has been delivered successfully.`,
+    title: theme.heading,
+    subtitle: `Order ${orderId} was verified and completed successfully.`,
+    body: `
+      <p style="margin:0 0 16px 0;">Hi <strong>${name || "there"}</strong>,</p>
+      <p style="margin:0 0 18px 0;">
+        Your order has been marked as <strong>delivered</strong>. We hope everything reached you safely and on time.
+      </p>
+      <div style="border-radius:20px;background:#ffffff;padding:18px 20px;border:1px solid ${theme.accentSoft};margin:0 0 20px 0;">
+        <p style="margin:0 0 8px 0;font-size:12px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:${theme.accent};">
+          Delivery Summary
+        </p>
+        <p style="margin:0 0 8px 0;"><strong>Order ID:</strong> ${orderId}</p>
+        <p style="margin:0;"><strong>Order Total:</strong> ₹${totalAmount}</p>
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px 0;">
+        ${renderOrderItemCards(items)}
+      </table>
+    `,
+    footer:
+      "If something is missing or damaged, please contact support from your account as soon as possible.",
   });
 };

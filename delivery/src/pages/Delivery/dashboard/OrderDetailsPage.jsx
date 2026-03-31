@@ -1,10 +1,19 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import toast from "react-hot-toast";
-import { ArrowLeft, Clock3, MapPin, PackageCheck, Truck } from "lucide-react";
+import {
+  ArrowLeft,
+  Ban,
+  Clock3,
+  MapPin,
+  PackageCheck,
+  RotateCcw,
+} from "lucide-react";
 import {
   useGetAssignedOrdersQuery,
+  useSendDeliveryCompletionOtpMutation,
   useUpdateOrderStatusMutation,
+  useVerifyDeliveryCompletionOtpMutation,
 } from "../../../features/api/orderApi";
 import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
@@ -43,8 +52,15 @@ const OrderDetailsPage = () => {
     isError,
     refetch,
   } = useGetAssignedOrdersQuery();
-  const [updateOrderStatus, { isLoading: isUpdating }] =
+  const [otpDialogOpen, setOtpDialogOpen] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpMeta, setOtpMeta] = useState(null);
+  const [sendDeliveryCompletionOtp, { isLoading: isSendingOtp }] =
+    useSendDeliveryCompletionOtpMutation();
+  const [updateOrderStatus, { isLoading: isUpdatingStatus }] =
     useUpdateOrderStatusMutation();
+  const [verifyDeliveryCompletionOtp, { isLoading: isVerifyingOtp }] =
+    useVerifyDeliveryCompletionOtpMutation();
 
   const order = useMemo(
     () => (data?.orders || []).find((item) => item._id === orderId),
@@ -71,23 +87,54 @@ const OrderDetailsPage = () => {
     return entries;
   }, [order]);
 
-  const submitStatus = async (status) => {
+  const handleSendOtp = async () => {
+    try {
+      const response = await sendDeliveryCompletionOtp(orderId).unwrap();
+      setOtpMeta(response?.deliveryConfirmation || null);
+      setOtpCode("");
+      setOtpDialogOpen(true);
+      toast.success(response?.message || "Delivery OTP sent");
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to send delivery OTP");
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!otpCode.trim()) {
+      toast.error("Please enter OTP");
+      return;
+    }
+
+    try {
+      await verifyDeliveryCompletionOtp({
+        orderId,
+        otp: otpCode.trim(),
+      }).unwrap();
+      toast.success("OTP verified and order marked delivered");
+      setOtpDialogOpen(false);
+      setOtpCode("");
+      setOtpMeta(null);
+      refetch();
+    } catch (error) {
+      toast.error(error?.data?.message || "OTP verification failed");
+    }
+  };
+
+  const handleStatusUpdate = async ({ status, reason, successMessage, confirmText }) => {
+    if (confirmText && !window.confirm(confirmText)) {
+      return;
+    }
+
     try {
       await updateOrderStatus({
         orderId,
         body: {
           status,
-          reason:
-            status === "delivered"
-              ? "Marked as delivered by delivery partner"
-              : "Marked as out for delivery by delivery partner",
+          reason,
         },
       }).unwrap();
-      toast.success(
-        status === "delivered"
-          ? "Order marked delivered"
-          : "Order marked out for delivery"
-      );
+
+      toast.success(successMessage);
       refetch();
     } catch (error) {
       toast.error(error?.data?.message || "Status update failed");
@@ -111,10 +158,12 @@ const OrderDetailsPage = () => {
     return <ErrorMessage title="Order not found" message="Ye order aapko assign nahi hai." />;
   }
 
-  const canMarkOutForDelivery = ["processing", "shipped"].includes(
+  const canMarkDelivered = order.orderStatus === "out_for_delivery";
+  const canCancelOrder = ["processing", "shipped", "out_for_delivery"].includes(
     order.orderStatus
   );
-  const canMarkDelivered = order.orderStatus === "out_for_delivery";
+  const canCompleteReturn = order.orderStatus === "return_approved";
+  const isReturnRequested = order.orderStatus === "return_requested";
 
   return (
     <div className="space-y-6">
@@ -221,34 +270,77 @@ const OrderDetailsPage = () => {
           <div className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6">
             <h2 className="text-lg font-semibold text-white">Quick delivery actions</h2>
             <div className="mt-5 grid gap-3">
-              <button
-                onClick={() => submitStatus("out_for_delivery")}
-                disabled={!canMarkOutForDelivery || isUpdating}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isUpdating && canMarkOutForDelivery ? (
-                  <AuthButtonLoader className="border-slate-950/30 border-t-slate-950" />
-                ) : (
-                  <Truck size={18} />
-                )}
-                Mark Out for Delivery
-              </button>
-              <button
-                onClick={() => submitStatus("delivered")}
-                disabled={!canMarkDelivered || isUpdating}
-                className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {isUpdating && canMarkDelivered ? (
-                  <AuthButtonLoader className="border-slate-950/30 border-t-slate-950" />
-                ) : (
-                  <PackageCheck size={18} />
-                )}
-                Mark Delivered
-              </button>
+              {canMarkDelivered ? (
+                <button
+                  onClick={handleSendOtp}
+                  disabled={!canMarkDelivered || isSendingOtp || isVerifyingOtp}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500 px-4 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isSendingOtp && canMarkDelivered ? (
+                    <AuthButtonLoader className="border-slate-950/30 border-t-slate-950" />
+                  ) : (
+                    <PackageCheck size={18} />
+                  )}
+                  Send Delivery OTP
+                </button>
+              ) : null}
+
+              {canCancelOrder ? (
+                <button
+                  onClick={() =>
+                    handleStatusUpdate({
+                      status: "cancelled",
+                      reason: "Cancelled by delivery partner due to delivery issue",
+                      successMessage: "Order cancelled successfully",
+                      confirmText:
+                        "Kya aap sure ho ki is order ko cancel karna hai?",
+                    })
+                  }
+                  disabled={isUpdatingStatus || isSendingOtp || isVerifyingOtp}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-rose-500 px-4 py-3.5 text-sm font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isUpdatingStatus ? (
+                    <AuthButtonLoader />
+                  ) : (
+                    <Ban size={18} />
+                  )}
+                  Cancel Order
+                </button>
+              ) : null}
+
+              {canCompleteReturn ? (
+                <button
+                  onClick={() =>
+                    handleStatusUpdate({
+                      status: "return_completed",
+                      reason: "Return pickup completed by delivery partner",
+                      successMessage: "Return pickup completed",
+                      confirmText:
+                        "Kya return package pickup complete ho gaya hai?",
+                    })
+                  }
+                  disabled={isUpdatingStatus || isSendingOtp || isVerifyingOtp}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {isUpdatingStatus ? (
+                    <AuthButtonLoader className="border-slate-950/30 border-t-slate-950" />
+                  ) : (
+                    <RotateCcw size={18} />
+                  )}
+                  Mark Return Picked Up
+                </button>
+              ) : null}
             </div>
             <p className="mt-4 text-xs text-slate-500">
-              Delivery dashboard se sirf assigned orders ko `out for delivery` aur
-              `delivered` update kiya ja sakta hai.
+              {canMarkDelivered
+                ? "Customer ke email par OTP jayega. Package handover ke baad OTP verify karne par hi order `delivered` mark hoga."
+                : canCompleteReturn
+                ? "Vendor ne return approve kar diya hai. Pickup complete hone par return ko close karo."
+                : isReturnRequested
+                ? "Customer ne return request bheji hai. Vendor approval ke baad pickup action yahan show hoga."
+                : canCancelOrder
+                ? "Agar delivery issue ho to delivery partner yahan se order cancel kar sakta hai."
+                : "Is status par delivery-side koi direct action available nahi hai."}
             </p>
           </div>
 
@@ -283,6 +375,82 @@ const OrderDetailsPage = () => {
           </div>
         </section>
       </div>
+
+      {otpDialogOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div
+            className="absolute inset-0 bg-black/60"
+            onClick={() => {
+              if (!isSendingOtp && !isVerifyingOtp) {
+                setOtpDialogOpen(false);
+              }
+            }}
+          />
+          <div className="relative z-10 w-full max-w-md rounded-[2rem] border border-slate-800 bg-slate-950 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+            <h3 className="text-xl font-bold text-white">Verify Delivery OTP</h3>
+            <p className="mt-3 text-sm leading-6 text-slate-400">
+              OTP customer ke email
+              {otpMeta?.sentTo ? ` ${otpMeta.sentTo}` : ""} par bheja gaya hai.
+              Product handover hone ke baad OTP lekar yahan verify karo.
+            </p>
+
+            {otpMeta?.otpExpireAt ? (
+              <p className="mt-3 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs text-emerald-300">
+                OTP valid till{" "}
+                {new Date(otpMeta.otpExpireAt).toLocaleString("en-IN", {
+                  day: "2-digit",
+                  month: "short",
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </p>
+            ) : null}
+
+            <div className="mt-5">
+              <label className="text-sm font-medium text-slate-200">
+                Enter customer OTP
+              </label>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={6}
+                value={otpCode}
+                onChange={(event) =>
+                  setOtpCode(event.target.value.replace(/\D/g, "").slice(0, 6))
+                }
+                placeholder="6-digit OTP"
+                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-base text-white outline-none transition focus:border-emerald-400"
+              />
+            </div>
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleSendOtp}
+                disabled={isSendingOtp || isVerifyingOtp}
+                className="inline-flex min-h-[3rem] items-center justify-center rounded-2xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isSendingOtp ? <AuthButtonLoader size={16} /> : "Resend OTP"}
+              </button>
+              <button
+                type="button"
+                onClick={handleVerifyOtp}
+                disabled={!otpCode.trim() || isVerifyingOtp || isSendingOtp}
+                className="inline-flex min-h-[3rem] items-center justify-center rounded-2xl bg-emerald-500 px-5 text-sm font-semibold text-slate-950 transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isVerifyingOtp ? (
+                  <AuthButtonLoader
+                    size={16}
+                    className="border-slate-950/30 border-t-slate-950"
+                  />
+                ) : (
+                  "Verify & Mark Delivered"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

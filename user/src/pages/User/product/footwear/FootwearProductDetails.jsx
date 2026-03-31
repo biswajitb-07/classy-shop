@@ -5,6 +5,7 @@ import { IoShareSocialOutline } from "react-icons/io5";
 import { ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
 import RelatedProduct from "../../../../components/products/RelatedProduct.jsx";
+import ProductReviewsSection from "../../../../components/products/ProductReviewsSection.jsx";
 import { useAddToCartMutation } from "../../../../features/api/cartApi.js";
 import { toast } from "react-hot-toast";
 import AuthButtonLoader from "../../../../components/Loader/AuthButtonLoader.jsx";
@@ -15,7 +16,7 @@ import { shareProduct } from "../../../../utils/shareProduct.js";
 import useTrackAiProductClick from "../../../../hooks/useTrackAiProductClick.js";
 
 const FootwearProductDetails = () => {
-  const { data, isLoading } = useGetFootwearItemsQuery();
+  const { data, isLoading, refetch } = useGetFootwearItemsQuery();
   const { productId } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useSelector((s) => s.auth);
@@ -324,6 +325,14 @@ const FootwearProductDetails = () => {
           </div>
         </div>
       </div>
+      <ProductReviewsSection
+        productId={product._id}
+        productType="Footwear"
+        productName={product.name}
+        rating={product.rating}
+        reviewsCount={product.reviews}
+        onReviewChanged={refetch}
+      />
       <hr className="text-red-500 h-1 my-10 md:my-12" />
       <RelatedProduct products={relatedProducts} isLoading={isLoading} />
     </>

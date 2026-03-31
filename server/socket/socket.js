@@ -23,7 +23,18 @@ const parseCookies = (cookieHeader = "") =>
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
     cors: {
-      origin: [process.env.USER_URL, process.env.VENDOR_URL].filter(Boolean),
+      origin: [
+        process.env.USER_URL,
+        process.env.VENDOR_URL,
+        process.env.DELIVERY_URL,
+        ...(process.env.NODE_ENV === "production"
+          ? []
+          : [
+              "http://localhost:3000",
+              "http://localhost:3001",
+              "http://localhost:3002",
+            ]),
+      ].filter(Boolean),
       credentials: true,
     },
   });
@@ -52,6 +63,12 @@ export const initSocket = (httpServer) => {
           socket.data.role = "user";
           return next();
         }
+
+        if (decoded?.role === "delivery" && decoded?.deliveryPartnerId) {
+          socket.data.deliveryPartnerId = decoded.deliveryPartnerId;
+          socket.data.role = "delivery";
+          return next();
+        }
       }
 
       // Fallback for environments where normal auth cookies are still present
@@ -59,8 +76,9 @@ export const initSocket = (httpServer) => {
       const cookies = parseCookies(socket.handshake.headers.cookie || "");
       const vendorToken = cookies.vendorAccessToken || cookies.token1;
       const userToken = cookies.accessToken;
+      const deliveryToken = cookies.deliveryAccessToken;
 
-      if (!vendorToken && !userToken) {
+      if (!vendorToken && !userToken && !deliveryToken) {
         return next(new Error("Unauthorized"));
       }
 
@@ -73,10 +91,23 @@ export const initSocket = (httpServer) => {
         return next();
       }
 
-      const decoded = jwt.verify(userToken, process.env.SECRET_KEY);
-      socket.data.userId = decoded.userId;
-      socket.data.role = "user";
-      return next();
+      if (userToken) {
+        const decoded = jwt.verify(userToken, process.env.SECRET_KEY);
+        if (decoded?.userId) {
+          socket.data.userId = decoded.userId;
+          socket.data.role = "user";
+          return next();
+        }
+      }
+
+      if (deliveryToken) {
+        const deliveryDecoded = jwt.verify(deliveryToken, process.env.SECRET_KEY);
+        socket.data.deliveryPartnerId = deliveryDecoded.deliveryPartnerId;
+        socket.data.role = "delivery";
+        return next();
+      }
+
+      return next(new Error("Unauthorized"));
     } catch (error) {
       return next(new Error("Unauthorized"));
     }
@@ -85,10 +116,19 @@ export const initSocket = (httpServer) => {
   io.on("connection", (socket) => {
     if (
       (socket.data.role === "vendor" && socket.data.vendorId) ||
-      (socket.data.role === "user" && socket.data.userId)
+      (socket.data.role === "user" && socket.data.userId) ||
+      (socket.data.role === "delivery" && socket.data.deliveryPartnerId)
     ) {
       if (socket.data.role === "vendor" && socket.data.vendorId) {
         socket.join(`vendor:${socket.data.vendorId}`);
+      }
+
+      if (socket.data.role === "user" && socket.data.userId) {
+        socket.join(`user:${socket.data.userId}`);
+      }
+
+      if (socket.data.role === "delivery" && socket.data.deliveryPartnerId) {
+        socket.join(`delivery:${socket.data.deliveryPartnerId}`);
       }
 
       // The dedicated support realtime module owns presence, chat-room joins,
@@ -127,6 +167,32 @@ export const emitUserNotificationUpdate = (userId) => {
   if (!io || !userId) return;
   io.to(`user:${userId}`).emit("user:notifications:update", {
     userId: String(userId),
+    at: Date.now(),
+  });
+};
+
+export const emitDeliveryAssignment = ({ deliveryPartnerId, orderId, message }) => {
+  if (!io || !deliveryPartnerId) return;
+  io.to(`delivery:${deliveryPartnerId}`).emit("delivery:assignment", {
+    deliveryPartnerId: String(deliveryPartnerId),
+    orderId: orderId ? String(orderId) : null,
+    message: message || "A new order has been assigned to you.",
+    at: Date.now(),
+  });
+};
+
+export const emitDeliveryDashboardUpdate = (deliveryPartnerId) => {
+  if (!io || !deliveryPartnerId) return;
+  io.to(`delivery:${deliveryPartnerId}`).emit("delivery:dashboard:update", {
+    deliveryPartnerId: String(deliveryPartnerId),
+    at: Date.now(),
+  });
+};
+
+export const emitDeliveryNotificationUpdate = (deliveryPartnerId) => {
+  if (!io || !deliveryPartnerId) return;
+  io.to(`delivery:${deliveryPartnerId}`).emit("delivery:notifications:update", {
+    deliveryPartnerId: String(deliveryPartnerId),
     at: Date.now(),
   });
 };
