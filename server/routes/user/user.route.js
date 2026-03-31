@@ -36,8 +36,30 @@ import {
   upsertProductReview,
 } from "../../controllers/user/review.controller.js";
 import siteContentUserRouter from "./siteContent.route.js";
+import { createRateLimiter } from "../../utils/security.js";
 
 const userRouter = express.Router();
+const authRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  keyGenerator: (req) =>
+    `user-auth:${req.ip}:${String(req.body?.email || "").trim().toLowerCase()}`,
+  message: "Too many auth attempts. Please try again later.",
+});
+const otpSendRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) =>
+    `user-reset-send:${req.ip}:${String(req.body?.email || "").trim().toLowerCase()}`,
+  message: "Too many OTP requests. Please try again later.",
+});
+const otpVerifyRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) =>
+    `user-reset-verify:${req.ip}:${String(req.body?.email || "").trim().toLowerCase()}`,
+  message: "Too many OTP verification attempts. Please try again later.",
+});
 
 // Legacy Passport Google auth is still kept, while Firebase Google login uses
 // a separate token-based endpoint below.
@@ -52,12 +74,12 @@ userRouter.get(
 );
 
 userRouter.post("/set-password", isAuthenticatedUser, googlePassword);
-userRouter.post("/register", register);
-userRouter.post("/login", login);
-userRouter.post("/firebase-google-login", firebaseGoogleLogin);
-userRouter.get("/logout", logout);
-userRouter.post("/send-reset-otp", sendResetOtp);
-userRouter.post("/reset-password", resetPassword);
+userRouter.post("/register", authRateLimit, register);
+userRouter.post("/login", authRateLimit, login);
+userRouter.post("/firebase-google-login", authRateLimit, firebaseGoogleLogin);
+userRouter.post("/logout", logout);
+userRouter.post("/send-reset-otp", otpSendRateLimit, sendResetOtp);
+userRouter.post("/reset-password", otpVerifyRateLimit, resetPassword);
 userRouter.post("/change-password", isAuthenticatedUser, changePassword);
 userRouter.post("/newsletter/subscribe", subscribeNewsletter);
 userRouter.get("/socket-auth", isAuthenticatedUser, getUserSocketAuth);

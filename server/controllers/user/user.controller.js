@@ -27,6 +27,7 @@ import {
   REFERRAL_REFERRER_BONUS,
   REFERRAL_SIGNUP_BONUS,
 } from "../../utils/userBenefits.js";
+import { createOtpHash } from "../../utils/security.js";
 
 const normalizeAddresses = (addresses = []) =>
   (Array.isArray(addresses) ? addresses : [])
@@ -681,7 +682,7 @@ export const sendResetOtp = async (req, res) => {
 
     const otp = String(Math.floor(100000 + Math.random() * 900000));
 
-    user.resetOtp = otp;
+    user.resetOtp = createOtpHash(otp);
     user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
 
     await user.save();
@@ -728,7 +729,7 @@ export const resetPassword = async (req, res) => {
         .json({ success: false, message: "User not found" });
     }
 
-    if (!user.resetOtp || user.resetOtp !== otp) {
+    if (!user.resetOtp || user.resetOtp !== createOtpHash(otp)) {
       return res.status(400).json({ success: false, message: "Invalid OTP" });
     }
 

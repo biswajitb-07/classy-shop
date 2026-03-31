@@ -31,6 +31,11 @@ import jewelleryRouter from "./routes/vendor/jewellery/jewellery.route.js";
 import deliveryRouter from "./routes/delivery/delivery.route.js";
 import { initSocket } from "./socket/socket.js";
 import { verifyEmailTransport } from "./utils/emailService.js";
+import {
+  applyBasicSecurityHeaders,
+  getAllowedOrigins,
+  requireTrustedOrigin,
+} from "./utils/security.js";
 
 const app = express();
 const httpServer = createServer(app);
@@ -44,6 +49,7 @@ connectDB();
 app.disable("x-powered-by");
 app.set("trust proxy", 1);
 
+app.use(applyBasicSecurityHeaders);
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true, limit: "2mb" }));
 app.use(cookieParser());
@@ -65,18 +71,7 @@ app.use(passport.initialize());
 app.use(passport.session());
 
 
-const defaultDevOrigins = [
-  "http://localhost:3000",
-  "http://localhost:3001",
-  "http://localhost:3002",
-];
-
-const allowedOrigins = [
-  process.env.USER_URL,
-  process.env.VENDOR_URL,
-  process.env.DELIVERY_URL,
-  ...(isProduction ? [] : defaultDevOrigins),
-].filter(Boolean);
+const allowedOrigins = getAllowedOrigins({ isProduction });
 
 app.use(
   cors({
@@ -92,6 +87,8 @@ app.use(
     credentials: true,
   }),
 );
+
+app.use(requireTrustedOrigin(allowedOrigins));
 
 app.get("/api/v1/health", (_req, res) => {
   res.status(200).json({ ok: true, uptime: process.uptime() });

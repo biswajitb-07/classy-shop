@@ -49,6 +49,7 @@ import {
   sendWelcomeEmail,
 } from "../../utils/emailService.js";
 import mongoose from "mongoose";
+import { createOtpHash } from "../../utils/security.js";
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -730,7 +731,7 @@ export const sendResetOtp = async (req, res) => {
 
     const otp = String(Math.floor(100000 + Math.random() * 900000));
 
-    vendor.resetOtp = otp;
+    vendor.resetOtp = createOtpHash(otp);
     vendor.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
 
     await vendor.save();
@@ -776,7 +777,7 @@ export const resetPassword = async (req, res) => {
         .json({ success: false, message: "Vendor not found" });
     }
 
-    if (!vendor.resetOtp || vendor.resetOtp !== otp) {
+    if (!vendor.resetOtp || vendor.resetOtp !== createOtpHash(otp)) {
       return res.status(400).json({ success: false, message: "Invalid OTP" });
     }
 

@@ -48,14 +48,36 @@ import {
   toggleDeliveryPartnerBlock,
 } from "../../controllers/delivery/delivery.controller.js";
 import siteContentVendorRouter from "./siteContent.route.js";
+import { createRateLimiter } from "../../utils/security.js";
 
 const vendorRouter = express.Router();
+const authRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 8,
+  keyGenerator: (req) =>
+    `vendor-auth:${req.ip}:${String(req.body?.email || "").trim().toLowerCase()}`,
+  message: "Too many auth attempts. Please try again later.",
+});
+const otpSendRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 5,
+  keyGenerator: (req) =>
+    `vendor-reset-send:${req.ip}:${String(req.body?.email || "").trim().toLowerCase()}`,
+  message: "Too many OTP requests. Please try again later.",
+});
+const otpVerifyRateLimit = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  keyGenerator: (req) =>
+    `vendor-reset-verify:${req.ip}:${String(req.body?.email || "").trim().toLowerCase()}`,
+  message: "Too many OTP verification attempts. Please try again later.",
+});
 
 vendorRouter.post("/vendors", isAuthenticatedVendor, createVendor);
-vendorRouter.post("/login", login);
-vendorRouter.get("/logout", logout);
-vendorRouter.post("/send-reset-otp", sendResetOtp);
-vendorRouter.post("/reset-password", resetPassword);
+vendorRouter.post("/login", authRateLimit, login);
+vendorRouter.post("/logout", logout);
+vendorRouter.post("/send-reset-otp", otpSendRateLimit, sendResetOtp);
+vendorRouter.post("/reset-password", otpVerifyRateLimit, resetPassword);
 vendorRouter.post("/change-password", isAuthenticatedVendor, changePassword);
 vendorRouter.get("/socket-auth", isAuthenticatedVendor, getVendorSocketAuth);
 
