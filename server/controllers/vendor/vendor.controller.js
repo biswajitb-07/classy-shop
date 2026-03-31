@@ -22,6 +22,9 @@ import { Category } from "../../models/vendor/category.model.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
 import { SupportConversation } from "../../models/support/supportConversation.model.js";
 import { SupportMessage } from "../../models/support/supportMessage.model.js";
+import { ProductReview } from "../../models/user/productReview.model.js";
+import { AiUserMemory } from "../../models/ai/aiUserMemory.model.js";
+import { DeliveryNotification } from "../../models/delivery/deliveryNotification.model.js";
 import Fashion from "../../models/vendor/fashion/fashion.model.js";
 import Electronic from "../../models/vendor/electronic/electronic.model.js";
 import Bag from "../../models/vendor/bag/bag.model.js";
@@ -45,6 +48,7 @@ import {
   sendResetOtpEmail,
   sendWelcomeEmail,
 } from "../../utils/emailService.js";
+import mongoose from "mongoose";
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -99,14 +103,147 @@ const deleteSupportAttachments = async (messages = []) => {
   );
 };
 
+const reviewProductRegistry = {
+  fashion: { productType: "Fashion", model: Fashion },
+  electronics: { productType: "Electronics", model: Electronic },
+  electronic: { productType: "Electronics", model: Electronic },
+  bag: { productType: "Bag", model: Bag },
+  footwear: { productType: "Footwear", model: Footwear },
+  grocery: { productType: "Grocery", model: Grocery },
+  beauty: { productType: "Beauty", model: Beauty },
+  wellness: { productType: "Wellness", model: Wellness },
+  jewellery: { productType: "Jewellery", model: Jewellery },
+};
+
+const normalizeProductType = (value) =>
+  String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_-]+/g, "");
+
+const resolveReviewProductContext = (productType) =>
+  reviewProductRegistry[normalizeProductType(productType)] || null;
+
+const syncProductReviewStats = async ({ productId, productType }) => {
+  const context = resolveReviewProductContext(productType);
+  if (!context || !mongoose.isValidObjectId(productId)) return;
+
+  const product = await context.model
+    .findById(productId)
+    .select("rating baseRating")
+    .lean();
+  if (!product) return;
+
+  const aggregate = await ProductReview.aggregate([
+    {
+      $match: {
+        productId: new mongoose.Types.ObjectId(productId),
+        productType: context.productType,
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        averageRating: { $avg: "$rating" },
+        totalReviews: { $sum: 1 },
+      },
+    },
+  ]);
+
+  const summary = aggregate[0] || {
+    averageRating: 0,
+    totalReviews: 0,
+  };
+
+  const normalizedBaseRating =
+    product.baseRating !== null && product.baseRating !== undefined
+      ? Number(product.baseRating || 0)
+      : Number(product.rating || 0);
+  const baseWeight = normalizedBaseRating > 0 ? 1 : 0;
+  const blendedRating =
+    Number(summary.totalReviews || 0) > 0
+      ? Number(
+          (
+            ((Number(summary.averageRating || 0) * Number(summary.totalReviews || 0)) +
+              normalizedBaseRating * baseWeight) /
+            (Number(summary.totalReviews || 0) + baseWeight)
+          ).toFixed(1)
+        )
+      : normalizedBaseRating;
+
+  await context.model.findByIdAndUpdate(productId, {
+    baseRating:
+      product.baseRating !== null && product.baseRating !== undefined
+        ? product.baseRating
+        : normalizedBaseRating,
+    rating: blendedRating,
+    reviews: Number(summary.totalReviews || 0),
+  });
+};
+
+const cleanupReferralLinksForDeletedUser = async (userId) => {
+  if (!userId) return;
+
+  await User.updateMany(
+    { "referral.referredBy": userId },
+    { $set: { "referral.referredBy": null } }
+  );
+
+  const referrers = await User.find({ "referral.rewards.userId": userId }).select("referral");
+
+  for (const referrer of referrers) {
+    const rewards = Array.isArray(referrer.referral?.rewards)
+      ? referrer.referral.rewards
+      : [];
+    const retainedRewards = rewards.filter(
+      (reward) => String(reward?.userId || "") !== String(userId)
+    );
+    const removedRewards = rewards.filter(
+      (reward) => String(reward?.userId || "") === String(userId)
+    );
+
+    if (!removedRewards.length) continue;
+
+    const removedAmount = removedRewards.reduce(
+      (sum, reward) => sum + Number(reward?.amount || 0),
+      0
+    );
+
+    referrer.referral.rewards = retainedRewards;
+    referrer.referral.successfulReferrals = Math.max(
+      0,
+      Number(referrer.referral?.successfulReferrals || 0) - removedRewards.length
+    );
+    referrer.referral.totalEarned = Math.max(
+      0,
+      Number(referrer.referral?.totalEarned || 0) - removedAmount
+    );
+
+    await referrer.save();
+  }
+};
+
 const cleanupUserRelatedData = async (user) => {
   if (!user) return;
 
   const userId = user._id;
-  const userOrders = await Order.find({ userId }).select("_id");
+  const [userOrders, userReviews, supportConversations] = await Promise.all([
+    Order.find({ userId }).select("_id"),
+    ProductReview.find({ userId }).select("productId productType orderId").lean(),
+    SupportConversation.find({ user: userId }).select("_id"),
+  ]);
   const orderIds = userOrders.map((order) => order._id);
+  const affectedReviewTargets = [
+    ...new Map(
+      userReviews
+        .filter((review) => review?.productId && review?.productType)
+        .map((review) => [
+          `${review.productType}:${String(review.productId)}`,
+          { productId: review.productId, productType: review.productType },
+        ])
+    ).values(),
+  ];
 
-  const supportConversations = await SupportConversation.find({ user: userId }).select("_id");
   const conversationIds = supportConversations.map((conversation) => conversation._id);
   const supportMessages = conversationIds.length
     ? await SupportMessage.find({ conversation: { $in: conversationIds } }).select("attachments")
@@ -122,8 +259,17 @@ const cleanupUserRelatedData = async (user) => {
   await Promise.all([
     Cart.deleteOne({ userId }),
     Wishlist.deleteMany({ userId }),
+    AiUserMemory.deleteMany({ userId }),
     UserNotification.deleteMany(notificationFilter),
     VendorNotification.deleteMany(notificationFilter),
+    orderIds.length
+      ? DeliveryNotification.deleteMany({ orderId: { $in: orderIds } })
+      : Promise.resolve(),
+    orderIds.length
+      ? ProductReview.deleteMany({
+          $or: [{ userId }, { orderId: { $in: orderIds } }],
+        })
+      : ProductReview.deleteMany({ userId }),
     orderIds.length ? Order.deleteMany({ _id: { $in: orderIds } }) : Promise.resolve(),
     conversationIds.length
       ? SupportMessage.deleteMany({ conversation: { $in: conversationIds } })
@@ -131,8 +277,14 @@ const cleanupUserRelatedData = async (user) => {
     conversationIds.length
       ? SupportConversation.deleteMany({ _id: { $in: conversationIds } })
       : Promise.resolve(),
-    User.findByIdAndDelete(userId),
   ]);
+
+  await Promise.all([
+    cleanupReferralLinksForDeletedUser(userId),
+    ...affectedReviewTargets.map((reviewTarget) => syncProductReviewStats(reviewTarget)),
+  ]);
+
+  await User.findByIdAndDelete(userId);
 };
 
 const cleanupVendorRelatedData = async (vendor) => {

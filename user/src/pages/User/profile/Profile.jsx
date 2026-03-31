@@ -16,6 +16,12 @@ import {
   FiCheck,
   FiBell,
   FiTrash2,
+  FiGift,
+  FiCopy,
+  FiCreditCard,
+  FiShare2,
+  FiShield,
+  FiChevronDown,
 } from "react-icons/fi";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
@@ -98,7 +104,7 @@ const Profile = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [changeModal, setChangeModal] = useState(false);
   const [logoutModal, setLogoutModal] = useState(false);
-  const [deletingNotificationId, setDeletingNotificationId] = useState(null);
+  const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
   const [changeForm, setChangeForm] = useState({
     currentPassword: "",
     newPassword: "",
@@ -209,19 +215,29 @@ const Profile = () => {
       formData.append("phone", profile.phone || "");
       formData.append("dob", profile.dob || "");
       formData.append("bio", profile.bio || "");
+      const existingAddresses = Array.isArray(data?.user?.addresses)
+        ? data.user.addresses
+        : [];
+      const updatedDefaultAddress = {
+        ...(existingAddresses.find((address) => address.isDefault) || {}),
+        type: "home",
+        fullName: profile.name,
+        phone: profile.phone || "",
+        village: profile.address.village,
+        city: profile.address.city,
+        district: profile.address.district,
+        state: profile.address.state,
+        postalCode: profile.address.postalCode,
+        country: profile.address.country,
+        isDefault: true,
+      };
       formData.append(
         "addresses",
         JSON.stringify([
-          {
-            type: "home",
-            village: profile.address.village,
-            city: profile.address.city,
-            district: profile.address.district,
-            state: profile.address.state,
-            postalCode: profile.address.postalCode,
-            country: profile.address.country,
-            isDefault: true,
-          },
+          updatedDefaultAddress,
+          ...existingAddresses
+            .filter((address) => !address.isDefault)
+            .map((address) => ({ ...address, isDefault: false })),
         ])
       );
       if (selectedFile) formData.append("photo", selectedFile);
@@ -296,23 +312,83 @@ const Profile = () => {
   };
 
   const handleDeleteNotification = async (notificationId) => {
-    if (!notificationId || deletingNotificationId) return;
-    setDeletingNotificationId(notificationId);
+    if (
+      !notificationId ||
+      deletingNotificationIds.includes(notificationId) ||
+      clearNotificationsLoading
+    ) {
+      return;
+    }
+    setDeletingNotificationIds((current) => [...current, notificationId]);
     try {
       await deleteUserNotification(notificationId).unwrap();
     } finally {
-      setDeletingNotificationId(null);
+      setDeletingNotificationIds((current) =>
+        current.filter((id) => id !== notificationId)
+      );
     }
   };
 
   const handleClearNotifications = async () => {
-    if (!notifications.length || clearNotificationsLoading) return;
+    if (
+      !notifications.length ||
+      clearNotificationsLoading ||
+      deletingNotificationIds.length
+    ) {
+      return;
+    }
     await clearUserNotifications().unwrap();
+  };
+
+  const handleCopyReferralCode = async () => {
+    if (!referralCode) return;
+    try {
+      await navigator.clipboard.writeText(referralCode);
+      toast.success("Referral code copied");
+    } catch (error) {
+      toast.error("Failed to copy referral code");
+    }
+  };
+
+  const handleShareReferralLink = async () => {
+    if (!referralCode || typeof window === "undefined") return;
+
+    const inviteLink = `${window.location.origin}/login?ref=${encodeURIComponent(
+      referralCode
+    )}`;
+    const sharePayload = {
+      title: "Join ClassyShop",
+      text: "Mere referral code se signup karo aur dono ko Rs 50 wallet reward milega.",
+      url: inviteLink,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(sharePayload);
+        return;
+      }
+
+      await navigator.clipboard.writeText(inviteLink);
+      toast.success("Referral invite link copied");
+    } catch (error) {
+      if (error?.name !== "AbortError") {
+        toast.error("Referral link share nahi hua");
+      }
+    }
   };
 
   if (isUserLoading) return <ProfileSkeleton />;
 
   const notifications = notificationData?.notifications || [];
+  const walletBalance = Number(data?.user?.wallet?.balance || 0);
+  const walletTransactions = data?.user?.wallet?.transactions || [];
+  const referralCode = data?.user?.referral?.code || "";
+  const referralCount = Number(data?.user?.referral?.successfulReferrals || 0);
+  const referralEarned = Number(data?.user?.referral?.totalEarned || 0);
+  const referralInviteLink =
+    typeof window !== "undefined" && referralCode
+      ? `${window.location.origin}/login?ref=${encodeURIComponent(referralCode)}`
+      : "";
   const profileInitial =
     profile?.name?.trim()?.split(/\s+/)?.[0]?.charAt(0)?.toUpperCase() || "U";
   const accentGradient = isDark
@@ -747,6 +823,233 @@ const Profile = () => {
           </div>
         </div>
 
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <div
+            className={`rounded-3xl border p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] ${
+              isDark ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-[0.22em] ${labelClass}`}>
+                  Wallet
+                </p>
+                <h3 className={`mt-2 text-2xl font-bold ${sectionTitleClass}`}>
+                  Rs {walletBalance.toLocaleString()}
+                </h3>
+                <p className={`mt-2 text-sm ${subtitleClass}`}>
+                  Referral rewards, refunds, aur wallet checkout yahan reflect honge.
+                </p>
+              </div>
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${
+                  isDark ? "from-cyan-500 to-blue-600" : "from-red-500 to-pink-600"
+                } text-white shadow-lg`}
+              >
+                <FiCreditCard className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {(walletTransactions.length ? walletTransactions.slice(0, 2) : []).map(
+                (transaction) => (
+                  <div
+                    key={transaction._id || `${transaction.title}_${transaction.createdAt}`}
+                    className={`rounded-2xl border px-4 py-3 ${
+                      isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-100 bg-slate-50"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className={`text-sm font-semibold ${sectionTitleClass}`}>
+                          {transaction.title}
+                        </p>
+                        <p className={`mt-1 text-xs ${labelClass}`}>
+                          {new Date(transaction.createdAt).toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                      <span
+                        className={`text-sm font-bold ${
+                          transaction.type === "credit"
+                            ? "text-emerald-500"
+                            : "text-rose-500"
+                        }`}
+                      >
+                        {transaction.type === "credit" ? "+" : "-"}Rs{" "}
+                        {Number(transaction.amount || 0).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ),
+              )}
+              {!walletTransactions.length ? (
+                <div
+                  className={`rounded-2xl border border-dashed px-4 py-4 text-sm ${
+                    isDark ? "border-slate-700 text-slate-400" : "border-slate-200 text-slate-500"
+                  }`}
+                >
+                  Wallet history abhi empty hai. Referral rewards ya refunds yahan dikhenge.
+                </div>
+              ) : null}
+              {walletTransactions.length > 2 ? (
+                <p className={`text-xs ${labelClass}`}>
+                  Latest 2 entries dikh rahi hain. New rewards aur refunds yahin update honge.
+                </p>
+              ) : null}
+            </div>
+          </div>
+
+          <div
+            className={`rounded-3xl border p-6 shadow-[0_18px_45px_rgba(15,23,42,0.08)] ${
+              isDark ? "border-slate-800 bg-slate-900" : "border-slate-200 bg-white"
+            }`}
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className={`text-xs font-semibold uppercase tracking-[0.22em] ${labelClass}`}>
+                  Referral System
+                </p>
+                <h3 className={`mt-2 text-2xl font-bold ${sectionTitleClass}`}>
+                  Invite and earn
+                </h3>
+                <p className={`mt-2 text-sm ${subtitleClass}`}>
+                  Friends ko invite karo. Har successful referral par aapko aur naye user ko Rs 50 wallet reward milega.
+                </p>
+              </div>
+              <div
+                className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${
+                  isDark ? "from-cyan-500 to-blue-600" : "from-red-500 to-pink-600"
+                } text-white shadow-lg`}
+              >
+                <FiGift className="w-5 h-5" />
+              </div>
+            </div>
+
+            <div
+              className={`mt-5 rounded-3xl border px-5 py-4 ${
+                isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-100 bg-slate-50"
+              }`}
+            >
+              <p className={`text-xs uppercase tracking-[0.22em] ${labelClass}`}>
+                Your referral code
+              </p>
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+                <p className={`text-lg font-black tracking-[0.28em] sm:text-xl ${sectionTitleClass}`}>
+                  {referralCode || "SYNCING"}
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleCopyReferralCode}
+                    disabled={!referralCode}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
+                      referralCode
+                        ? `bg-gradient-to-r ${accentButtonGradient} text-white`
+                        : isDark
+                          ? "bg-slate-800 text-slate-500"
+                          : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    <FiCopy className="w-4 h-4" />
+                    Copy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareReferralLink}
+                    disabled={!referralCode}
+                    className={`inline-flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold ${
+                      referralCode
+                        ? isDark
+                          ? "bg-slate-800 text-slate-100 hover:bg-slate-700"
+                          : "bg-white text-slate-800 hover:bg-slate-100"
+                        : isDark
+                          ? "bg-slate-800 text-slate-500"
+                          : "bg-slate-100 text-slate-400"
+                    }`}
+                  >
+                    <FiShare2 className="w-4 h-4" />
+                    Share
+                  </button>
+                </div>
+              </div>
+              {referralInviteLink ? (
+                <div
+                  className={`mt-4 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 ${
+                    isDark ? "border-slate-800 bg-slate-900/80" : "border-white bg-white/80"
+                  }`}
+                >
+                  <div className="min-w-0">
+                    <p className={`text-[11px] font-semibold uppercase tracking-[0.22em] ${labelClass}`}>
+                      Shareable invite link
+                    </p>
+                    <p className={`mt-1 truncate text-sm ${sectionTitleClass}`}>
+                      {referralInviteLink}
+                    </p>
+                  </div>
+                </div>
+              ) : null}
+            </div>
+
+            <div className="mt-5 grid gap-4 sm:grid-cols-2">
+              <div
+                className={`rounded-2xl border px-4 py-4 ${
+                  isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-100 bg-slate-50"
+                }`}
+              >
+                <p className={`text-xs uppercase tracking-[0.22em] ${labelClass}`}>
+                  Successful referrals
+                </p>
+                <p className={`mt-2 text-2xl font-bold ${sectionTitleClass}`}>
+                  {referralCount}
+                </p>
+              </div>
+              <div
+                className={`rounded-2xl border px-4 py-4 ${
+                  isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-100 bg-slate-50"
+                }`}
+              >
+                <p className={`text-xs uppercase tracking-[0.22em] ${labelClass}`}>
+                  Total earned
+                </p>
+                <p className="mt-2 text-2xl font-bold text-emerald-500">
+                  Rs {referralEarned.toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            <details
+              className={`group mt-5 rounded-3xl border p-5 ${
+                isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-100 bg-slate-50"
+              }`}
+            >
+              <summary
+                className={`flex cursor-pointer list-none items-center justify-between gap-3 text-xs font-semibold uppercase tracking-[0.22em] ${labelClass}`}
+              >
+                <span className="flex items-center gap-2">
+                  <FiShield className="h-4 w-4" />
+                  <span>Rules & Conditions</span>
+                </span>
+                <span
+                  className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-colors ${
+                    isDark
+                      ? "border-slate-700 bg-slate-900/80 text-slate-300"
+                      : "border-slate-200 bg-white text-slate-500"
+                  }`}
+                >
+                  <FiChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                </span>
+              </summary>
+              <div className={`mt-4 space-y-3 text-sm leading-6 ${subtitleClass}`}>
+                <p>1. Har successful referral par referrer ko Rs 50 wallet credit milega.</p>
+                <p>2. Naya user valid referral code ke saath signup karega to usko bhi Rs 50 wallet reward milega.</p>
+                <p>3. Same person ke multiple accounts, fake signups, ya suspicious activity par referral reward hold ya remove ho sakta hai.</p>
+                <p>4. Referral reward sirf wallet me add hota hai aur checkout ya future orders me use kiya ja sakta hai.</p>
+                <p>5. Existing rewards history alag ho sakti hai, lekin naye referrals par Rs 50 per referral rule apply hoga.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+
         <div className={notificationsCardClass}>
           <div className={`flex items-center justify-between gap-4 border-b px-6 py-5 ${notificationsBorderClass}`}>
             <div className="flex items-center gap-3">
@@ -762,13 +1065,17 @@ const Profile = () => {
             <button
               type="button"
               onClick={handleClearNotifications}
-              disabled={!notifications.length || clearNotificationsLoading}
+              disabled={
+                !notifications.length ||
+                clearNotificationsLoading ||
+                deletingNotificationIds.length > 0
+              }
               className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
                 notifications.length
-                  ? `bg-gradient-to-r ${accentButtonGradient} text-white`
+                  ? `bg-gradient-to-r ${accentButtonGradient} text-white cursor-pointer disabled:cursor-not-allowed`
                   : isDark
-                    ? "bg-slate-800 text-slate-500"
-                    : "bg-slate-100 text-slate-400"
+                    ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                    : "bg-slate-100 text-slate-400 cursor-not-allowed"
               }`}
             >
               {clearNotificationsLoading ? (
@@ -822,11 +1129,12 @@ const Profile = () => {
                     type="button"
                     onClick={() => handleDeleteNotification(notification._id)}
                     disabled={
-                      !!deletingNotificationId || clearNotificationsLoading
+                      deletingNotificationIds.includes(notification._id) ||
+                      clearNotificationsLoading
                     }
-                    className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 transition disabled:cursor-not-allowed disabled:opacity-70"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 p-2 text-slate-300 hover:bg-slate-700 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
                   >
-                    {deletingNotificationId === notification._id ? (
+                    {deletingNotificationIds.includes(notification._id) ? (
                       <AuthButtonLoader />
                     ) : (
                       <FiTrash2 className="w-4 h-4" />

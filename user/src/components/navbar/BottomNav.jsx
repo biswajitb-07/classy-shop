@@ -1,9 +1,9 @@
+import { useEffect, useState } from "react";
 import {
   FaHome,
   FaSearch,
   FaRegHeart,
   FaClipboardList,
-  FaUser,
 } from "react-icons/fa";
 import { FiSettings } from "react-icons/fi";
 import { useSelector } from "react-redux";
@@ -12,6 +12,11 @@ import { useNavigate } from "react-router-dom";
 const BottomNav = ({ openSearchPanel }) => {
   const navigate = useNavigate();
   const { user } = useSelector((store) => store.auth);
+  const [hasProfileAvatarError, setHasProfileAvatarError] = useState(false);
+
+  useEffect(() => {
+    setHasProfileAvatarError(false);
+  }, [user?.photoUrl]);
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-40 flex justify-around items-center h-16 bg-white shadow-2xl lg:hidden">
@@ -63,17 +68,20 @@ const BottomNav = ({ openSearchPanel }) => {
         onClick={() => navigate("/profile")}
         className="flex flex-col items-center text-gray-600 cursor-pointer hover:scale-105 active:scale-75 transition-all duration-300 ease-in-out hover:text-red-500"
       >
-        {user?.photoUrl ? (
+        {user?.photoUrl && !hasProfileAvatarError ? (
           <>
             <img
               src={user.photoUrl}
               alt=""
-              className="w-8 h-8 text-gray-600 hover:scale-105 transition-colors duration-200 ease-in-out rounded-full"
+              className="w-8 h-8 text-gray-600 hover:scale-105 transition-colors duration-200 ease-in-out rounded-full object-cover"
+              onError={() => setHasProfileAvatarError(true)}
             />
           </>
         ) : (
           <>
-            <FaUser size={22} />
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-red-600 text-sm font-semibold text-white">
+              {(user?.name?.charAt(0) || "U").toUpperCase()}
+            </div>
             <span className="text-xs mt-1">Account</span>
           </>
         )}

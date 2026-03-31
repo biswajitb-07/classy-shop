@@ -243,6 +243,7 @@ const OrderDetailsPage = () => {
     order?.orderStatus
   );
   const canCompleteReturn = order?.orderStatus === "return_approved";
+  const otpPurpose = canCompleteReturn ? "return" : "delivery";
   const isReturnRequested = order?.orderStatus === "return_requested";
   const canShareLiveLocation = ["out_for_delivery", "return_approved"].includes(
     order?.orderStatus
@@ -378,7 +379,10 @@ const OrderDetailsPage = () => {
       setOtpMeta(response?.deliveryConfirmation || null);
       setOtpCode("");
       setOtpDialogOpen(true);
-      toast.success(response?.message || "Delivery OTP sent");
+      toast.success(
+        response?.message ||
+          (canCompleteReturn ? "Return OTP sent" : "Delivery OTP sent")
+      );
     } catch (error) {
       toast.error(error?.data?.message || "Failed to send delivery OTP");
     }
@@ -396,7 +400,11 @@ const OrderDetailsPage = () => {
         otp: otpCode.trim(),
       }).unwrap();
       stopLiveTracking({ silent: true });
-      toast.success("OTP verified and order marked delivered");
+      toast.success(
+        canCompleteReturn
+          ? "OTP verified and return pickup completed"
+          : "OTP verified and order marked delivered"
+      );
       setOtpDialogOpen(false);
       setOtpCode("");
       setOtpMeta(null);
@@ -921,24 +929,16 @@ const OrderDetailsPage = () => {
 
               {canCompleteReturn ? (
                 <button
-                  onClick={() =>
-                    handleStatusUpdate({
-                      status: "return_completed",
-                      reason: "Return pickup completed by delivery partner",
-                      successMessage: "Return pickup completed",
-                      confirmText:
-                        "Kya return package pickup complete ho gaya hai?",
-                    })
-                  }
-                  disabled={isUpdatingStatus || isSendingOtp || isVerifyingOtp}
+                  onClick={handleSendOtp}
+                  disabled={!canCompleteReturn || isSendingOtp || isVerifyingOtp}
                   className="flex items-center justify-center gap-2 rounded-2xl bg-amber-500 px-4 py-3.5 text-sm font-semibold text-slate-950 transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                 >
-                  {isUpdatingStatus ? (
+                  {isSendingOtp && canCompleteReturn ? (
                     <AuthButtonLoader className="border-slate-950/30 border-t-slate-950" />
                   ) : (
                     <RotateCcw size={18} />
                   )}
-                  Mark Return Picked Up
+                  Send Return Pickup OTP
                 </button>
               ) : null}
             </div>
@@ -946,7 +946,7 @@ const OrderDetailsPage = () => {
               {canMarkDelivered
                 ? "Customer ke email par OTP jayega. Package handover ke baad OTP verify karne par hi order delivered mark hoga."
                 : canCompleteReturn
-                ? "Vendor ne return approve kar diya hai. Pickup complete hone par return ko close karo."
+                ? "Vendor ne return approve kar diya hai. Return package receive karne ke baad OTP verify karne par hi pickup complete hoga."
                 : isReturnRequested
                 ? "Customer ne return request bheji hai. Vendor approval ke baad pickup action yahan show hoga."
                 : canCancelOrder
@@ -998,11 +998,17 @@ const OrderDetailsPage = () => {
             }}
           />
           <div className="relative z-10 w-full max-w-md rounded-[2rem] border border-slate-800 bg-slate-950 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-            <h3 className="text-xl font-bold text-white">Verify Delivery OTP</h3>
+            <h3 className="text-xl font-bold text-white">
+              {otpPurpose === "return"
+                ? "Verify Return Pickup OTP"
+                : "Verify Delivery OTP"}
+            </h3>
             <p className="mt-3 text-sm leading-6 text-slate-400">
               OTP customer ke email
               {otpMeta?.sentTo ? ` ${otpMeta.sentTo}` : ""} par bheja gaya hai.
-              Product handover hone ke baad OTP lekar yahan verify karo.
+              {otpPurpose === "return"
+                ? " Return package receive karne ke baad OTP lekar yahan verify karo."
+                : " Product handover hone ke baad OTP lekar yahan verify karo."}
             </p>
 
             {otpMeta?.otpExpireAt ? (
@@ -1019,7 +1025,9 @@ const OrderDetailsPage = () => {
 
             <div className="mt-5">
               <label className="text-sm font-medium text-slate-200">
-                Enter customer OTP
+                {otpPurpose === "return"
+                  ? "Enter return pickup OTP"
+                  : "Enter customer OTP"}
               </label>
               <input
                 type="text"
@@ -1055,7 +1063,9 @@ const OrderDetailsPage = () => {
                     className="border-slate-950/30 border-t-slate-950"
                   />
                 ) : (
-                  "Verify & Mark Delivered"
+                  otpPurpose === "return"
+                    ? "Verify & Complete Return"
+                    : "Verify & Mark Delivered"
                 )}
               </button>
             </div>

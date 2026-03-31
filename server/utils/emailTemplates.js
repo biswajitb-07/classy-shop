@@ -367,22 +367,34 @@ export const getDeliveryCompletionOtpEmailTemplate = ({
   name,
   orderId,
   otp,
+  purpose = "delivery",
 }) => {
   const theme = brandThemes.deliveryOtp;
+  const isReturnOtp = purpose === "return";
 
   return buildEmailLayout({
     theme,
-    preview: `Your delivery OTP for order ${orderId} is ${otp}.`,
-    title: theme.heading,
-    subtitle: `Share this OTP with the delivery partner only after you receive order ${orderId}.`,
+    preview: `Your ${
+      isReturnOtp ? "return pickup" : "delivery"
+    } OTP for order ${orderId} is ${otp}.`,
+    title: isReturnOtp
+      ? "Verify your return pickup with OTP"
+      : theme.heading,
+    subtitle: isReturnOtp
+      ? `Share this OTP with the delivery partner only after handing over the return package for order ${orderId}.`
+      : `Share this OTP with the delivery partner only after you receive order ${orderId}.`,
     body: `
       <p style="margin:0 0 16px 0;">Hi <strong>${name || "there"}</strong>,</p>
       <p style="margin:0 0 20px 0;">
-        Your order has reached the final handoff stage. Once you receive the package, please share the OTP below with the delivery partner so they can complete the delivery.
+        ${
+          isReturnOtp
+            ? "Your return pickup has reached the final handoff stage. Once the delivery partner collects the return package, please share the OTP below so they can complete the pickup."
+            : "Your order has reached the final handoff stage. Once you receive the package, please share the OTP below with the delivery partner so they can complete the delivery."
+        }
       </p>
       <div style="margin:0 0 20px 0;border-radius:24px;background:#ffffff;border:1px solid ${theme.accentSoft};padding:20px;text-align:center;">
         <p style="margin:0 0 10px 0;font-size:12px;font-weight:700;letter-spacing:0.18em;text-transform:uppercase;color:${theme.accent};">
-          Delivery OTP
+          ${isReturnOtp ? "Return Pickup OTP" : "Delivery OTP"}
         </p>
         <p style="margin:0;font-size:34px;line-height:1;font-weight:800;letter-spacing:0.24em;color:#0f172a;">
           ${otp}
@@ -393,12 +405,17 @@ export const getDeliveryCompletionOtpEmailTemplate = ({
           <strong>Order ID:</strong> ${orderId}
         </p>
         <p style="margin:0;">
-          This OTP is valid for <strong>10 minutes</strong>. Do not share it before your order is in hand.
+          This OTP is valid for <strong>10 minutes</strong>. ${
+            isReturnOtp
+              ? "Do not share it before the return package is actually handed over."
+              : "Do not share it before your order is in hand."
+          }
         </p>
       </div>
     `,
-    footer:
-      "For your safety, only share this OTP after receiving the order. Our team will never ask for it before delivery.",
+    footer: isReturnOtp
+      ? "For your safety, only share this OTP after the return package has been handed to the delivery partner. Our team will never ask for it before pickup."
+      : "For your safety, only share this OTP after receiving the order. Our team will never ask for it before delivery.",
   });
 };
 

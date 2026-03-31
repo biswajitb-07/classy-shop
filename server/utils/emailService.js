@@ -143,14 +143,18 @@ export const sendDeliveryCompletionOtpEmail = async ({
   name,
   orderId,
   otp,
+  purpose = "delivery",
 }) =>
   sendEmail({
     to,
-    subject: `Delivery OTP • ${orderId}`,
+    subject: `${
+      purpose === "return" ? "Return Pickup OTP" : "Delivery OTP"
+    } • ${orderId}`,
     html: getDeliveryCompletionOtpEmailTemplate({
       name,
       orderId,
       otp,
+      purpose,
     }),
   });
 

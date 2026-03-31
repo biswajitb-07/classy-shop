@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   FaBoxOpen,
   FaCreditCard,
+  FaFileInvoice,
   FaHistory,
   FaMapMarkerAlt,
   FaMoneyBillWave,
@@ -734,6 +735,8 @@ const OrderDetailsPage = () => {
   }
 
   const totalItems = order.items.reduce((total, item) => total + item.quantity, 0);
+  const walletAppliedAmount = Number(order.walletApplied?.amountUsed || 0);
+  const couponDiscountAmount = Number(order.discountAmount || 0);
   const timelineEntries = buildTimelineEntries(order);
   const isReturnFlow = order.orderStatus?.startsWith("return");
   const isCancelled = order.orderStatus === "cancelled";
@@ -842,6 +845,111 @@ const OrderDetailsPage = () => {
   };
 
   const progressPercentage = progressForStatus(order.orderStatus);
+
+  const handleDownloadInvoice = () => {
+    const invoiceWindow = window.open("", "_blank", "width=960,height=800");
+    if (!invoiceWindow) {
+      toast.error("Invoice window open nahi hua. Browser popup allow karo.");
+      return;
+    }
+
+    const itemsMarkup = order.items
+      .map(
+        (item) => `
+          <tr>
+            <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${item.productName}</td>
+            <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${item.variant || "Default"}</td>
+            <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">${item.quantity}</td>
+            <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">Rs ${Number(item.price || 0).toLocaleString()}</td>
+            <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">Rs ${Number(item.subtotal || 0).toLocaleString()}</td>
+          </tr>
+        `,
+      )
+      .join("");
+
+    invoiceWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Invoice ${order.orderId}</title>
+          <meta charset="utf-8" />
+        </head>
+        <body style="font-family: Arial, sans-serif; padding: 32px; color: #0f172a;">
+          <div style="max-width: 900px; margin: 0 auto;">
+            <div style="display:flex;justify-content:space-between;gap:24px;align-items:flex-start;">
+              <div>
+                <p style="letter-spacing:0.3em;font-size:12px;color:#64748b;margin:0;">CLASSYSHOP</p>
+                <h1 style="margin:12px 0 0;font-size:32px;">Tax Invoice</h1>
+                <p style="margin:8px 0 0;color:#475569;">Order #${order.orderId}</p>
+              </div>
+              <div style="text-align:right;">
+                <p style="margin:0;color:#475569;">Date</p>
+                <p style="margin:8px 0 0;font-weight:700;">${new Date(order.createdAt).toLocaleString("en-IN")}</p>
+                <p style="margin:16px 0 0;color:#475569;">Payment</p>
+                <p style="margin:8px 0 0;font-weight:700;">${getStatusLabel(order.paymentStatus)}</p>
+              </div>
+            </div>
+
+            <div style="margin-top:28px;padding:20px;border:1px solid #e2e8f0;border-radius:20px;">
+              <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.2em;color:#64748b;">BILL TO</p>
+              <p style="margin:0;font-weight:700;">${order.shippingAddress.fullName}</p>
+              <p style="margin:8px 0 0;color:#475569;">
+                ${[
+                  order.shippingAddress.addressLine1,
+                  order.shippingAddress.village,
+                  order.shippingAddress.city,
+                  order.shippingAddress.district,
+                  order.shippingAddress.state,
+                  order.shippingAddress.postalCode,
+                  order.shippingAddress.country,
+                ]
+                  .filter(Boolean)
+                  .join(", ")}
+              </p>
+              <p style="margin:8px 0 0;color:#475569;">Phone: ${order.shippingAddress.phone}</p>
+            </div>
+
+            <table style="width:100%;margin-top:28px;border-collapse:collapse;">
+              <thead>
+                <tr style="background:#f8fafc;">
+                  <th style="padding:12px;text-align:left;">Item</th>
+                  <th style="padding:12px;text-align:left;">Variant</th>
+                  <th style="padding:12px;text-align:center;">Qty</th>
+                  <th style="padding:12px;text-align:right;">Price</th>
+                  <th style="padding:12px;text-align:right;">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>${itemsMarkup}</tbody>
+            </table>
+
+            <div style="margin-top:28px;display:flex;justify-content:flex-end;">
+              <div style="width:320px;">
+                <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
+                  <span>Subtotal</span>
+                  <strong>Rs ${Number(order.subtotalAmount || order.totalAmount).toLocaleString()}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
+                  <span>Coupon Discount</span>
+                  <strong>- Rs ${couponDiscountAmount.toLocaleString()}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
+                  <span>Wallet Applied</span>
+                  <strong>- Rs ${walletAppliedAmount.toLocaleString()}</strong>
+                </div>
+                <div style="display:flex;justify-content:space-between;padding:14px 0;font-size:20px;">
+                  <span>Total</span>
+                  <strong>Rs ${Number(order.totalAmount || 0).toLocaleString()}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `);
+    invoiceWindow.document.close();
+    invoiceWindow.focus();
+    invoiceWindow.print();
+  };
 
   const renderLiveTrackingCard = () => (
     <div className={`${surface} rounded-2xl shadow-md p-6`}>
@@ -1390,9 +1498,17 @@ const OrderDetailsPage = () => {
 
           <div className="space-y-6">
             <div className={`${surface} rounded-2xl shadow-md p-6`}>
-              <h2 className={`text-xl font-bold ${headingText} mb-4`}>
-                Order Summary
-              </h2>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+                <h2 className={`text-xl font-bold ${headingText}`}>Order Summary</h2>
+                <button
+                  type="button"
+                  onClick={handleDownloadInvoice}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-red-300 hover:text-red-500 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
+                >
+                  <FaFileInvoice className="text-red-500" />
+                  Download Invoice
+                </button>
+              </div>
               <div className={`space-y-3 ${bodyText} text-sm`}>
                 <div className="flex justify-between">
                   <span>Order ID</span>
@@ -1413,6 +1529,18 @@ const OrderDetailsPage = () => {
                 <div className="flex justify-between">
                   <span>Shipping</span>
                   <span className="text-green-500 font-medium">Free</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Coupon Discount</span>
+                  <span className="font-medium text-emerald-500">
+                    - ₹{couponDiscountAmount.toLocaleString()}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Wallet Applied</span>
+                  <span className="font-medium text-emerald-500">
+                    - ₹{walletAppliedAmount.toLocaleString()}
+                  </span>
                 </div>
                 <hr className={`${summaryRule} my-2`} />
                 <div
@@ -1515,7 +1643,11 @@ const OrderDetailsPage = () => {
               <div className={`text-sm space-y-2 ${bodyText}`}>
                 <div className="flex justify-between items-center gap-4">
                   <span>Method</span>
-                  {order.paymentMethod === "razorpay" ? (
+                  {order.paymentMethod === "wallet" ? (
+                    <span className="inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-sm font-semibold text-emerald-500">
+                      Wallet
+                    </span>
+                  ) : order.paymentMethod === "razorpay" ? (
                     <img
                       src="/razorpay-icon.png"
                       alt="razorpay"
@@ -1548,6 +1680,14 @@ const OrderDetailsPage = () => {
                     <span>Razorpay Payment ID</span>
                     <span className="text-right break-all">
                       {order.razorpayPaymentId}
+                    </span>
+                  </div>
+                ) : null}
+                {walletAppliedAmount > 0 ? (
+                  <div className="flex justify-between gap-3">
+                    <span>Wallet used</span>
+                    <span className="text-right break-all">
+                      ₹{walletAppliedAmount.toLocaleString()}
                     </span>
                   </div>
                 ) : null}

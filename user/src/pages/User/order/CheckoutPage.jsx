@@ -6,7 +6,9 @@ import {
   FaMoneyBillWave,
   FaShoppingBag,
   FaTag,
+  FaWallet,
 } from "react-icons/fa";
+import { FiCheck, FiCrosshair, FiMapPin, FiPlus } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { useGetCartQuery } from "../../../features/api/cartApi.js";
@@ -15,13 +17,94 @@ import {
   useCreateOrderMutation,
   useValidateCouponMutation,
 } from "../../../features/api/orderApi.js";
+import {
+  useLoadUserQuery,
+  useUpdateUserAddressesMutation,
+} from "../../../features/api/authApi.js";
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
+import AddressPinPicker from "../../../components/checkout/AddressPinPicker.jsx";
+
+const emptyShippingAddress = {
+  type: "home",
+  label: "",
+  fullName: "",
+  addressLine1: "",
+  landmark: "",
+  village: "",
+  city: "",
+  district: "",
+  state: "",
+  postalCode: "",
+  country: "India",
+  phone: "",
+  location: {
+    latitude: null,
+    longitude: null,
+    label: "",
+    source: "",
+    updatedAt: null,
+  },
+};
+
+const normalizeAddress = (address = {}, fallbackUser = {}) => ({
+  type: String(address.type || "home").toLowerCase(),
+  label: String(address.label || "").trim(),
+  fullName: String(address.fullName || fallbackUser?.name || "").trim(),
+  addressLine1: String(address.addressLine1 || "").trim(),
+  landmark: String(address.landmark || "").trim(),
+  village: String(address.village || "").trim(),
+  city: String(address.city || "").trim(),
+  district: String(address.district || "").trim(),
+  state: String(address.state || "").trim(),
+  postalCode: String(address.postalCode || "").trim(),
+  country: String(address.country || "India").trim(),
+  phone: String(address.phone || fallbackUser?.phone || "").trim(),
+  location: {
+    latitude:
+      address?.location?.latitude !== null &&
+      address?.location?.latitude !== undefined
+        ? Number(address.location.latitude)
+        : null,
+    longitude:
+      address?.location?.longitude !== null &&
+      address?.location?.longitude !== undefined
+        ? Number(address.location.longitude)
+        : null,
+    label: String(address?.location?.label || "").trim(),
+    source: String(address?.location?.source || "").trim(),
+    updatedAt: address?.location?.updatedAt || null,
+  },
+});
+
+const buildAddressBookPayload = ({ currentAddress, savedAddresses, selectedIndex }) => {
+  const normalizedCurrent = normalizeAddress(currentAddress);
+  const nextAddresses = Array.isArray(savedAddresses) ? [...savedAddresses] : [];
+
+  if (selectedIndex !== null && selectedIndex >= 0 && nextAddresses[selectedIndex]) {
+    nextAddresses[selectedIndex] = {
+      ...nextAddresses[selectedIndex],
+      ...normalizedCurrent,
+      isDefault: true,
+    };
+  } else {
+    nextAddresses.unshift({
+      ...normalizedCurrent,
+      isDefault: true,
+    });
+  }
+
+  return nextAddresses.map((address, index) => ({
+    ...normalizeAddress(address),
+    isDefault: index === 0,
+  }));
+};
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
   const { user } = useSelector((state) => state.auth);
+  const { refetch: refetchUser } = useLoadUserQuery();
 
   const {
     data: cartData,
@@ -33,26 +116,31 @@ const CheckoutPage = () => {
   const [confirmPayment] = useConfirmPaymentMutation();
   const [validateCoupon, { isLoading: couponLoading }] =
     useValidateCouponMutation();
+  const [updateUserAddresses, { isLoading: savingAddresses }] =
+    useUpdateUserAddressesMutation();
 
-  const cart = cartData?.cart || [];
-  const [shippingAddress, setShippingAddress] = useState({
-    fullName: user?.name?.toString() || "",
-    addressLine1: "",
-    village: (user?.addresses?.[0]?.village?.toString() || "").toString() || "",
-    city: (user?.addresses?.[0]?.city?.toString() || "").toString() || "",
-    district:
-      (user?.addresses?.[0]?.district?.toString() || "").toString() || "",
-    state: (user?.addresses?.[0]?.state?.toString() || "").toString() || "",
-    postalCode:
-      (user?.addresses?.[0]?.postalCode?.toString() || "").toString() || "",
-    country:
-      (user?.addresses?.[0]?.country?.toString() || "India").toString() || "",
-    phone: (user?.phone?.toString() || "").toString() || "",
-  });
+  const savedAddresses = user?.addresses || [];
+  const defaultSavedAddress =
+    savedAddresses.find((address) => address.isDefault) || savedAddresses[0];
+
+  const [selectedAddressIndex, setSelectedAddressIndex] = useState(
+    defaultSavedAddress
+      ? savedAddresses.findIndex((address) => address === defaultSavedAddress)
+      : null,
+  );
+  const [shippingAddress, setShippingAddress] = useState(() =>
+    normalizeAddress(defaultSavedAddress || emptyShippingAddress, user),
+  );
   const [paymentMethod, setPaymentMethod] = useState("cod");
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState(null);
+  const [useWallet, setUseWallet] = useState(false);
+  const [pricingPreview, setPricingPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [locationLoading, setLocationLoading] = useState(false);
+
+  const cart = cartData?.cart || [];
+  const walletBalance = Number(user?.wallet?.balance || 0);
 
   const subtotal = useMemo(
     () =>
@@ -79,21 +167,134 @@ const CheckoutPage = () => {
     [cart],
   );
 
-  const discountAmount = Number(appliedCoupon?.discountAmount || 0);
-  const totalAmount = Math.max(0, subtotal - discountAmount);
+  const discountAmount = Number(
+    pricingPreview?.discountAmount ?? appliedCoupon?.discountAmount ?? 0,
+  );
+  const walletUsed = Number(pricingPreview?.walletAmountUsed || 0);
+  const totalAmount = Number(
+    pricingPreview?.totalAmount ?? Math.max(0, subtotal - discountAmount - walletUsed),
+  );
+  const effectivePaymentMethod =
+    totalAmount === 0 && walletUsed > 0 ? "wallet" : paymentMethod;
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
 
   useEffect(() => {
-    if (!appliedCoupon) return;
-    setAppliedCoupon(null);
-  }, [subtotal, totalItems]);
+    const nextDefault =
+      savedAddresses.find((address) => address.isDefault) || savedAddresses[0];
+
+    if (!nextDefault) {
+      setSelectedAddressIndex(null);
+      setShippingAddress(normalizeAddress(emptyShippingAddress, user));
+      return;
+    }
+
+    const defaultIndex = savedAddresses.findIndex((address) => address === nextDefault);
+    setSelectedAddressIndex(defaultIndex);
+    setShippingAddress(normalizeAddress(nextDefault, user));
+  }, [user?.addresses, user?.name, user?.phone]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
     setShippingAddress((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handlePinChange = (pin) => {
+    setShippingAddress((prev) => ({
+      ...prev,
+      location: {
+        latitude: pin.latitude,
+        longitude: pin.longitude,
+        label: `${prev.village || prev.city || "Selected"} pin`,
+        source: "map_click",
+        updatedAt: new Date().toISOString(),
+      },
+    }));
+  };
+
+  const refreshPricing = async ({
+    nextCouponCode = appliedCoupon?.code || "",
+    nextUseWallet = useWallet,
+  } = {}) => {
+    if (!cart.length) return;
+
+    try {
+      const response = await validateCoupon({
+        code: nextCouponCode,
+        useWallet: nextUseWallet,
+      }).unwrap();
+      setPricingPreview({
+        subtotalAmount: response.subtotalAmount,
+        discountAmount: response.discountAmount,
+        walletAmountUsed: response.walletAmountUsed,
+        totalAmount: response.totalAmount,
+      });
+      if (response.coupon) {
+        setAppliedCoupon(response.coupon);
+      } else if (!nextCouponCode) {
+        setAppliedCoupon(null);
+      }
+    } catch (error) {
+      setPricingPreview(null);
+      if (nextCouponCode) {
+        setAppliedCoupon(null);
+      }
+      toast.error(error?.data?.message || "Failed to update pricing");
+    }
+  };
+
+  const handleSelectSavedAddress = (index) => {
+    setSelectedAddressIndex(index);
+    setShippingAddress(normalizeAddress(savedAddresses[index], user));
+  };
+
+  const handleCreateNewAddress = () => {
+    setSelectedAddressIndex(null);
+    setShippingAddress(
+      normalizeAddress(
+        {
+          ...emptyShippingAddress,
+          fullName: user?.name || "",
+          phone: user?.phone || "",
+        },
+        user,
+      ),
+    );
+  };
+
+  const handleUseCurrentLocationPin = () => {
+    if (!navigator.geolocation) {
+      toast.error("Geolocation browser me supported nahi hai");
+      return;
+    }
+
+    setLocationLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setShippingAddress((prev) => ({
+          ...prev,
+          location: {
+            latitude: Number(position.coords.latitude.toFixed(6)),
+            longitude: Number(position.coords.longitude.toFixed(6)),
+            label: "Current map pin",
+            source: "browser_geolocation",
+            updatedAt: new Date().toISOString(),
+          },
+        }));
+        setLocationLoading(false);
+        toast.success("Current location pin added");
+      },
+      (error) => {
+        setLocationLoading(false);
+        toast.error(error?.message || "Current location detect nahi hua");
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 12000,
+      },
+    );
   };
 
   const loadRazorpayScript = () =>
@@ -150,19 +351,70 @@ const CheckoutPage = () => {
     }
 
     try {
-      const result = await validateCoupon({ code: normalizedCode }).unwrap();
+      const result = await validateCoupon({
+        code: normalizedCode,
+        useWallet,
+      }).unwrap();
       setAppliedCoupon(result?.coupon || null);
       setCouponCode(result?.coupon?.code || normalizedCode);
+      setPricingPreview({
+        subtotalAmount: result.subtotalAmount,
+        discountAmount: result.discountAmount,
+        walletAmountUsed: result.walletAmountUsed,
+        totalAmount: result.totalAmount,
+      });
       toast.success(result?.message || "Coupon applied");
     } catch (error) {
       setAppliedCoupon(null);
+      setPricingPreview(null);
       toast.error(error?.data?.message || "Failed to apply coupon");
     }
   };
 
-  const handleRemoveCoupon = () => {
+  const handleRemoveCoupon = async () => {
     setCouponCode("");
     setAppliedCoupon(null);
+    if (useWallet) {
+      await refreshPricing({ nextCouponCode: "", nextUseWallet: true });
+    } else {
+      setPricingPreview(null);
+    }
+  };
+
+  const handleToggleWallet = async () => {
+    const nextUseWallet = !useWallet;
+    setUseWallet(nextUseWallet);
+
+    if (!nextUseWallet && !appliedCoupon) {
+      setPricingPreview(null);
+      return;
+    }
+
+    await refreshPricing({
+      nextCouponCode: appliedCoupon?.code || "",
+      nextUseWallet,
+    });
+  };
+
+  const handleSaveAddress = async () => {
+    if (!validateAddress()) return;
+
+    try {
+      const nextAddresses = buildAddressBookPayload({
+        currentAddress: shippingAddress,
+        savedAddresses,
+        selectedIndex: selectedAddressIndex,
+      });
+      await updateUserAddresses(nextAddresses).unwrap();
+      toast.success(
+        selectedAddressIndex !== null
+          ? "Saved address updated"
+          : "New address saved successfully",
+      );
+      setSelectedAddressIndex(0);
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to save address");
+    }
   };
 
   const handlePlaceOrder = async () => {
@@ -174,12 +426,18 @@ const CheckoutPage = () => {
     try {
       const response = await createOrder({
         shippingAddress,
-        paymentMethod,
+        paymentMethod: effectivePaymentMethod,
         couponCode: appliedCoupon?.code || "",
+        useWallet,
       }).unwrap();
 
-      if (paymentMethod === "cod") {
-        toast.success("Order placed successfully!");
+      if (effectivePaymentMethod === "cod" || effectivePaymentMethod === "wallet") {
+        await refetchUser();
+        toast.success(
+          effectivePaymentMethod === "wallet"
+            ? "Order placed using wallet successfully!"
+            : "Order placed successfully!",
+        );
         redirectToOrder(response?.order?._id);
       } else {
         const scriptLoaded = await loadRazorpayScript();
@@ -202,6 +460,7 @@ const CheckoutPage = () => {
                 razorpay_order_id: razorpayResponse.razorpay_order_id,
                 razorpay_signature: razorpayResponse.razorpay_signature,
               }).unwrap();
+              await refetchUser();
               toast.success("Payment successful! Order confirmed.");
               redirectToOrder(confirmedOrder?.order?._id);
             } catch (error) {
@@ -213,7 +472,7 @@ const CheckoutPage = () => {
           },
           prefill: {
             name: shippingAddress.fullName,
-            email: user.email,
+            email: user?.email,
             contact: shippingAddress.phone,
           },
           modal: {
@@ -277,31 +536,144 @@ const CheckoutPage = () => {
       {(createLoading || loading) && (
         <PageLoader message="Placing your order..." />
       )}
+
       <div className="container">
         <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
             <h1 className="text-lg md:text-2xl font-bold text-gray-800 flex items-center gap-3">
               <FaShoppingBag className="text-red-500" />
               Checkout
             </h1>
-            <div className="bg-white px-4 py-2 rounded-full shadow-md">
-              <span className="text-sm text-gray-600 font-medium">
-                {totalItems} {totalItems === 1 ? "item" : "items"}
-              </span>
+            <div className="flex items-center gap-3">
+              <div className="bg-white px-4 py-2 rounded-full shadow-md">
+                <span className="text-sm text-gray-600 font-medium">
+                  {totalItems} {totalItems === 1 ? "item" : "items"}
+                </span>
+              </div>
+              <div className="bg-emerald-50 px-4 py-2 rounded-full shadow-sm">
+                <span className="text-sm font-semibold text-emerald-700">
+                  Wallet Rs {walletBalance.toLocaleString()}
+                </span>
+              </div>
             </div>
           </div>
           <div className="w-24 h-1 bg-gradient-to-r from-red-500 to-pink-500 rounded-full" />
         </div>
 
         <div className="grid lg:grid-cols-6 gap-8">
-          <div className="lg:col-span-4">
+          <div className="lg:col-span-4 space-y-8">
             <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                <FaMapMarkerAlt className="text-red-500" />
-                Shipping Address
-              </h3>
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <FaMapMarkerAlt className="text-red-500" />
+                  Saved Addresses
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleCreateNewAddress}
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 transition hover:border-red-300 hover:text-red-500"
+                >
+                  <FiPlus />
+                  Add New Address
+                </button>
+              </div>
+
+              {savedAddresses.length ? (
+                <div className="grid gap-4 md:grid-cols-2">
+                  {savedAddresses.map((address, index) => {
+                    const isSelected = index === selectedAddressIndex;
+
+                    return (
+                      <button
+                        key={`${address._id || "address"}_${index}`}
+                        type="button"
+                        onClick={() => handleSelectSavedAddress(index)}
+                        className={`rounded-2xl border p-4 text-left transition ${
+                          isSelected
+                            ? "border-red-500 bg-red-50 shadow-md"
+                            : "border-gray-200 bg-white hover:border-red-200"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-gray-500">
+                              {address.label || address.type || "Address"}
+                            </p>
+                            <h4 className="mt-2 text-base font-bold text-gray-900">
+                              {address.fullName || user?.name || "Saved address"}
+                            </h4>
+                          </div>
+                          {isSelected ? (
+                            <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-red-500 text-white">
+                              <FiCheck />
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-3 text-sm text-gray-600">
+                          {[address.addressLine1, address.village, address.city, address.state]
+                            .filter(Boolean)
+                            .join(", ")}
+                        </p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          {address.phone || user?.phone || "Phone missing"}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-sm text-gray-500">
+                  Abhi koi saved address nahi hai. Neeche form fill karke first address save kar sakte ho.
+                </div>
+              )}
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <FiMapPin className="text-red-500" />
+                  Delivery Address + Map Pin
+                </h3>
+                <button
+                  type="button"
+                  onClick={handleSaveAddress}
+                  disabled={savingAddresses}
+                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                >
+                  {savingAddresses ? "Saving..." : "Save Address"}
+                </button>
+              </div>
+
               <form className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="col-span-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Address Type
+                  </label>
+                  <select
+                    name="type"
+                    value={shippingAddress.type}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
+                  >
+                    <option value="home">Home</option>
+                    <option value="work">Work</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Label
+                  </label>
+                  <input
+                    type="text"
+                    name="label"
+                    value={shippingAddress.label}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
+                    placeholder="Home / Office / Hostel"
+                  />
+                </div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Full Name <span className="text-red-500">*</span>
                   </label>
@@ -314,9 +686,9 @@ const CheckoutPage = () => {
                     placeholder="John Doe"
                   />
                 </div>
-                <div className="col-span-2">
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Address Line 1 (optional)
+                    Address Line 1
                   </label>
                   <input
                     type="text"
@@ -324,141 +696,153 @@ const CheckoutPage = () => {
                     value={shippingAddress.addressLine1}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="123 Main Street"
+                    placeholder="House no, street, area"
                   />
                 </div>
-                <div>
+                <div className="md:col-span-2">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Village <span className="text-red-500">*</span>
+                    Landmark
                   </label>
                   <input
                     type="text"
-                    name="village"
-                    value={shippingAddress.village}
+                    name="landmark"
+                    value={shippingAddress.landmark}
                     onChange={handleInputChange}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="Village Name"
+                    placeholder="Near temple, school, mall"
                   />
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    City <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="city"
-                    value={shippingAddress.city}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="Mumbai"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    District <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="district"
-                    value={shippingAddress.district}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="District Name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    State <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="state"
-                    value={shippingAddress.state}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="Maharashtra"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Postal Code <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="postalCode"
-                    value={shippingAddress.postalCode}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="400001"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Country <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="country"
-                    value={shippingAddress.country}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="India"
-                  />
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Phone Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="tel"
-                    name="phone"
-                    value={shippingAddress.phone}
-                    onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
-                    placeholder="+91 9876543210"
-                  />
-                </div>
+                {["village", "city", "district", "state", "postalCode", "country", "phone"].map((field) => (
+                  <div key={field} className={field === "phone" ? "md:col-span-2" : ""}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {field === "postalCode"
+                        ? "Postal Code"
+                        : field.charAt(0).toUpperCase() + field.slice(1)}{" "}
+                      <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type={field === "phone" ? "tel" : "text"}
+                      name={field}
+                      value={shippingAddress[field]}
+                      onChange={handleInputChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:border-red-500"
+                      placeholder={field === "phone" ? "+91 9876543210" : ""}
+                    />
+                  </div>
+                ))}
               </form>
 
-              <div className="mt-8">
-                <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                  <FaCreditCard className="text-red-500" />
-                  Payment Method
-                </h3>
-                <div className="space-y-4">
-                  <label className="flex items-center gap-3 p-4 border border-gray-300 rounded-xl cursor-pointer hover:border-red-500 transition-colors">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="cod"
-                      checked={paymentMethod === "cod"}
-                      onChange={() => setPaymentMethod("cod")}
-                      className="form-radio text-red-500"
-                    />
-                    <div className="flex items-center gap-2">
-                      <FaMoneyBillWave className="text-green-500" />
-                      <span className="font-medium text-gray-800">
-                        Cash on Delivery
-                      </span>
-                    </div>
-                  </label>
-                  <label className="flex items-center gap-3 p-4 border border-gray-300 rounded-xl cursor-pointer hover:border-red-500 transition-colors">
-                    <input
-                      type="radio"
-                      name="paymentMethod"
-                      value="razorpay"
-                      checked={paymentMethod === "razorpay"}
-                      onChange={() => setPaymentMethod("razorpay")}
-                      className="form-radio text-red-500"
-                    />
-                    <div className="flex items-center gap-2">
-                      <FaCreditCard className="text-blue-500" />
-                      <span className="font-medium text-gray-800">
-                        Pay with Razorpay
-                      </span>
-                    </div>
-                  </label>
+              <div className="mt-6 space-y-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-base font-bold text-gray-800">
+                      Map pin for exact drop location
+                    </h4>
+                    <p className="text-sm text-gray-500">
+                      Address type ke saath pin choose karne se delivery tracking aur accurate hogi.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleUseCurrentLocationPin}
+                    disabled={locationLoading}
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-600 disabled:opacity-60"
+                  >
+                    <FiCrosshair />
+                    {locationLoading ? "Detecting..." : "Use Current Location"}
+                  </button>
                 </div>
+
+                <AddressPinPicker
+                  value={shippingAddress.location}
+                  onChange={handlePinChange}
+                />
+              </div>
+
+              {shippingAddress.location?.latitude !== null &&
+              shippingAddress.location?.longitude !== null ? (
+                <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
+                  Selected pin: {shippingAddress.location.latitude.toFixed(6)},{" "}
+                  {shippingAddress.location.longitude.toFixed(6)}
+                </div>
+              ) : null}
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-lg p-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+                <FaCreditCard className="text-red-500" />
+                Payment Method
+              </h3>
+              {walletUsed > 0 ? (
+                <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  Wallet se Rs {walletUsed.toLocaleString()} apply ho raha hai.
+                  {totalAmount === 0
+                    ? " Is order ko aapka wallet poora cover kar raha hai."
+                    : ` Remaining payable Rs ${totalAmount.toLocaleString()}.`}
+                </div>
+              ) : null}
+              <div className="space-y-4">
+                <label className="flex items-center justify-between gap-3 p-4 border border-gray-300 rounded-xl transition-colors">
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="checkbox"
+                      checked={useWallet}
+                      onChange={handleToggleWallet}
+                      disabled={!walletBalance || couponLoading}
+                      className="h-4 w-4 rounded border-gray-300 text-red-500 focus:ring-red-500"
+                    />
+                    <div className="flex items-center gap-2">
+                      <FaWallet className="text-emerald-500" />
+                      <span className="font-medium text-gray-800">
+                        Use wallet balance
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-emerald-700">
+                    Rs {walletBalance.toLocaleString()}
+                  </span>
+                </label>
+
+                {totalAmount > 0 ? (
+                  <>
+                    <label className="flex items-center gap-3 p-4 border border-gray-300 rounded-xl cursor-pointer hover:border-red-500 transition-colors">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="cod"
+                        checked={paymentMethod === "cod"}
+                        onChange={() => setPaymentMethod("cod")}
+                        className="form-radio text-red-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <FaMoneyBillWave className="text-green-500" />
+                        <span className="font-medium text-gray-800">
+                          Cash on Delivery
+                        </span>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-3 p-4 border border-gray-300 rounded-xl cursor-pointer hover:border-red-500 transition-colors">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value="razorpay"
+                        checked={paymentMethod === "razorpay"}
+                        onChange={() => setPaymentMethod("razorpay")}
+                        className="form-radio text-red-500"
+                      />
+                      <div className="flex items-center gap-2">
+                        <FaCreditCard className="text-blue-500" />
+                        <span className="font-medium text-gray-800">
+                          Pay with Razorpay
+                        </span>
+                      </div>
+                    </label>
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-4 text-sm font-semibold text-emerald-700">
+                    Wallet payment selected automatically because remaining total is Rs 0.
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -510,7 +894,7 @@ const CheckoutPage = () => {
                   </div>
                 ) : (
                   <p className="mt-3 text-sm text-gray-500">
-                    Create coupons from the vendor dashboard and apply them here.
+                    Vendor dashboard se create kiye gaye coupon yahan apply kar sakte ho.
                   </p>
                 )}
               </div>
@@ -536,6 +920,12 @@ const CheckoutPage = () => {
                       - Rs {discountAmount.toLocaleString()}
                     </span>
                   </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Wallet Applied</span>
+                    <span className="font-medium text-emerald-600">
+                      - Rs {walletUsed.toLocaleString()}
+                    </span>
+                  </div>
                   <hr className="border-gray-200" />
                   <div className="flex justify-between text-xl font-bold text-gray-800">
                     <span>Total</span>
@@ -550,18 +940,35 @@ const CheckoutPage = () => {
                   disabled={loading || createLoading}
                   className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer disabled:opacity-50"
                 >
-                  {loading || createLoading ? <AuthButtonLoader /> : "Place Order"}
+                  {loading || createLoading ? (
+                    <AuthButtonLoader />
+                  ) : effectivePaymentMethod === "wallet" ? (
+                    "Place Order with Wallet"
+                  ) : (
+                    "Place Order"
+                  )}
                 </button>
 
                 <div className="mt-6 pt-6 border-t border-gray-100">
-                  <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full" />
-                      Secure Payment
+                  <div className="space-y-2 text-sm text-gray-500">
+                    <div className="flex items-center justify-between">
+                      <span>Payment mode</span>
+                      <span className="font-semibold text-gray-800">
+                        {effectivePaymentMethod === "wallet"
+                          ? "Wallet"
+                          : paymentMethod === "cod"
+                            ? "Cash on Delivery"
+                            : "Razorpay"}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full" />
-                      Free Returns
+                    <div className="flex items-center justify-between">
+                      <span>Map pin status</span>
+                      <span className="font-semibold text-gray-800">
+                        {shippingAddress.location?.latitude !== null &&
+                        shippingAddress.location?.longitude !== null
+                          ? "Pinned"
+                          : "Address only"}
+                      </span>
                     </div>
                   </div>
                 </div>

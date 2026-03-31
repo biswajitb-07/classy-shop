@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { IoPerson } from "react-icons/io5";
 import { GoMail } from "react-icons/go";
 import { MdLockOutline } from "react-icons/md";
-import { FiEye, FiEyeOff } from "react-icons/fi";
+import { FiEye, FiEyeOff, FiGift } from "react-icons/fi";
 import { toast } from "react-hot-toast";
 
 import {
@@ -21,6 +21,7 @@ const Login = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [errors, setErrors] = useState({});
+  const [sharedReferralCode, setSharedReferralCode] = useState("");
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -28,6 +29,7 @@ const Login = () => {
     name: "",
     email: "",
     password: "",
+    referralCode: "",
   });
 
   const [loginInput, setLoginInput] = useState({
@@ -58,6 +60,12 @@ const Login = () => {
 
   useEffect(() => {
     const params = new URLSearchParams(location.search);
+    const sharedReferralCode = String(
+      params.get("ref") || params.get("referral") || ""
+    )
+      .trim()
+      .toUpperCase();
+    setSharedReferralCode(sharedReferralCode);
     if (params.get("blocked") === "1" || params.get("google") === "blocked") {
       toast.error(
         params.get("message") ||
@@ -74,6 +82,14 @@ const Login = () => {
       setLoginInput((prev) => ({ ...prev, password: savedPassword }));
       setRememberMe(true);
     }
+
+    if (sharedReferralCode) {
+      setSignupInput((prev) => ({
+        ...prev,
+        referralCode: sharedReferralCode,
+      }));
+      setState("Sign Up");
+    }
   }, [location.search]);
 
   const handleSubmit = async (e) => {
@@ -81,7 +97,10 @@ const Login = () => {
     setErrors({});
     try {
       if (state === "Sign Up") {
-        const registerResponse = await registerUser(signupInput).unwrap();
+        const registerResponse = await registerUser({
+          ...signupInput,
+          referralLinkCode: sharedReferralCode,
+        }).unwrap();
         toast.success(registerResponse.message || "Signup successful");
         setState("Login");
       } else {
@@ -114,7 +133,11 @@ const Login = () => {
       setGoogleLoading(true);
       const result = await signInWithPopup(firebaseAuth, googleProvider);
       const idToken = await result.user.getIdToken();
-      const response = await firebaseGoogleLogin(idToken).unwrap();
+      const response = await firebaseGoogleLogin({
+        idToken,
+        referralCode: signupInput.referralCode,
+        referralLinkCode: sharedReferralCode,
+      }).unwrap();
       toast.success(response.message || "Google login successful");
       navigate("/");
     } catch (error) {
@@ -257,6 +280,37 @@ const Login = () => {
                 )}
               </div>
             </div>
+            {state === "Sign Up" && (
+              <div className="group relative">
+                <div className="absolute inset-y-0 left-0 bottom-5 flex items-center pl-3 pointer-events-none text-pink-600 group-focus-within:text-pink-700">
+                  <FiGift className="text-lg" />
+                </div>
+                <input
+                  type="text"
+                  name="referralCode"
+                  placeholder={
+                    sharedReferralCode
+                      ? "Referral Code"
+                      : "Open invite link to use referral"
+                  }
+                  value={signupInput.referralCode}
+                  onChange={handleSignupChange}
+                  disabled={!sharedReferralCode}
+                  className={`w-full pl-10 pr-4 py-3 rounded-lg border ${
+                    errors.referralCode ? "border-red-500" : "border-gray-300"
+                  } focus:border-pink-500 focus:ring-2 focus:ring-pink-200 outline-none transition-all duration-200 uppercase disabled:cursor-not-allowed disabled:bg-gray-100 disabled:text-gray-400`}
+                />
+                <div className="min-h-[20px]">
+                  {errors.referralCode ? (
+                    <p className="text-red-500 text-sm">{errors.referralCode}</p>
+                  ) : (
+                    <p className="text-xs text-gray-500">
+                      Referral reward sirf shared invite link ke saath same code use karne par milega.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
             {state === "Login" && (
               <div className="flex justify-between items-center pb-3">
                 <div className="flex items-center">

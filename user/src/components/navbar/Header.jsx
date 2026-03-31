@@ -31,7 +31,8 @@ import {
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const [isOpenCartPanel, setIsOpenCartPanel] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [deletingNotificationId, setDeletingNotificationId] = useState(null);
+  const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
+  const [hasProfileAvatarError, setHasProfileAvatarError] = useState(false);
   const notificationRef = useRef(null);
 
   const navigate = useNavigate();
@@ -83,6 +84,10 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   }, []);
 
   useEffect(() => {
+    setHasProfileAvatarError(false);
+  }, [user?.photoUrl]);
+
+  useEffect(() => {
     if (!user?._id) return undefined;
 
     const socket = connectUserSocket();
@@ -104,17 +109,32 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   }, [refetchNotifications, user?._id]);
 
   const handleDeleteNotification = async (notificationId) => {
-    if (!notificationId || deletingNotificationId) return;
-    setDeletingNotificationId(notificationId);
+    if (
+      !notificationId ||
+      deletingNotificationIds.includes(notificationId) ||
+      isClearingNotifications
+    ) {
+      return;
+    }
+
+    setDeletingNotificationIds((current) => [...current, notificationId]);
     try {
       await deleteUserNotification(notificationId).unwrap();
     } finally {
-      setDeletingNotificationId(null);
+      setDeletingNotificationIds((current) =>
+        current.filter((id) => id !== notificationId)
+      );
     }
   };
 
   const handleClearNotifications = async () => {
-    if (!notifications.length || isClearingNotifications) return;
+    if (
+      !notifications.length ||
+      isClearingNotifications ||
+      deletingNotificationIds.length
+    ) {
+      return;
+    }
     await clearUserNotifications().unwrap();
   };
 
@@ -175,13 +195,15 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                             <button
                               type="button"
                               disabled={
-                                !notifications.length || isClearingNotifications
+                                !notifications.length ||
+                                isClearingNotifications ||
+                                deletingNotificationIds.length > 0
                               }
                               onClick={handleClearNotifications}
                               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                                 notifications.length
-                                  ? "bg-red-500 text-white hover:bg-red-600"
-                                  : "bg-slate-100 text-slate-400"
+                                  ? "bg-red-500 text-white hover:bg-red-600 cursor-pointer disabled:cursor-not-allowed"
+                                  : "bg-slate-100 text-slate-400 cursor-not-allowed"
                               }`}
                             >
                               {isClearingNotifications ? (
@@ -244,13 +266,16 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                                         )
                                       }
                                       disabled={
-                                        !!deletingNotificationId ||
+                                        deletingNotificationIds.includes(
+                                          notification._id
+                                        ) ||
                                         isClearingNotifications
                                       }
-                                      className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 transition disabled:cursor-not-allowed disabled:opacity-70"
+                                      className="mt-1 flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 transition hover:bg-slate-200 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
                                     >
-                                      {deletingNotificationId ===
-                                      notification._id ? (
+                                      {deletingNotificationIds.includes(
+                                        notification._id
+                                      ) ? (
                                         <AuthButtonLoader />
                                       ) : (
                                         <FiTrash2 className="text-sm" />
@@ -342,15 +367,16 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                     onClick={() => navigate("/profile")}
                     className="cursor-pointer hover:scale-110 active:scale-90 transition-all duration-200 ease-in-out group"
                   >
-                    {user?.photoUrl ? (
+                    {user?.photoUrl && !hasProfileAvatarError ? (
                       <img
                         src={user.photoUrl}
                         alt={user.name || "User Profile"}
                         className="w-8 h-8 text-gray-600 hover:scale-105 transition-colors duration-200 ease-in-out rounded-full object-cover"
+                        onError={() => setHasProfileAvatarError(true)}
                       />
                     ) : (
                       <div className="w-8 h-8 flex items-center justify-center bg-red-600 text-white hover:text-white transition-colors duration-200 ease-in-out rounded-full text-lg font-semibold">
-                        {user?.name ? user.name.charAt(0).toUpperCase() : "U"}
+                        {(user?.name?.charAt(0) || "U").toUpperCase()}
                       </div>
                     )}
                     <div className="absolute -bottom-8 left-1/2 transform -translate-x-1/2 bg-[#ff5252] text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap">

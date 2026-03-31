@@ -14,8 +14,6 @@ import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
 import ConfirmDialog from "../../../component/ConfirmDialog";
 import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
-import { connectVendorSocket } from "../../../lib/socket";
-import LiveRouteMap from "../../../component/tracking/LiveRouteMap";
 
 const STATUS_LABELS = {
   pending: "Pending",
@@ -128,122 +126,6 @@ const formatTimelineTime = (value) => {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-};
-
-const getMapUrl = (latitude, longitude) =>
-  `https://www.google.com/maps?q=${latitude},${longitude}`;
-
-const INDIA_BOUNDS = {
-  minLatitude: 6,
-  maxLatitude: 38.5,
-  minLongitude: 68,
-  maxLongitude: 98,
-};
-
-const buildDirectionsUrl = (origin, destination) => {
-  if (!hasCoordinate(destination?.latitude, destination?.longitude)) return "";
-
-  if (hasCoordinate(origin?.latitude, origin?.longitude)) {
-    return `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&travelmode=driving`;
-  }
-
-  return `https://www.google.com/maps/search/?api=1&query=${destination.latitude},${destination.longitude}`;
-};
-
-const hasCoordinate = (latitude, longitude) =>
-  latitude !== null &&
-  latitude !== undefined &&
-  longitude !== null &&
-  longitude !== undefined;
-
-const isWithinIndiaBounds = (location) =>
-  hasCoordinate(location?.latitude, location?.longitude) &&
-  Number(location.latitude) >= INDIA_BOUNDS.minLatitude &&
-  Number(location.latitude) <= INDIA_BOUNDS.maxLatitude &&
-  Number(location.longitude) >= INDIA_BOUNDS.minLongitude &&
-  Number(location.longitude) <= INDIA_BOUNDS.maxLongitude;
-
-const toRadians = (value) => (Number(value) * Math.PI) / 180;
-
-const calculateDistanceKm = (origin, destination) => {
-  if (
-    !hasCoordinate(origin?.latitude, origin?.longitude) ||
-    !hasCoordinate(destination?.latitude, destination?.longitude)
-  ) {
-    return null;
-  }
-
-  const earthRadiusKm = 6371;
-  const latDiff = toRadians(destination.latitude - origin.latitude);
-  const lonDiff = toRadians(destination.longitude - origin.longitude);
-  const a =
-    Math.sin(latDiff / 2) * Math.sin(latDiff / 2) +
-    Math.cos(toRadians(origin.latitude)) *
-      Math.cos(toRadians(destination.latitude)) *
-      Math.sin(lonDiff / 2) *
-      Math.sin(lonDiff / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  return Number((earthRadiusKm * c).toFixed(1));
-};
-
-const formatDistance = (distanceKm) => {
-  if (distanceKm === null || distanceKm === undefined) return "Mapping route";
-  if (distanceKm < 1) return `${Math.max(100, Math.round(distanceKm * 1000))} m away`;
-  return `${distanceKm.toFixed(1)} km away`;
-};
-
-const estimateEtaMinutes = (distanceKm, speedMetersPerSecond) => {
-  if (!Number.isFinite(Number(distanceKm))) return null;
-
-  const liveSpeedKmh =
-    speedMetersPerSecond !== null &&
-    speedMetersPerSecond !== undefined &&
-    Number(speedMetersPerSecond) > 0
-      ? Number(speedMetersPerSecond) * 3.6
-      : 24;
-
-  return Math.max(3, Math.round((Number(distanceKm) / liveSpeedKmh) * 60));
-};
-
-const formatEta = (etaMinutes) => {
-  if (!etaMinutes) return "ETA updating";
-  if (etaMinutes < 60) return `${etaMinutes} mins`;
-
-  const hours = Math.floor(etaMinutes / 60);
-  const minutes = etaMinutes % 60;
-  return minutes ? `${hours}h ${minutes}m` : `${hours}h`;
-};
-
-const getTrackingMilestones = (status, isLiveTrackingActive) => {
-  const normalizedStatus = String(status || "");
-
-  return [
-    {
-      label: "Packed",
-      done: [
-        "shipped",
-        "out_for_delivery",
-        "delivered",
-        "return_requested",
-        "return_approved",
-        "return_completed",
-        "return_rejected",
-      ].includes(normalizedStatus),
-    },
-    {
-      label: "On the way",
-      done: ["delivered"].includes(normalizedStatus),
-      active:
-        ["out_for_delivery", "return_approved"].includes(normalizedStatus) ||
-        isLiveTrackingActive,
-    },
-    {
-      label: "Delivered",
-      done: normalizedStatus === "delivered",
-      active: normalizedStatus === "delivered",
-    },
-  ];
 };
 
 const getInitialStatusGuess = (order) =>
@@ -411,9 +293,7 @@ const OrderDetailsPage = () => {
   const [selectedStatus, setSelectedStatus] = useState("");
   const [selectedDeliveryPartner, setSelectedDeliveryPartner] = useState("");
   const [assignDialogOpen, setAssignDialogOpen] = useState(false);
-  const [liveLocation, setLiveLocation] = useState(null);
-  const [liveDestination, setLiveDestination] = useState(null);
-  const [isLiveTrackingActive, setIsLiveTrackingActive] = useState(false);
+  const [assignDialogMode, setAssignDialogMode] = useState("out_for_delivery");
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -428,69 +308,6 @@ const OrderDetailsPage = () => {
   useEffect(() => {
     setSelectedDeliveryPartner(order?.assignedDeliveryPartner?._id || "");
   }, [order?.assignedDeliveryPartner?._id]);
-
-  useEffect(() => {
-    if (!order) return;
-
-    const currentLocation = order.deliveryTracking?.currentLocation;
-    setLiveLocation(
-      currentLocation?.latitude !== null && currentLocation?.longitude !== null
-        ? currentLocation
-        : null
-    );
-    setLiveDestination(
-      order.customerLiveLocation?.latitude !== null &&
-        order.customerLiveLocation?.latitude !== undefined &&
-        order.customerLiveLocation?.longitude !== null &&
-        order.customerLiveLocation?.longitude !== undefined
-        ? order.customerLiveLocation
-        : order.shippingAddress?.location || null
-    );
-    setIsLiveTrackingActive(Boolean(order.deliveryTracking?.isLive));
-  }, [
-    order?._id,
-    order?.customerLiveLocation?.latitude,
-    order?.customerLiveLocation?.longitude,
-    order?.customerLiveLocation?.updatedAt,
-    order?.shippingAddress?.location?.latitude,
-    order?.shippingAddress?.location?.longitude,
-    order?.deliveryTracking?.isLive,
-    order?.deliveryTracking?.currentLocation?.latitude,
-    order?.deliveryTracking?.currentLocation?.longitude,
-    order?.deliveryTracking?.currentLocation?.updatedAt,
-  ]);
-
-  useEffect(() => {
-    if (!order?._id) return undefined;
-
-    const socket = connectVendorSocket();
-
-    const handleLocationUpdate = (payload) => {
-      if (payload?.orderId !== order._id) return;
-      setLiveLocation(payload.location || null);
-      setIsLiveTrackingActive(Boolean(payload?.tracking?.isLive));
-    };
-
-    const handleLocationStop = (payload) => {
-      if (payload?.orderId !== order._id) return;
-      setIsLiveTrackingActive(false);
-    };
-
-    const handleDestinationUpdate = (payload) => {
-      if (payload?.orderId !== order._id) return;
-      setLiveDestination(payload.destination || order.shippingAddress?.location || null);
-    };
-
-    socket.on("order:location:update", handleLocationUpdate);
-    socket.on("order:location:stopped", handleLocationStop);
-    socket.on("order:destination:update", handleDestinationUpdate);
-
-    return () => {
-      socket.off("order:location:update", handleLocationUpdate);
-      socket.off("order:location:stopped", handleLocationStop);
-      socket.off("order:destination:update", handleDestinationUpdate);
-    };
-  }, [order?._id]);
 
   const getVariantDisplay = (productType, variant) => {
     if (!variant || variant === "default") return "Default";
@@ -584,61 +401,6 @@ const OrderDetailsPage = () => {
     order.orderStatus !== "delivered" && order.orderStatus !== "cancelled";
   const isReturnRequested = order.orderStatus === "return_requested";
   const isReturnApproved = order.orderStatus === "return_approved";
-  const isIndiaOrder = String(order.shippingAddress?.country || "")
-    .trim()
-    .toLowerCase()
-    .includes("india");
-  const rawTrackingLocation = liveLocation || order.deliveryTracking?.currentLocation;
-  const trackingLocation =
-    isIndiaOrder &&
-    rawTrackingLocation &&
-    !isWithinIndiaBounds(rawTrackingLocation)
-      ? null
-      : rawTrackingLocation;
-  const rawDestinationLocation =
-    liveDestination ||
-    order.customerLiveLocation ||
-    order.shippingAddress?.location;
-  const destinationLocation =
-    isIndiaOrder &&
-    rawDestinationLocation &&
-    !isWithinIndiaBounds(rawDestinationLocation)
-      ? order.shippingAddress?.location || null
-      : rawDestinationLocation;
-  const hasCustomerLiveDestination = Boolean(
-    liveDestination?.source === "customer_live" ||
-      (order.customerLiveLocation?.latitude !== null &&
-        order.customerLiveLocation?.latitude !== undefined &&
-        order.customerLiveLocation?.longitude !== null &&
-        order.customerLiveLocation?.longitude !== undefined)
-  );
-  const hasTrackingLocation = Boolean(
-    trackingLocation?.latitude !== null &&
-      trackingLocation?.latitude !== undefined &&
-      trackingLocation?.longitude !== null &&
-      trackingLocation?.longitude !== undefined
-  );
-  const hasDestinationLocation = Boolean(
-    hasCoordinate(destinationLocation?.latitude, destinationLocation?.longitude)
-  );
-  const showTrackingCard =
-    hasTrackingLocation ||
-    isLiveTrackingActive ||
-    order.orderStatus === "out_for_delivery" ||
-    order.orderStatus === "return_approved";
-  const mapUrl = hasTrackingLocation
-    ? getMapUrl(trackingLocation.latitude, trackingLocation.longitude)
-    : "";
-  const directionsUrl = buildDirectionsUrl(trackingLocation, destinationLocation);
-  const distanceKm =
-    hasTrackingLocation && hasDestinationLocation
-      ? calculateDistanceKm(trackingLocation, destinationLocation)
-      : null;
-  const etaMinutes = estimateEtaMinutes(distanceKm, trackingLocation?.speed);
-  const trackingMilestones = getTrackingMilestones(
-    order.orderStatus,
-    isLiveTrackingActive
-  );
   const primaryActionKey =
     selectedStatus === "cancelled" ? "cancel" : `status_${selectedStatus}`;
 
@@ -683,6 +445,7 @@ const OrderDetailsPage = () => {
     if (!selectedStatus || selectedStatus === order.orderStatus) return;
 
     if (selectedStatus === "out_for_delivery") {
+      setAssignDialogMode("out_for_delivery");
       setAssignDialogOpen(true);
       return;
     }
@@ -696,15 +459,8 @@ const OrderDetailsPage = () => {
   };
 
   const handleReturnApprove = () => {
-    openConfirm(
-      "Approve Return",
-      "Approve return request and mark payment as refund (DB-only).",
-      {
-        status: "return_approved",
-        reason: "Return approved by vendor",
-        __actionKey: "approve",
-      },
-    );
+    setAssignDialogMode("return_approved");
+    setAssignDialogOpen(true);
   };
 
   const handleReturnReject = () => {
@@ -715,19 +471,7 @@ const OrderDetailsPage = () => {
     });
   };
 
-  const handleReturnComplete = () => {
-    openConfirm(
-      "Complete Return",
-      "Mark return as completed and mark payment refunded (DB-only).",
-      {
-        status: "return_completed",
-        reason: "Return completed by vendor",
-        __actionKey: "complete",
-      },
-    );
-  };
-
-  const handleAssignAndMarkOutForDelivery = async () => {
+  const handleAssignDeliveryFlow = async () => {
     if (!selectedDeliveryPartner) {
       toast.error("Please select a delivery partner");
       return;
@@ -744,14 +488,21 @@ const OrderDetailsPage = () => {
       await updateOrderStatus({
         orderId: order._id,
         body: {
-          status: "out_for_delivery",
-          reason: "Status changed to out for delivery by vendor",
-          __actionKey: "status_out_for_delivery",
+          status: assignDialogMode,
+          reason:
+            assignDialogMode === "return_approved"
+              ? "Return approved and pickup assigned by vendor"
+              : "Status changed to out for delivery by vendor",
+          __actionKey: `status_${assignDialogMode}`,
         },
       }).unwrap();
 
       setAssignDialogOpen(false);
-      toast.success("Delivery partner assigned and order marked out for delivery");
+      toast.success(
+        assignDialogMode === "return_approved"
+          ? "Delivery partner assigned and return pickup approved"
+          : "Delivery partner assigned and order marked out for delivery"
+      );
       await refetch();
     } catch (error) {
       toast.error(
@@ -1038,172 +789,6 @@ const OrderDetailsPage = () => {
               </div>
             </div>
 
-            {showTrackingCard ? (
-              <div className="bg-white rounded-2xl shadow-md p-6">
-                <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <FaMapMarkerAlt className="text-cyan-500" />
-                  Live Delivery Tracking
-                </h2>
-
-                <div className="rounded-3xl border border-cyan-100 bg-cyan-50/70 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.24em] text-gray-500">
-                        Assigned rider
-                      </p>
-                      <p className="mt-2 text-lg font-bold text-gray-800">
-                        {order.assignedDeliveryPartner?.name || "Partner sync pending"}
-                      </p>
-                      <p className="mt-1 text-sm text-gray-600">
-                        {order.assignedDeliveryPartner?.vehicleType
-                          ? `${order.assignedDeliveryPartner.vehicleType} • `
-                          : ""}
-                        {isLiveTrackingActive ? "Live tracking on" : "Awaiting next update"}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`px-3 py-1 rounded-full text-xs font-semibold uppercase tracking-[0.2em] ${
-                          isLiveTrackingActive
-                            ? "bg-cyan-500 text-white"
-                            : "bg-white text-gray-700"
-                        }`}
-                      >
-                        {isLiveTrackingActive ? "Tracking live" : "Last shared"}
-                      </span>
-                      <span className="text-sm text-gray-500">
-                        {formatTimelineTime(
-                          trackingLocation?.updatedAt || order.deliveryTracking?.lastSharedAt
-                        )}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 md:grid-cols-3">
-                    <div className="rounded-2xl border border-cyan-100 bg-white p-4">
-                      <p className="text-xs uppercase tracking-[0.22em] text-gray-500">
-                        Distance left
-                      </p>
-                      <p className="mt-2 text-lg font-bold text-gray-800">
-                        {formatDistance(distanceKm)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-cyan-100 bg-white p-4">
-                      <p className="text-xs uppercase tracking-[0.22em] text-gray-500">
-                        ETA
-                      </p>
-                      <p className="mt-2 text-lg font-bold text-gray-800">
-                        {formatEta(etaMinutes)}
-                      </p>
-                    </div>
-                    <div className="rounded-2xl border border-cyan-100 bg-white p-4">
-                      <p className="text-xs uppercase tracking-[0.22em] text-gray-500">
-                        Destination
-                      </p>
-                      <p className="mt-2 text-sm font-semibold text-gray-800">
-                        {order.shippingAddress?.city || "Customer destination"}
-                      </p>
-                      <p className="mt-1 text-xs text-gray-500">
-                        {hasDestinationLocation ? "Route mapped" : "Address pin syncing"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-5 grid gap-3 md:grid-cols-3">
-                    {trackingMilestones.map((step) => (
-                      <div
-                        key={step.label}
-                        className={`rounded-2xl border px-4 py-3 ${
-                          step.done
-                            ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                            : step.active
-                            ? "border-cyan-200 bg-cyan-50 text-cyan-700"
-                            : "border-gray-200 bg-white text-gray-500"
-                        }`}
-                      >
-                        <p className="text-xs font-semibold uppercase tracking-[0.18em]">
-                          {step.done ? "Done" : step.active ? "Active" : "Next"}
-                        </p>
-                        <p className="mt-2 text-sm font-semibold">{step.label}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {hasTrackingLocation ? (
-                  <>
-                    <div className="mt-4">
-                    <LiveRouteMap
-                      origin={trackingLocation}
-                      destination={destinationLocation}
-                      heightClass="h-56"
-                      restrictToIndia={isIndiaOrder}
-                      riderLabel={
-                        order.assignedDeliveryPartner?.name || "Delivery partner"
-                      }
-                        destinationLabel={
-                          hasCustomerLiveDestination
-                            ? "Customer live location"
-                            : order.shippingAddress?.fullName || "Customer"
-                        }
-                      />
-                    </div>
-                    <div className="mt-4 grid gap-3 md:grid-cols-2">
-                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.22em] text-gray-500">
-                          Rider coordinates
-                        </p>
-                        <p className="mt-2 text-sm font-semibold text-gray-800">
-                          {Number(trackingLocation.latitude).toFixed(5)},{" "}
-                          {Number(trackingLocation.longitude).toFixed(5)}
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-                        <p className="text-xs uppercase tracking-[0.22em] text-gray-500">
-                          Destination
-                        </p>
-                        <p className="mt-2 text-sm font-semibold text-gray-800">
-                          {hasCustomerLiveDestination
-                            ? "Customer live delivery pin"
-                            : order.shippingAddress?.addressLine1 ||
-                              order.shippingAddress?.village}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {hasCustomerLiveDestination
-                            ? `${Number(destinationLocation?.latitude || 0).toFixed(5)}, ${Number(
-                                destinationLocation?.longitude || 0
-                              ).toFixed(5)}`
-                            : `${order.shippingAddress?.city}, ${order.shippingAddress?.state}`}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                      <a
-                        href={mapUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex w-full items-center justify-center rounded-xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-cyan-600"
-                      >
-                        Open Live Map
-                      </a>
-                      <a
-                        href={directionsUrl || mapUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex w-full items-center justify-center rounded-xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-800 transition hover:bg-gray-50"
-                      >
-                        Open Route View
-                      </a>
-                    </div>
-                  </>
-                ) : (
-                  <div className="mt-4 rounded-2xl border border-dashed border-gray-200 bg-gray-50 p-5 text-sm text-gray-500">
-                    Delivery partner ne abhi location share start nahi ki hai.
-                  </div>
-                )}
-              </div>
-            ) : null}
-
             <div className="bg-white rounded-2xl shadow-md p-6 flex flex-col gap-3">
               {isReturnRequested ? (
                 <>
@@ -1231,21 +816,6 @@ const OrderDetailsPage = () => {
                   </button>
                 </>
               ) : null}
-
-              {isReturnApproved ? (
-                <button
-                  onClick={handleReturnComplete}
-                  disabled={isUpdating}
-                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-all duration-200 flex items-center justify-center"
-                >
-                  {actionLoading === "complete" ? (
-                    <AuthButtonLoader className="text-white" size={16} />
-                  ) : (
-                    "Mark Return Completed"
-                  )}
-                </button>
-              ) : null}
-
               {!isReturnRequested && !isReturnApproved ? (
                 <div className="text-sm text-gray-600">
                   Vendor actions available in the header controls.
@@ -1274,10 +844,14 @@ const OrderDetailsPage = () => {
           />
           <div className="relative mx-4 w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
             <h3 className="text-xl font-bold text-gray-800">
-              Assign Delivery Partner
+              {assignDialogMode === "return_approved"
+                ? "Assign Return Pickup Partner"
+                : "Assign Delivery Partner"}
             </h3>
             <p className="mt-2 text-sm leading-6 text-gray-500">
-              `Out for delivery` mark karne se pehle delivery partner select karo.
+              {assignDialogMode === "return_approved"
+                ? "Return approve karne se pehle delivery partner select karo."
+                : "`Out for delivery` mark karne se pehle delivery partner select karo."}
             </p>
 
             <div className="mt-5 space-y-3">
@@ -1307,7 +881,7 @@ const OrderDetailsPage = () => {
                   Cancel
                 </button>
                 <button
-                  onClick={handleAssignAndMarkOutForDelivery}
+                  onClick={handleAssignDeliveryFlow}
                   disabled={
                     isAssigningDeliveryPartner ||
                     isUpdating ||
@@ -1318,7 +892,9 @@ const OrderDetailsPage = () => {
                   {actionLoading === "assign_out_for_delivery" ? (
                     <AuthButtonLoader size={16} />
                   ) : (
-                    "Assign & Mark Out for Delivery"
+                    assignDialogMode === "return_approved"
+                      ? "Assign & Approve Return"
+                      : "Assign & Mark Out for Delivery"
                   )}
                 </button>
               </div>

@@ -6,6 +6,7 @@ import {
   register,
   getUserProfile,
   updateUserProfile,
+  updateUserAddresses,
   sendResetOtp,
   resetPassword,
   changePassword,
@@ -72,6 +73,7 @@ userRouter.put(
   upload.single("photo"),
   updateUserProfile
 );
+userRouter.put("/profile/addresses", isAuthenticatedUser, updateUserAddresses);
 userRouter.get("/support/conversation", isAuthenticatedUser, getUserSupportConversation);
 userRouter.get("/support/conversations", isAuthenticatedUser, getUserSupportConversations);
 userRouter.post("/support/conversations", isAuthenticatedUser, createUserSupportConversation);

@@ -60,10 +60,10 @@ export const authApi = createApi({
       },
     }),
     firebaseGoogleLogin: builder.mutation({
-      query: (idToken) => ({
+      query: ({ idToken, referralCode, referralLinkCode }) => ({
         url: "firebase-google-login",
         method: "POST",
-        body: { idToken },
+        body: { idToken, referralCode, referralLinkCode },
       }),
       async onQueryStarted(arg, { queryFulfilled, dispatch }) {
         try {
@@ -174,6 +174,43 @@ export const authApi = createApi({
         body: FormData,
         credentials: "include",
       }),
+      async onQueryStarted(arg, { queryFulfilled, dispatch }) {
+        try {
+          const result = await queryFulfilled;
+          const nextUser = normalizeUser(result.data.user);
+          dispatch(
+            authApi.util.upsertQueryData("loadUser", undefined, {
+              success: true,
+              user: nextUser,
+            })
+          );
+          dispatch(userLoggedIn({ user: nextUser }));
+        } catch (error) {
+          console.error(error);
+        }
+      },
+    }),
+    updateUserAddresses: builder.mutation({
+      query: (addresses) => ({
+        url: "profile/addresses",
+        method: "PUT",
+        body: { addresses },
+      }),
+      async onQueryStarted(arg, { queryFulfilled, dispatch }) {
+        try {
+          const result = await queryFulfilled;
+          const nextUser = normalizeUser(result.data.user);
+          dispatch(
+            authApi.util.upsertQueryData("loadUser", undefined, {
+              success: true,
+              user: nextUser,
+            })
+          );
+          dispatch(userLoggedIn({ user: nextUser }));
+        } catch (error) {
+          console.error(error);
+        }
+      },
     }),
   }),
 });
@@ -185,6 +222,7 @@ export const {
   useLogoutUserMutation,
   useLoadUserQuery,
   useUpdateUserProfileMutation,
+  useUpdateUserAddressesMutation,
   useSetPasswordMutation,
   useSendResetOtpMutation,
   useResetPasswordMutation,

@@ -20,7 +20,7 @@ const Header = () => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [deletingNotificationId, setDeletingNotificationId] = useState(null);
+  const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
   const notificationRef = useRef(null);
   const {
     data: notificationData,
@@ -71,19 +71,31 @@ const Header = () => {
   }, [refetchNotifications, vendor?._id]);
 
   const handleDeleteNotification = async (id) => {
-    if (!id || deletingNotificationId) return;
-    // Per-item loading lets vendors remove one notification without making
-    // every notification button look busy at the same time.
-    setDeletingNotificationId(id);
+    if (
+      !id ||
+      deletingNotificationIds.includes(id) ||
+      isClearingNotifications
+    ) {
+      return;
+    }
+    setDeletingNotificationIds((current) => [...current, id]);
     try {
       await deleteVendorNotification(id).unwrap();
     } finally {
-      setDeletingNotificationId(null);
+      setDeletingNotificationIds((current) =>
+        current.filter((notificationId) => notificationId !== id)
+      );
     }
   };
 
   const handleClearNotifications = async () => {
-    if (!notifications.length || isClearingNotifications) return;
+    if (
+      !notifications.length ||
+      isClearingNotifications ||
+      deletingNotificationIds.length
+    ) {
+      return;
+    }
     await clearVendorNotifications().unwrap();
   };
 
@@ -151,14 +163,18 @@ const Header = () => {
                 </div>
                 <button
                   type="button"
-                  disabled={!notifications.length || isClearingNotifications}
+                  disabled={
+                    !notifications.length ||
+                    isClearingNotifications ||
+                    deletingNotificationIds.length > 0
+                  }
                   onClick={handleClearNotifications}
                   className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                     notifications.length
-                      ? "bg-red-500 text-white hover:bg-red-600"
+                      ? "bg-red-500 text-white hover:bg-red-600 cursor-pointer disabled:cursor-not-allowed"
                       : isDark
-                      ? "bg-slate-800 text-slate-500"
-                      : "bg-slate-100 text-slate-400"
+                      ? "bg-slate-800 text-slate-500 cursor-not-allowed"
+                      : "bg-slate-100 text-slate-400 cursor-not-allowed"
                   }`}
                 >
                   {isClearingNotifications ? (
@@ -230,15 +246,16 @@ const Header = () => {
                             handleDeleteNotification(notification._id)
                           }
                           disabled={
-                            !!deletingNotificationId || isClearingNotifications
+                            deletingNotificationIds.includes(notification._id) ||
+                            isClearingNotifications
                           }
-                          className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full p-2 transition disabled:cursor-not-allowed disabled:opacity-70 ${
+                          className={`mt-1 flex h-9 w-9 items-center justify-center rounded-full p-2 transition cursor-pointer disabled:cursor-not-allowed disabled:opacity-70 ${
                             isDark
                               ? "bg-slate-800 text-slate-300 hover:bg-slate-700"
                               : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                           }`}
                         >
-                          {deletingNotificationId === notification._id ? (
+                          {deletingNotificationIds.includes(notification._id) ? (
                             <AuthButtonLoader />
                           ) : (
                             <FiTrash2 className="text-sm" />

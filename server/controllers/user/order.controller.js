@@ -34,6 +34,11 @@ import {
   ensureOrderShippingLocation,
   geocodeShippingAddress,
 } from "../../utils/geocoding.js";
+import {
+  creditWallet,
+  debitWallet,
+  ensureUserBenefits,
+} from "../../utils/userBenefits.js";
 
 const productModels = {
   Fashion,
@@ -107,11 +112,20 @@ const isIndiaOrder = (order) =>
 
 const clearDeliveryConfirmation = (order, verifiedAt = null) => {
   order.deliveryConfirmation = {
+    purpose: "",
     otpHash: "",
     otpExpireAt: 0,
     otpSentAt: null,
     otpVerifiedAt: verifiedAt,
   };
+};
+
+const getOtpPurposeForOrder = (order) => {
+  if (order?.orderStatus === "return_approved") {
+    return "return";
+  }
+
+  return "delivery";
 };
 
 const stopDeliveryTracking = (order) => {
@@ -186,6 +200,24 @@ const getReturnPolicyWindow = (order, now = Date.now()) => {
 };
 
 const normalizeCouponCode = (code) => String(code || "").trim().toUpperCase();
+const sanitizeCurrencyAmount = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return 0;
+  return Math.round(numeric);
+};
+
+const normalizeWalletRequest = (value) => {
+  if (value === true || value === "true" || value === 1 || value === "1") {
+    return { enabled: true, amount: null };
+  }
+
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) {
+    return { enabled: false, amount: 0 };
+  }
+
+  return { enabled: true, amount: Math.round(numeric) };
+};
 
 const calculateCouponDiscount = (coupon, subtotalAmount) => {
   if (!coupon || subtotalAmount <= 0) return 0;
@@ -266,6 +298,58 @@ const incrementCouponUsage = async (appliedCoupon) => {
   await Coupon.findByIdAndUpdate(appliedCoupon.couponId, {
     $inc: { usedCount: 1 },
   });
+};
+
+const debitWalletForOrder = async ({ userId, orderId, amount }) => {
+  const walletAmount = sanitizeCurrencyAmount(amount);
+  if (!walletAmount) return 0;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new Error("User not found for wallet payment");
+  }
+
+  await ensureUserBenefits(user);
+  debitWallet(user, {
+    amount: walletAmount,
+    source: "order_payment",
+    title: "Wallet used on checkout",
+    description: `Applied to order ${orderId}`,
+  });
+  await user.save();
+  return walletAmount;
+};
+
+const refundWalletForOrder = async (order, title, description) => {
+  const walletAmount = sanitizeCurrencyAmount(order?.walletApplied?.amountUsed);
+  if (!order || !walletAmount || order?.walletApplied?.isRefunded) {
+    return 0;
+  }
+
+  const user = await User.findById(order.userId);
+  if (!user) {
+    return 0;
+  }
+
+  await ensureUserBenefits(user);
+  creditWallet(user, {
+    amount: walletAmount,
+    source: "order_refund",
+    title,
+    description,
+    orderId: order._id,
+  });
+  await user.save();
+
+  order.walletApplied = {
+    amountUsed: walletAmount,
+    refundedAmount: walletAmount,
+    isRefunded: true,
+    appliedAt: order.walletApplied?.appliedAt || order.createdAt || new Date(),
+    refundedAt: new Date(),
+  };
+
+  return walletAmount;
 };
 
 const normalizeOrderStatus = (status) => {
@@ -526,7 +610,11 @@ const createDeliveryNotificationForOrder = async ({
   emitDeliveryDashboardUpdate(order.assignedDeliveryPartner);
 };
 
-const computeOrderDetailsFromCart = async (userId, couponCode = "") => {
+const computeOrderDetailsFromCart = async (
+  userId,
+  couponCode = "",
+  walletInput = 0
+) => {
   const cart = await Cart.findOne({ userId });
   if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
     throw new Error("Cart is empty");
@@ -579,21 +667,44 @@ const computeOrderDetailsFromCart = async (userId, couponCode = "") => {
     code: couponCode,
     subtotalAmount,
   });
-  const totalAmount = Math.max(0, subtotalAmount - discountAmount);
+  const user = await User.findById(userId).select("wallet referral");
+  if (!user) {
+    throw new Error("User not found");
+  }
+  await ensureUserBenefits(user);
+  await user.save();
+
+  const walletRequest = normalizeWalletRequest(walletInput);
+  const discountedTotal = Math.max(0, subtotalAmount - discountAmount);
+  const availableWalletBalance = sanitizeCurrencyAmount(user.wallet?.balance);
+  const walletAmountUsed = walletRequest.enabled
+    ? Math.min(
+        discountedTotal,
+        availableWalletBalance,
+        walletRequest.amount === null
+          ? discountedTotal
+          : sanitizeCurrencyAmount(walletRequest.amount)
+      )
+    : 0;
+  const totalAmount = Math.max(0, discountedTotal - walletAmountUsed);
 
   return {
     subtotalAmount,
     discountAmount,
+    walletAmountUsed,
+    availableWalletBalance,
     totalAmount,
     appliedCoupon,
     orderItems,
     cart,
+    user,
   };
 };
 
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddress, paymentMethod, couponCode } = req.body;
+    const { shippingAddress, paymentMethod, couponCode, useWallet, walletAmount } =
+      req.body;
     const userId = req.id;
     const orderingUser = await User.findById(userId).select("name email").lean();
     if (!shippingAddress || !paymentMethod) {
@@ -602,19 +713,30 @@ export const createOrder = async (req, res) => {
         message: "Shipping address and payment method are required",
       });
     }
-    if (!["razorpay", "cod"].includes(paymentMethod)) {
+    if (!["razorpay", "cod", "wallet"].includes(paymentMethod)) {
       return res
         .status(400)
         .json({ success: false, message: "Invalid payment method" });
     }
-    const { subtotalAmount, discountAmount, totalAmount, appliedCoupon, orderItems, cart } =
-      await computeOrderDetailsFromCart(userId, couponCode);
+    const requestedWalletValue =
+      useWallet === undefined ? walletAmount : useWallet ? walletAmount || true : 0;
+    const {
+      subtotalAmount,
+      discountAmount,
+      walletAmountUsed,
+      totalAmount,
+      appliedCoupon,
+      orderItems,
+      cart,
+    } = await computeOrderDetailsFromCart(userId, couponCode, requestedWalletValue);
     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)
       .toString()
       .padStart(4, "0")}`;
     const geocodedShippingAddress = await geocodeShippingAddress(shippingAddress);
+    const effectivePaymentMethod =
+      totalAmount === 0 && walletAmountUsed > 0 ? "wallet" : paymentMethod;
 
-    if (paymentMethod === "cod") {
+    if (effectivePaymentMethod === "wallet" || effectivePaymentMethod === "cod") {
       const order = new Order({
         userId,
         items: orderItems,
@@ -622,18 +744,34 @@ export const createOrder = async (req, res) => {
         subtotalAmount,
         discountAmount,
         coupon: appliedCoupon || undefined,
+        walletApplied: walletAmountUsed
+          ? {
+              amountUsed: walletAmountUsed,
+              appliedAt: new Date(),
+            }
+          : undefined,
         shippingAddress: geocodedShippingAddress,
-        paymentMethod,
-        paymentStatus: "pending",
-        orderStatus: "pending",
+        paymentMethod: effectivePaymentMethod,
+        paymentStatus: effectivePaymentMethod === "wallet" ? "completed" : "pending",
+        orderStatus: effectivePaymentMethod === "wallet" ? "processing" : "pending",
         orderId,
       });
       appendStatusHistoryEntry(order, {
-        to: "pending",
+        to: effectivePaymentMethod === "wallet" ? "processing" : "pending",
         role: "system",
-        reason: "Order placed with Cash on Delivery",
+        reason:
+          effectivePaymentMethod === "wallet"
+            ? "Order paid fully using wallet balance"
+            : "Order placed with Cash on Delivery",
       });
       await order.save();
+      if (walletAmountUsed) {
+        await debitWalletForOrder({
+          userId,
+          orderId: order.orderId,
+          amount: walletAmountUsed,
+        });
+      }
       await adjustInventoryForOrderItems(order.items, "decrease");
       order.stockAdjusted = true;
       order.stockRestored = false;
@@ -652,6 +790,13 @@ export const createOrder = async (req, res) => {
         .status(201)
         .json({ success: true, message: "Order created successfully", order });
     } else {
+      if (totalAmount <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "Wallet already covers this order. Please place it directly.",
+        });
+      }
+
       const options = {
         amount: Math.round(totalAmount * 100),
         currency: "INR",
@@ -660,6 +805,7 @@ export const createOrder = async (req, res) => {
           userId: userId.toString(),
           shippingAddress: JSON.stringify(geocodedShippingAddress),
           couponCode: normalizeCouponCode(couponCode),
+          walletAmount: String(walletAmountUsed || 0),
         },
       };
       const rzOrder = await razorpay.orders.create(options);
@@ -723,11 +869,16 @@ export const confirmPayment = async (req, res) => {
     const {
       subtotalAmount,
       discountAmount,
+      walletAmountUsed,
       totalAmount,
       appliedCoupon,
       orderItems,
       cart,
-    } = await computeOrderDetailsFromCart(userId, notes.couponCode);
+    } = await computeOrderDetailsFromCart(
+      userId,
+      notes.couponCode,
+      notes.walletAmount || 0
+    );
     if (Math.round(totalAmount * 100) !== rzOrder.amount) {
       return res.status(400).json({
         success: false,
@@ -742,6 +893,12 @@ export const confirmPayment = async (req, res) => {
       subtotalAmount,
       discountAmount,
       coupon: appliedCoupon || undefined,
+      walletApplied: walletAmountUsed
+        ? {
+            amountUsed: walletAmountUsed,
+            appliedAt: new Date(),
+          }
+        : undefined,
       shippingAddress,
       paymentMethod: "razorpay",
       paymentStatus: "completed",
@@ -756,6 +913,13 @@ export const confirmPayment = async (req, res) => {
       reason: "Payment confirmed via Razorpay",
     });
     await order.save();
+    if (walletAmountUsed) {
+      await debitWalletForOrder({
+        userId,
+        orderId: order.orderId,
+        amount: walletAmountUsed,
+      });
+    }
     await adjustInventoryForOrderItems(order.items, "decrease");
     order.stockAdjusted = true;
     order.stockRestored = false;
@@ -789,24 +953,31 @@ export const confirmPayment = async (req, res) => {
 export const validateCoupon = async (req, res) => {
   try {
     const couponCode = normalizeCouponCode(req.body?.code);
-    if (!couponCode) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Coupon code is required" });
-    }
+    const requestedWalletValue =
+      req.body?.useWallet === undefined
+        ? req.body?.walletAmount
+        : req.body?.useWallet
+          ? req.body?.walletAmount || true
+          : 0;
 
     const {
       subtotalAmount,
       discountAmount,
+      walletAmountUsed,
+      availableWalletBalance,
       totalAmount,
       appliedCoupon,
-    } = await computeOrderDetailsFromCart(req.id, couponCode);
+    } = await computeOrderDetailsFromCart(req.id, couponCode, requestedWalletValue);
 
     return res.status(200).json({
       success: true,
-      message: "Coupon applied successfully",
+      message: couponCode
+        ? "Pricing updated successfully"
+        : "Wallet pricing updated successfully",
       subtotalAmount,
       discountAmount,
+      walletAmountUsed,
+      availableWalletBalance,
       totalAmount,
       coupon: appliedCoupon,
     });
@@ -1003,10 +1174,16 @@ export const sendDeliveryCompletionOtp = async (req, res) => {
       });
     }
 
-    if (order.orderStatus !== "out_for_delivery") {
+    const otpPurpose = getOtpPurposeForOrder(order);
+    const canSendOtp = ["out_for_delivery", "return_approved"].includes(
+      order.orderStatus
+    );
+
+    if (!canSendOtp) {
       return res.status(400).json({
         success: false,
-        message: "OTP can only be sent when order is out for delivery",
+        message:
+          "OTP can only be sent when order is out for delivery or approved for return pickup",
       });
     }
 
@@ -1026,9 +1203,11 @@ export const sendDeliveryCompletionOtp = async (req, res) => {
       name: user.name,
       orderId: order.orderId,
       otp,
+      purpose: otpPurpose,
     });
 
     order.deliveryConfirmation = {
+      purpose: otpPurpose,
       otpHash: createOtpHash(otp),
       otpExpireAt,
       otpSentAt: new Date(),
@@ -1039,8 +1218,12 @@ export const sendDeliveryCompletionOtp = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Delivery OTP sent to customer email",
+      message:
+        otpPurpose === "return"
+          ? "Return pickup OTP sent to customer email"
+          : "Delivery OTP sent to customer email",
       deliveryConfirmation: {
+        purpose: otpPurpose,
         sentTo: maskEmail(user.email),
         otpSentAt: order.deliveryConfirmation.otpSentAt,
         otpExpireAt,
@@ -1094,10 +1277,17 @@ export const verifyDeliveryCompletionOtp = async (req, res) => {
       });
     }
 
-    if (order.orderStatus !== "out_for_delivery") {
+    const otpPurpose = getOtpPurposeForOrder(order);
+    const expectedStatus =
+      otpPurpose === "return" ? "return_approved" : "out_for_delivery";
+
+    if (order.orderStatus !== expectedStatus) {
       return res.status(400).json({
         success: false,
-        message: "Order must be out for delivery before completion",
+        message:
+          otpPurpose === "return"
+            ? "Return must be approved before OTP verification"
+            : "Order must be out for delivery before completion",
       });
     }
 
@@ -1105,7 +1295,21 @@ export const verifyDeliveryCompletionOtp = async (req, res) => {
     if (!confirmation.otpHash || !confirmation.otpExpireAt) {
       return res.status(400).json({
         success: false,
-        message: "Send OTP first before verifying delivery",
+        message:
+          otpPurpose === "return"
+            ? "Send return OTP first before verifying pickup"
+            : "Send OTP first before verifying delivery",
+      });
+    }
+
+    if ((confirmation.purpose || "delivery") !== otpPurpose) {
+      clearDeliveryConfirmation(order);
+      order.updatedAt = Date.now();
+      await order.save();
+
+      return res.status(400).json({
+        success: false,
+        message: "OTP flow changed. Please send a fresh OTP",
       });
     }
 
@@ -1132,41 +1336,84 @@ export const verifyDeliveryCompletionOtp = async (req, res) => {
       new Set((order.items || []).map((item) => String(item.vendorId)).filter(Boolean))
     );
 
-    appendStatusHistoryEntry(order, {
-      from: order.orderStatus,
-      to: "delivered",
-      by: req.id,
-      role: "delivery",
-      reason: "Delivered after OTP verification with customer",
-      at: new Date(),
-    });
+    if (otpPurpose === "return") {
+      if (
+        order.paymentMethod === "razorpay" &&
+        order.paymentStatus === "completed"
+      ) {
+        order.paymentStatus = "refund";
+        order.refundCompletedAt = new Date();
+      }
 
-    order.orderStatus = "delivered";
-    stopDeliveryTracking(order);
-    clearDeliveryConfirmation(order, new Date());
-    order.returnRequest = {
-      ...(order.returnRequest || {}),
-      reason: "",
-      requestedAt: null,
-      windowEndsAt: new Date(Date.now() + RETURN_POLICY_WINDOW_MS),
-    };
-    order.updatedAt = Date.now();
-    await order.save();
+      appendStatusHistoryEntry(order, {
+        from: order.orderStatus,
+        to: "return_completed",
+        by: req.id,
+        role: "delivery",
+        reason: "Return pickup completed after OTP verification with customer",
+        at: new Date(),
+      });
+
+      if (order.stockAdjusted && !order.stockRestored) {
+        await adjustInventoryForOrderItems(order.items, "increase");
+        order.stockRestored = true;
+      }
+      await refundWalletForOrder(
+        order,
+        "Wallet refund for completed return",
+        `Refund for returned order ${order.orderId}`
+      );
+
+      order.orderStatus = "return_completed";
+      stopDeliveryTracking(order);
+      clearDeliveryConfirmation(order, new Date());
+      order.updatedAt = Date.now();
+      await order.save();
+    } else {
+      appendStatusHistoryEntry(order, {
+        from: order.orderStatus,
+        to: "delivered",
+        by: req.id,
+        role: "delivery",
+        reason: "Delivered after OTP verification with customer",
+        at: new Date(),
+      });
+
+      order.orderStatus = "delivered";
+      stopDeliveryTracking(order);
+      clearDeliveryConfirmation(order, new Date());
+      order.returnRequest = {
+        ...(order.returnRequest || {}),
+        reason: "",
+        requestedAt: null,
+        windowEndsAt: new Date(Date.now() + RETURN_POLICY_WINDOW_MS),
+      };
+      order.updatedAt = Date.now();
+      await order.save();
+    }
 
     await createUserNotificationForOrderStatus({
       order,
       status: order.orderStatus,
-      reason: "Delivery verified with OTP",
+      reason:
+        otpPurpose === "return"
+          ? "Return pickup verified with OTP"
+          : "Delivery verified with OTP",
       previousStatus,
       vendorId: order.items?.[0]?.vendorId,
     });
 
     vendorIds.forEach((vendorId) => emitVendorDashboardUpdate(vendorId));
-    void safelySendDeliveredEmail({ order });
+    if (otpPurpose !== "return") {
+      void safelySendDeliveredEmail({ order });
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Delivery OTP verified and order marked delivered",
+      message:
+        otpPurpose === "return"
+          ? "Return OTP verified and pickup marked completed"
+          : "Delivery OTP verified and order marked delivered",
       order,
     });
   } catch (error) {
@@ -1341,6 +1588,11 @@ export const orderStatusUpdate = async (req, res) => {
           await adjustInventoryForOrderItems(order.items, "increase");
           order.stockRestored = true;
         }
+        await refundWalletForOrder(
+          order,
+          "Wallet refund for cancelled order",
+          `Refund for cancelled order ${order.orderId}`
+        );
         order.orderStatus = "cancelled";
         order.updatedAt = Date.now();
         await order.save();
@@ -1366,7 +1618,6 @@ export const orderStatusUpdate = async (req, res) => {
         "cancelled",
         "return_approved",
         "return_rejected",
-        "return_completed",
       ];
       if (!vendorAllowed.includes(normalizedStatus)) {
         return res
@@ -1397,6 +1648,13 @@ export const orderStatusUpdate = async (req, res) => {
           return res.status(400).json({
             success: false,
             message: "Only return_requested orders can be approved",
+          });
+        }
+        if (!order.assignedDeliveryPartner) {
+          return res.status(400).json({
+            success: false,
+            message:
+              "Assign a delivery partner before approving return pickup",
           });
         }
         if (
@@ -1442,35 +1700,6 @@ export const orderStatusUpdate = async (req, res) => {
         });
         order.orderStatus = "return_rejected";
         stopDeliveryTracking(order);
-      } else if (normalizedStatus === "return_completed") {
-        if (order.orderStatus !== "return_approved") {
-          return res.status(400).json({
-            success: false,
-            message: "Only return_approved orders can be completed",
-          });
-        }
-        if (
-          order.paymentMethod === "razorpay" &&
-          order.paymentStatus === "completed"
-        ) {
-          order.paymentStatus = "refund";
-          order.refundCompletedAt = new Date();
-        }
-        order.statusHistory = order.statusHistory || [];
-        order.statusHistory.push({
-          from: order.orderStatus,
-          to: "return_completed",
-          by: req.id,
-          role: "vendor",
-          reason: reason || "",
-          at: new Date(),
-        });
-        if (order.stockAdjusted && !order.stockRestored) {
-          await adjustInventoryForOrderItems(order.items, "increase");
-          order.stockRestored = true;
-        }
-        order.orderStatus = "return_completed";
-        stopDeliveryTracking(order);
       } else if (normalizedStatus === "cancelled") {
         if (order.orderStatus === "delivered") {
           return res.status(400).json({
@@ -1498,6 +1727,11 @@ export const orderStatusUpdate = async (req, res) => {
           await adjustInventoryForOrderItems(order.items, "increase");
           order.stockRestored = true;
         }
+        await refundWalletForOrder(
+          order,
+          "Wallet refund for cancelled order",
+          `Refund for cancelled order ${order.orderId}`
+        );
         order.orderStatus = "cancelled";
         stopDeliveryTracking(order);
       } else {
@@ -1512,6 +1746,13 @@ export const orderStatusUpdate = async (req, res) => {
         });
         order.orderStatus = normalizedStatus;
         if (normalizedStatus === "out_for_delivery") {
+          if (!order.assignedDeliveryPartner) {
+            return res.status(400).json({
+              success: false,
+              message:
+                "Assign a delivery partner before marking order out for delivery",
+            });
+          }
           await ensureOrderShippingLocation(order);
         }
       }
@@ -1648,6 +1889,11 @@ export const orderStatusUpdate = async (req, res) => {
           await adjustInventoryForOrderItems(order.items, "increase");
           order.stockRestored = true;
         }
+        await refundWalletForOrder(
+          order,
+          "Wallet refund for cancelled order",
+          `Refund for cancelled order ${order.orderId}`
+        );
 
         order.orderStatus = "cancelled";
         stopDeliveryTracking(order);
@@ -1672,47 +1918,9 @@ export const orderStatusUpdate = async (req, res) => {
       }
 
       if (normalizedStatus === "return_completed") {
-        if (
-          order.paymentMethod === "razorpay" &&
-          order.paymentStatus === "completed"
-        ) {
-          order.paymentStatus = "refund";
-          order.refundCompletedAt = new Date();
-        }
-
-        appendStatusHistoryEntry(order, {
-          from: order.orderStatus,
-          to: "return_completed",
-          by: req.id,
-          role: "delivery",
-          reason: reason || "Return pickup completed by delivery partner",
-          at: new Date(),
-        });
-
-        if (order.stockAdjusted && !order.stockRestored) {
-          await adjustInventoryForOrderItems(order.items, "increase");
-          order.stockRestored = true;
-        }
-
-        order.orderStatus = "return_completed";
-        stopDeliveryTracking(order);
-        order.updatedAt = Date.now();
-        await order.save();
-
-        await createUserNotificationForOrderStatus({
-          order,
-          status: order.orderStatus,
-          reason: reason || "Return pickup completed by delivery partner",
-          previousStatus,
-          vendorId: order.items?.[0]?.vendorId,
-        });
-
-        vendorIds.forEach((vendorId) => emitVendorDashboardUpdate(vendorId));
-
-        return res.status(200).json({
-          success: true,
-          message: "Return marked completed successfully",
-          order,
+        return res.status(403).json({
+          success: false,
+          message: "Use OTP verification flow to complete return pickup",
         });
       }
 

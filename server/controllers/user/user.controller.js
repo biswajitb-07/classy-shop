@@ -21,6 +21,61 @@ import {
 } from "../../utils/emailService.js";
 import { verifyFirebaseIdToken } from "../../utils/firebaseAdmin.js";
 import { ensureAiUserMemory } from "../../services/ai/memory.service.js";
+import {
+  creditWallet,
+  ensureUserBenefits,
+  REFERRAL_REFERRER_BONUS,
+  REFERRAL_SIGNUP_BONUS,
+} from "../../utils/userBenefits.js";
+
+const normalizeAddresses = (addresses = []) =>
+  (Array.isArray(addresses) ? addresses : [])
+    .map((address = {}, index) => ({
+      type: String(address.type || "home").toLowerCase(),
+      label: String(address.label || "").trim(),
+      fullName: String(address.fullName || "").trim(),
+      phone: String(address.phone || "").trim(),
+      addressLine1: String(address.addressLine1 || "").trim(),
+      landmark: String(address.landmark || "").trim(),
+      village: String(address.village || "").trim(),
+      city: String(address.city || "").trim(),
+      district: String(address.district || "").trim(),
+      state: String(address.state || "").trim(),
+      postalCode: String(address.postalCode || "").trim(),
+      country: String(address.country || "India").trim(),
+      isDefault:
+        index === 0
+          ? true
+          : Boolean(address.isDefault),
+      location: {
+        latitude:
+          address?.location?.latitude !== undefined &&
+          address?.location?.latitude !== null
+            ? Number(address.location.latitude)
+            : null,
+        longitude:
+          address?.location?.longitude !== undefined &&
+          address?.location?.longitude !== null
+            ? Number(address.location.longitude)
+            : null,
+        label: String(address?.location?.label || "").trim(),
+        source: String(address?.location?.source || "").trim(),
+        updatedAt: address?.location?.updatedAt || null,
+      },
+    }))
+    .filter(
+      (address) =>
+        address.village ||
+        address.city ||
+        address.district ||
+        address.state ||
+        address.postalCode ||
+        address.addressLine1,
+    )
+    .map((address, index, list) => ({
+      ...address,
+      isDefault: index === 0 ? true : address.isDefault && !list[0]?.isDefault,
+    }));
 
 const sanitizeUserForClient = (userDoc) => {
   const userObject =
@@ -31,6 +86,23 @@ const sanitizeUserForClient = (userDoc) => {
     password: undefined,
     hasPassword: Boolean(userObject?.password),
   };
+};
+
+const normalizeReferralValue = (value) =>
+  String(value || "").trim().toUpperCase();
+
+const validateReferralLinkContext = (referralCode, referralLinkCode) => {
+  if (!referralCode) return null;
+
+  if (!referralLinkCode) {
+    return "Referral reward sirf shared invite link se signup par milega";
+  }
+
+  if (referralCode !== referralLinkCode) {
+    return "Invite link aur entered referral code same hona chahiye";
+  }
+
+  return null;
 };
 
 export const register = async (req, res) => {
@@ -50,7 +122,8 @@ export const register = async (req, res) => {
       });
     }
 
-    const { name, email, password } = validatedData.data;
+    const { name, email, password, phone, referralCode, referralLinkCode } =
+      validatedData.data;
 
     const existedUser = await User.findOne({ email });
     if (existedUser) {
@@ -63,14 +136,71 @@ export const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashPassword = await bcrypt.hash(password, salt);
 
+    let referrer = null;
+    const normalizedReferralCode = normalizeReferralValue(referralCode);
+    const normalizedReferralLinkCode = normalizeReferralValue(referralLinkCode);
+    const referralContextError = validateReferralLinkContext(
+      normalizedReferralCode,
+      normalizedReferralLinkCode
+    );
+    if (referralContextError) {
+      return res.status(400).json({
+        success: false,
+        message: referralContextError,
+      });
+    }
+
+    if (normalizedReferralCode) {
+      referrer = await User.findOne({ "referral.code": normalizedReferralCode });
+      if (!referrer) {
+        return res.status(400).json({
+          success: false,
+          message: "Referral code is invalid",
+        });
+      }
+    }
+
     const newUser = new User({
       name,
       email,
+      phone: phone || null,
       password: hashPassword,
       welcomeMailSent: false,
     });
 
+    await ensureUserBenefits(newUser);
+
+    if (referrer?._id) {
+      newUser.referral.referredBy = referrer._id;
+      creditWallet(newUser, {
+        amount: REFERRAL_SIGNUP_BONUS,
+        source: "referral_signup",
+        title: "Referral welcome bonus",
+        description: `Reward for joining with referral code ${normalizedReferralCode}`,
+      });
+    }
+
     await newUser.save();
+
+    if (referrer?._id) {
+      await ensureUserBenefits(referrer);
+      creditWallet(referrer, {
+        amount: REFERRAL_REFERRER_BONUS,
+        source: "referral_invite",
+        title: "Referral reward credited",
+        description: `${newUser.name} joined with your referral code`,
+      });
+      referrer.referral.successfulReferrals += 1;
+      referrer.referral.totalEarned += REFERRAL_REFERRER_BONUS;
+      referrer.referral.rewards.unshift({
+        userId: newUser._id,
+        amount: REFERRAL_REFERRER_BONUS,
+        title: `Referral signup reward for ${newUser.name}`,
+        createdAt: new Date(),
+      });
+      await referrer.save();
+    }
+
     emitVendorSummaryUpdate();
 
     try {
@@ -126,6 +256,9 @@ export const login = async (req, res) => {
       });
     }
 
+    await ensureUserBenefits(user);
+    await user.save();
+
     if (user.isBlocked) {
       return res.status(403).json({
         success: false,
@@ -158,11 +291,24 @@ export const login = async (req, res) => {
 export const firebaseGoogleLogin = async (req, res) => {
   try {
     const idToken = String(req.body?.idToken || "").trim();
+    const referralCode = normalizeReferralValue(req.body?.referralCode);
+    const referralLinkCode = normalizeReferralValue(req.body?.referralLinkCode);
+    const referralContextError = validateReferralLinkContext(
+      referralCode,
+      referralLinkCode
+    );
 
     if (!idToken) {
       return res.status(400).json({
         success: false,
         message: "Firebase idToken is required",
+      });
+    }
+
+    if (referralContextError) {
+      return res.status(400).json({
+        success: false,
+        message: referralContextError,
       });
     }
 
@@ -180,6 +326,7 @@ export const firebaseGoogleLogin = async (req, res) => {
 
     let user = await User.findOne({ email });
     let isNewUser = false;
+    let referrer = null;
 
     if (user?.isBlocked) {
       return res.status(403).json({
@@ -189,6 +336,16 @@ export const firebaseGoogleLogin = async (req, res) => {
     }
 
     if (!user) {
+      if (referralCode) {
+        referrer = await User.findOne({ "referral.code": referralCode });
+        if (!referrer) {
+          return res.status(400).json({
+            success: false,
+            message: "Referral code is invalid",
+          });
+        }
+      }
+
       // First Google login creates a normal user record so profile, orders,
       // support chat, wishlist, and manual password setup all work uniformly.
       user = new User({
@@ -214,7 +371,36 @@ export const firebaseGoogleLogin = async (req, res) => {
       }
     }
 
+    await ensureUserBenefits(user);
+    if (isNewUser && referrer?._id) {
+      user.referral.referredBy = referrer._id;
+      creditWallet(user, {
+        amount: REFERRAL_SIGNUP_BONUS,
+        source: "referral_signup",
+        title: "Referral welcome bonus",
+        description: `Reward for joining with referral code ${referralCode}`,
+      });
+    }
     await user.save();
+
+    if (isNewUser && referrer?._id) {
+      await ensureUserBenefits(referrer);
+      creditWallet(referrer, {
+        amount: REFERRAL_REFERRER_BONUS,
+        source: "referral_invite",
+        title: "Referral reward credited",
+        description: `${user.name} joined with your referral code`,
+      });
+      referrer.referral.successfulReferrals += 1;
+      referrer.referral.totalEarned += REFERRAL_REFERRER_BONUS;
+      referrer.referral.rewards.unshift({
+        userId: user._id,
+        amount: REFERRAL_REFERRER_BONUS,
+        title: `Referral signup reward for ${user.name}`,
+        createdAt: new Date(),
+      });
+      await referrer.save();
+    }
     setUserAuthCookies(res, user._id);
     await ensureAiUserMemory(user._id);
     emitVendorSummaryUpdate();
@@ -297,6 +483,9 @@ export const getUserProfile = async (req, res) => {
       });
     }
 
+    await ensureUserBenefits(user);
+    await user.save();
+
     return res.status(200).json({
       success: true,
       user: sanitizeUserForClient(user),
@@ -353,8 +542,9 @@ export const updateUserProfile = async (req, res) => {
       photoUrl = cloudResponse.secure_url;
     }
 
-    const parsedAddresses =
-      typeof addresses === "string" ? JSON.parse(addresses) : addresses;
+    const parsedAddresses = normalizeAddresses(
+      typeof addresses === "string" ? JSON.parse(addresses) : addresses
+    );
 
     // The profile page sends a single default address block, but the schema
     // still supports an address array for future expansion.
@@ -374,6 +564,42 @@ export const updateUserProfile = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to update profile.",
+    });
+  }
+};
+
+export const updateUserAddresses = async (req, res) => {
+  try {
+    const user = await User.findById(req.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    const nextAddresses = normalizeAddresses(req.body?.addresses);
+    if (!nextAddresses.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one valid address is required",
+      });
+    }
+
+    user.addresses = nextAddresses;
+    await ensureUserBenefits(user);
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Addresses updated successfully",
+      user: sanitizeUserForClient(user),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update addresses",
     });
   }
 };

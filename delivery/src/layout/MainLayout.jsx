@@ -74,8 +74,9 @@ const MainLayout = () => {
   const notificationRef = useRef(null);
   const [showOverlay, setShowOverlay] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
-  const [deletingNotificationId, setDeletingNotificationId] = useState(null);
+  const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
   const [hasAppliedDesktopDefault, setHasAppliedDesktopDefault] = useState(false);
+  const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [logoutUser, { isLoading: isLoggingOut }] = useLogoutUserMutation();
   const [toggleAvailability, { isLoading: isUpdatingAvailability }] =
     useToggleAvailabilityMutation();
@@ -196,6 +197,7 @@ const MainLayout = () => {
   const handleLogout = async () => {
     try {
       await logoutUser().unwrap();
+      setIsLogoutDialogOpen(false);
       disconnectDeliverySocket();
       toast.success("Logged out successfully");
       navigate("/login");
@@ -218,20 +220,34 @@ const MainLayout = () => {
   };
 
   const handleDeleteNotification = async (id) => {
-    if (!id || deletingNotificationId || isClearingNotifications) return;
-    setDeletingNotificationId(id);
+    if (
+      !id ||
+      deletingNotificationIds.includes(id) ||
+      isClearingNotifications
+    ) {
+      return;
+    }
+    setDeletingNotificationIds((current) => [...current, id]);
 
     try {
       await deleteDeliveryNotification(id).unwrap();
     } catch (error) {
       toast.error(error?.data?.message || "Notification delete failed");
     } finally {
-      setDeletingNotificationId(null);
+      setDeletingNotificationIds((current) =>
+        current.filter((notificationId) => notificationId !== id)
+      );
     }
   };
 
   const handleClearNotifications = async () => {
-    if (!notifications.length || isClearingNotifications) return;
+    if (
+      !notifications.length ||
+      isClearingNotifications ||
+      deletingNotificationIds.length
+    ) {
+      return;
+    }
 
     try {
       await clearDeliveryNotifications().unwrap();
@@ -260,36 +276,37 @@ const MainLayout = () => {
   return (
     <div className="relative h-screen w-full overflow-hidden bg-slate-950 text-slate-100">
       <aside
-        className={`vendor-sidebar-scrollbar fixed top-0 left-0 z-50 flex h-screen w-[18rem] flex-col overflow-y-auto border-r border-slate-800 bg-[linear-gradient(180deg,#050816_0%,#0f172a_48%,#111827_100%)] px-5 py-5 shadow-[0_24px_60px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-out ${
+        className={`vendor-sidebar-scrollbar fixed top-0 left-0 z-50 flex h-screen w-[19rem] flex-col overflow-y-auto border-r border-slate-800 bg-[linear-gradient(180deg,#050816_0%,#0f172a_48%,#111827_100%)] px-4 py-4 shadow-[0_24px_60px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-out sm:w-[20rem] sm:px-5 sm:py-5 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
-        <div className="relative pr-14">
+        <div className="relative pr-12">
           <button
             type="button"
             onClick={closeSidebar}
-            className="absolute right-0 top-1 inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-200 transition hover:border-slate-700 hover:bg-slate-800 lg:hidden"
+            className="absolute right-0 top-0 inline-flex h-10 items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900 px-3 text-sm font-semibold text-slate-200 transition hover:border-slate-700 hover:bg-slate-800 lg:hidden"
             aria-label="Close menu"
           >
+            <span>Close</span>
             <X size={18} />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.4rem] bg-gradient-to-br from-cyan-400 via-indigo-500 to-violet-600 text-white shadow-[0_18px_40px_rgba(79,70,229,0.35)]">
-              <Bike size={24} />
+          <div className="flex items-start gap-3">
+            <div className="flex h-13 w-13 shrink-0 items-center justify-center rounded-[1.3rem] bg-gradient-to-br from-cyan-400 via-indigo-500 to-violet-600 text-white shadow-[0_18px_40px_rgba(79,70,229,0.35)] sm:h-14 sm:w-14 sm:rounded-[1.4rem]">
+              <Bike size={23} />
             </div>
-            <div className="min-w-0">
-              <p className="truncate text-[11px] uppercase tracking-[0.3em] text-slate-400 sm:text-xs">
+            <div className="min-w-0 flex-1 pt-0.5">
+              <p className="truncate text-[10px] uppercase tracking-[0.28em] text-slate-400 sm:text-xs">
                 Classy Shop
               </p>
-              <p className="mt-1 text-[2rem] font-black leading-none text-white sm:text-[2.1rem]">
+              <p className="mt-1 text-[1.1rem] font-black leading-[0.95] text-white sm:text-[1.95rem]">
                 Delivery Hub
               </p>
             </div>
           </div>
         </div>
 
-        <section className="mt-8 rounded-[2rem] border border-slate-800 bg-slate-950/70 p-5">
-          <p className="text-2xl font-bold text-white">
+        <section className="mt-6 rounded-[1.85rem] border border-slate-800 bg-slate-950/70 p-4 sm:mt-8 sm:rounded-[2rem] sm:p-5">
+          <p className="text-[1.15rem] font-bold leading-tight text-white sm:text-2xl">
             {deliveryPartner?.name || "Delivery Partner"}
           </p>
           <p className="mt-2 text-sm capitalize text-slate-400">
@@ -322,7 +339,7 @@ const MainLayout = () => {
             type="button"
             onClick={handleToggleAvailability}
             disabled={isUpdatingAvailability}
-            className={`mt-5 inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[1.3rem] px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-80 ${
+            className={`mt-5 inline-flex min-h-[3.1rem] w-full items-center justify-center rounded-[1.3rem] px-4 text-sm font-bold text-center transition disabled:cursor-not-allowed disabled:opacity-80 ${
               isAvailable
                 ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                 : "bg-slate-800 text-slate-200 hover:bg-slate-700"
@@ -338,7 +355,7 @@ const MainLayout = () => {
           </button>
         </section>
 
-        <nav className="mt-10 flex flex-1 flex-col gap-3">
+        <nav className="mt-8 flex flex-1 flex-col gap-2.5">
           {navigationItems.map(({ label, path, icon: Icon }) => (
             <NavLink
               key={path}
@@ -346,7 +363,7 @@ const MainLayout = () => {
               end={path === "/"}
               onClick={handleNavigate}
               className={({ isActive }) =>
-                `flex items-center gap-3 rounded-[1.35rem] px-5 py-4 text-base font-semibold transition ${
+                `flex items-center gap-3 rounded-[1.3rem] px-4 py-3.5 text-[1.02rem] font-semibold transition sm:px-5 sm:py-4 ${
                   isActive
                     ? "bg-gradient-to-r from-indigo-500 to-violet-500 text-white shadow-[0_16px_32px_rgba(79,70,229,0.3)]"
                     : "text-slate-300 hover:bg-slate-900 hover:text-white"
@@ -361,12 +378,12 @@ const MainLayout = () => {
 
         <button
           type="button"
-          onClick={handleLogout}
+          onClick={() => setIsLogoutDialogOpen(true)}
           disabled={isLoggingOut}
-          className="mt-8 inline-flex min-h-[3.7rem] items-center justify-center gap-3 rounded-[1.45rem] border border-slate-700 bg-transparent px-5 text-lg font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-80"
+          className="mt-6 inline-flex min-h-[3.4rem] items-center justify-center gap-3 rounded-[1.35rem] border border-slate-700 bg-transparent px-5 text-base font-bold text-white transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-80 sm:mt-8 sm:min-h-[3.7rem] sm:rounded-[1.45rem] sm:text-lg"
         >
-          {isLoggingOut ? <AuthButtonLoader /> : <LogOut size={20} />}
-          {isLoggingOut ? "Logging out..." : "Logout"}
+          <LogOut size={20} />
+          Logout
         </button>
       </aside>
 
@@ -430,11 +447,15 @@ const MainLayout = () => {
                       <button
                         type="button"
                         onClick={handleClearNotifications}
-                        disabled={!notifications.length || isClearingNotifications}
+                        disabled={
+                          !notifications.length ||
+                          isClearingNotifications ||
+                          deletingNotificationIds.length > 0
+                        }
                         className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                           notifications.length
-                            ? "bg-rose-500 text-white hover:bg-rose-600"
-                            : "bg-slate-900 text-slate-500"
+                            ? "bg-rose-500 text-white hover:bg-rose-600 cursor-pointer disabled:cursor-not-allowed"
+                            : "bg-slate-900 text-slate-500 cursor-not-allowed"
                         }`}
                       >
                         {isClearingNotifications ? (
@@ -482,12 +503,16 @@ const MainLayout = () => {
                                   handleDeleteNotification(notification._id)
                                 }
                                 disabled={
-                                  !!deletingNotificationId || isClearingNotifications
+                                  deletingNotificationIds.includes(
+                                    notification._id
+                                  ) || isClearingNotifications
                                 }
-                                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-70"
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-slate-800 text-slate-200 transition hover:bg-slate-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-70"
                                 aria-label="Delete notification"
                               >
-                                {deletingNotificationId === notification._id ? (
+                                {deletingNotificationIds.includes(
+                                  notification._id
+                                ) ? (
                                   <AuthButtonLoader size={14} />
                                 ) : (
                                   <Trash2 size={14} />
@@ -534,6 +559,75 @@ const MainLayout = () => {
           <Outlet />
         </main>
       </div>
+
+      {isLogoutDialogOpen ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              if (!isLoggingOut) {
+                setIsLogoutDialogOpen(false);
+              }
+            }}
+          />
+          <div className="relative w-full max-w-md rounded-[2rem] border border-slate-800 bg-slate-950 p-6 shadow-[0_24px_60px_rgba(0,0,0,0.5)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.28em] text-slate-400">
+                  Confirm Logout
+                </p>
+                <h3 className="mt-2 text-2xl font-bold text-white">
+                  End delivery session?
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-slate-300">
+                  Logout karne par aapka delivery dashboard session close ho jayega.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLogoutDialogOpen(false)}
+                disabled={isLoggingOut}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-800 bg-slate-900 text-slate-200 transition hover:border-slate-700 hover:bg-slate-800"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={() => setIsLogoutDialogOpen(false)}
+                disabled={isLoggingOut}
+                className="inline-flex min-h-[3.15rem] items-center justify-center rounded-[1.2rem] border border-slate-700 bg-transparent px-4 text-sm font-semibold text-slate-200 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoggingOut ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-slate-500 border-t-white animate-spin" />
+                    Please wait
+                  </span>
+                ) : (
+                  "Cancel"
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="inline-flex min-h-[3.15rem] items-center justify-center rounded-[1.2rem] bg-gradient-to-r from-rose-500 to-orange-500 px-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(244,63,94,0.3)] transition hover:from-rose-400 hover:to-orange-400 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {isLoggingOut ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span className="h-4 w-4 rounded-full border-2 border-white/35 border-t-white animate-spin" />
+                    Logging out...
+                  </span>
+                ) : (
+                  "Yes, logout"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };

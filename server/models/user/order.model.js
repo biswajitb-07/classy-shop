@@ -88,6 +88,30 @@ const orderSchema = new mongoose.Schema({
       default: 0,
     },
   },
+  walletApplied: {
+    amountUsed: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    refundedAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+    isRefunded: {
+      type: Boolean,
+      default: false,
+    },
+    appliedAt: {
+      type: Date,
+      default: null,
+    },
+    refundedAt: {
+      type: Date,
+      default: null,
+    },
+  },
   assignedDeliveryPartner: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "DeliveryPartner",
@@ -98,6 +122,11 @@ const orderSchema = new mongoose.Schema({
     default: null,
   },
   deliveryConfirmation: {
+    purpose: {
+      type: String,
+      enum: ["", "delivery", "return"],
+      default: "",
+    },
     otpHash: {
       type: String,
       default: "",
@@ -290,7 +319,7 @@ const orderSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: true,
-    enum: ["razorpay", "cod"],
+    enum: ["razorpay", "cod", "wallet"],
   },
   paymentStatus: {
     type: String,

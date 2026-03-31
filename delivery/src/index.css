@@ -329,29 +329,34 @@ html[data-theme="dark"] .shadow-2xl {
 .vendor-sidebar-scrollbar {
   scrollbar-gutter: stable;
   scrollbar-width: thin;
-  scrollbar-color: #94a3b8 var(--sidebar-scroll-track);
+  scrollbar-color: #60a5fa var(--sidebar-scroll-track);
 }
 
 .vendor-sidebar-scrollbar::-webkit-scrollbar {
-  width: 10px;
+  width: 6px;
 }
 
 .vendor-sidebar-scrollbar::-webkit-scrollbar-track {
-  margin-block: 10px;
+  margin-block: 12px;
   border-radius: 999px;
-  background: var(--sidebar-scroll-track);
+  background: color-mix(in srgb, var(--sidebar-scroll-track) 82%, transparent);
 }
 
 .vendor-sidebar-scrollbar::-webkit-scrollbar-thumb {
   border-radius: 999px;
-  border: 2px solid transparent;
+  border: 1px solid transparent;
   background: var(--sidebar-scroll-thumb);
   background-clip: padding-box;
+  box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.14);
 }
 
 .vendor-sidebar-scrollbar::-webkit-scrollbar-thumb:hover {
   background: var(--sidebar-scroll-thumb-hover);
   background-clip: padding-box;
+}
+
+.vendor-sidebar-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .login {
