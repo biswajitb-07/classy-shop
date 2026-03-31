@@ -6,7 +6,7 @@ const VENDOR_API = `${BASE_URL}/api/v1/vendor/`;
 
 export const authApi = createApi({
   reducerPath: "authApi",
-  tagTypes: ["VendorNotifications", "NewsletterSubscribers"],
+  tagTypes: ["VendorNotifications", "NewsletterSubscribers", "Coupons"],
   baseQuery: fetchBaseQuery({
     baseUrl: VENDOR_API,
     credentials: "include",
@@ -194,6 +194,50 @@ export const authApi = createApi({
       }),
       invalidatesTags: [{ type: "VendorNotifications", id: "LIST" }],
     }),
+    getCoupons: builder.query({
+      query: () => ({
+        url: "coupons",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result?.coupons
+          ? [
+              ...result.coupons.map((coupon) => ({
+                type: "Coupons",
+                id: coupon._id,
+              })),
+              { type: "Coupons", id: "LIST" },
+            ]
+          : [{ type: "Coupons", id: "LIST" }],
+    }),
+    createCoupon: builder.mutation({
+      query: (body) => ({
+        url: "coupons",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: [{ type: "Coupons", id: "LIST" }],
+    }),
+    toggleCouponStatus: builder.mutation({
+      query: (id) => ({
+        url: `coupons/${id}/toggle`,
+        method: "PATCH",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Coupons", id },
+        { type: "Coupons", id: "LIST" },
+      ],
+    }),
+    deleteCoupon: builder.mutation({
+      query: (id) => ({
+        url: `coupons/${id}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: "Coupons", id },
+        { type: "Coupons", id: "LIST" },
+      ],
+    }),
   }),
 });
 
@@ -220,4 +264,8 @@ export const {
   useGetVendorNotificationsQuery,
   useDeleteVendorNotificationMutation,
   useClearVendorNotificationsMutation,
+  useGetCouponsQuery,
+  useCreateCouponMutation,
+  useToggleCouponStatusMutation,
+  useDeleteCouponMutation,
 } = authApi;

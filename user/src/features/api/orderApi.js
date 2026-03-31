@@ -69,6 +69,13 @@ export const orderApi = createApi({
       },
       invalidatesTags: ["Order"],
     }),
+    validateCoupon: builder.mutation({
+      query: (body) => ({
+        url: `/coupon/validate`,
+        method: "POST",
+        body,
+      }),
+    }),
     confirmPayment: builder.mutation({
       query: (body) => ({
         url: `/confirm-payment`,
@@ -141,6 +148,7 @@ export const {
   useGetUserOrdersQuery,
   useGetUserNotificationsQuery,
   useCreateOrderMutation,
+  useValidateCouponMutation,
   useConfirmPaymentMutation,
   useUpdateOrderStatusMutation
   ,

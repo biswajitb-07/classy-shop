@@ -13,6 +13,7 @@ import Order from "../../models/user/order.model.js";
 import { User } from "../../models/user/user.model.js";
 import { VendorNotification } from "../../models/vendor/vendorNotification.model.js";
 import { UserNotification } from "../../models/user/userNotification.model.js";
+import { Coupon } from "../../models/marketing/coupon.model.js";
 import {
   emitUserNotificationUpdate,
   emitVendorDashboardUpdate,
@@ -43,6 +44,109 @@ const formatStatusLabel = (status) =>
   status
     ?.replace(/_/g, " ")
     .replace(/\b\w/g, (char) => char.toUpperCase());
+
+const appendStatusHistoryEntry = (
+  order,
+  { from = "", to, by, role = "system", reason = "", at = new Date() }
+) => {
+  if (!order || !to) return;
+
+  order.statusHistory = Array.isArray(order.statusHistory)
+    ? order.statusHistory
+    : [];
+
+  order.statusHistory.push({
+    from,
+    to,
+    by,
+    role,
+    reason,
+    at,
+  });
+};
+
+const normalizeCouponCode = (code) => String(code || "").trim().toUpperCase();
+
+const calculateCouponDiscount = (coupon, subtotalAmount) => {
+  if (!coupon || subtotalAmount <= 0) return 0;
+
+  const rawDiscount =
+    coupon.discountType === "percentage"
+      ? (subtotalAmount * Number(coupon.discountValue || 0)) / 100
+      : Number(coupon.discountValue || 0);
+
+  const cappedDiscount = coupon.maxDiscountAmount
+    ? Math.min(rawDiscount, Number(coupon.maxDiscountAmount))
+    : rawDiscount;
+
+  return Math.max(0, Math.min(subtotalAmount, Math.round(cappedDiscount)));
+};
+
+const resolveCouponForOrder = async ({ code, subtotalAmount }) => {
+  const normalizedCode = normalizeCouponCode(code);
+  if (!normalizedCode) {
+    return { appliedCoupon: null, discountAmount: 0 };
+  }
+
+  const coupon = await Coupon.findOne({ code: normalizedCode }).lean();
+  if (!coupon) {
+    throw new Error("Coupon code not found");
+  }
+
+  if (!coupon.isActive) {
+    throw new Error("This coupon is currently inactive");
+  }
+
+  const now = Date.now();
+  if (coupon.startsAt && new Date(coupon.startsAt).getTime() > now) {
+    throw new Error("This coupon is not active yet");
+  }
+
+  if (coupon.expiresAt && new Date(coupon.expiresAt).getTime() < now) {
+    throw new Error("This coupon has expired");
+  }
+
+  if (
+    coupon.usageLimit !== null &&
+    coupon.usageLimit !== undefined &&
+    Number(coupon.usedCount || 0) >= Number(coupon.usageLimit)
+  ) {
+    throw new Error("This coupon has reached its usage limit");
+  }
+
+  if (subtotalAmount < Number(coupon.minOrderAmount || 0)) {
+    throw new Error(
+      `Coupon requires a minimum order of Rs ${Number(
+        coupon.minOrderAmount || 0
+      ).toLocaleString()}`
+    );
+  }
+
+  const discountAmount = calculateCouponDiscount(coupon, subtotalAmount);
+  if (discountAmount <= 0) {
+    throw new Error("This coupon does not apply to your cart");
+  }
+
+  return {
+    appliedCoupon: {
+      couponId: coupon._id,
+      code: coupon.code,
+      title: coupon.title,
+      discountType: coupon.discountType,
+      discountValue: coupon.discountValue,
+      discountAmount,
+    },
+    discountAmount,
+  };
+};
+
+const incrementCouponUsage = async (appliedCoupon) => {
+  if (!appliedCoupon?.couponId) return;
+
+  await Coupon.findByIdAndUpdate(appliedCoupon.couponId, {
+    $inc: { usedCount: 1 },
+  });
+};
 
 const normalizeOrderStatus = (status) => {
   const rawStatus =
@@ -262,12 +366,12 @@ const createUserNotificationForOrderStatus = async ({
   emitUserNotificationUpdate(order.userId);
 };
 
-const computeOrderDetailsFromCart = async (userId) => {
+const computeOrderDetailsFromCart = async (userId, couponCode = "") => {
   const cart = await Cart.findOne({ userId });
   if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
     throw new Error("Cart is empty");
   }
-  let totalAmount = 0;
+  let subtotalAmount = 0;
   const orderItems = [];
   for (const item of cart.items) {
     const Model = productModels[item.productType];
@@ -294,7 +398,7 @@ const computeOrderDetailsFromCart = async (userId) => {
         throw new Error(`${product.name} does not have enough stock`);
       }
       const subtotal = price * qty;
-      totalAmount += subtotal;
+      subtotalAmount += subtotal;
       orderItems.push({
         productId: item.productId,
         vendorId: product.vendorId,
@@ -307,15 +411,29 @@ const computeOrderDetailsFromCart = async (userId) => {
       });
     }
   }
-  if (totalAmount === 0 || orderItems.length === 0) {
+  if (subtotalAmount === 0 || orderItems.length === 0) {
     throw new Error("No valid items in cart");
   }
-  return { totalAmount, orderItems, cart };
+
+  const { appliedCoupon, discountAmount } = await resolveCouponForOrder({
+    code: couponCode,
+    subtotalAmount,
+  });
+  const totalAmount = Math.max(0, subtotalAmount - discountAmount);
+
+  return {
+    subtotalAmount,
+    discountAmount,
+    totalAmount,
+    appliedCoupon,
+    orderItems,
+    cart,
+  };
 };
 
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddress, paymentMethod } = req.body;
+    const { shippingAddress, paymentMethod, couponCode } = req.body;
     const userId = req.id;
     const orderingUser = await User.findById(userId).select("name email").lean();
     if (!shippingAddress || !paymentMethod) {
@@ -329,9 +447,8 @@ export const createOrder = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Invalid payment method" });
     }
-    const { totalAmount, orderItems, cart } = await computeOrderDetailsFromCart(
-      userId
-    );
+    const { subtotalAmount, discountAmount, totalAmount, appliedCoupon, orderItems, cart } =
+      await computeOrderDetailsFromCart(userId, couponCode);
     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)
       .toString()
       .padStart(4, "0")}`;
@@ -340,17 +457,26 @@ export const createOrder = async (req, res) => {
         userId,
         items: orderItems,
         totalAmount,
+        subtotalAmount,
+        discountAmount,
+        coupon: appliedCoupon || undefined,
         shippingAddress,
         paymentMethod,
         paymentStatus: "pending",
         orderStatus: "pending",
         orderId,
       });
+      appendStatusHistoryEntry(order, {
+        to: "pending",
+        role: "system",
+        reason: "Order placed with Cash on Delivery",
+      });
       await order.save();
       await adjustInventoryForOrderItems(order.items, "decrease");
       order.stockAdjusted = true;
       order.stockRestored = false;
       await order.save();
+      await incrementCouponUsage(appliedCoupon);
       await createVendorNotificationsForOrder(order, userId);
       Array.from(new Set(order.items.map((item) => String(item.vendorId)))).forEach(
         (vendorId) => emitVendorDashboardUpdate(vendorId)
@@ -371,6 +497,7 @@ export const createOrder = async (req, res) => {
         notes: {
           userId: userId.toString(),
           shippingAddress: JSON.stringify(shippingAddress),
+          couponCode: normalizeCouponCode(couponCode),
         },
       };
       const rzOrder = await razorpay.orders.create(options);
@@ -386,7 +513,11 @@ export const createOrder = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: "Failed to create order",
+      message: /coupon|cart|stock|invalid|required|not found/i.test(
+        error.message || ""
+      )
+        ? error.message
+        : "Failed to create order",
       error: error.message,
     });
   }
@@ -425,9 +556,14 @@ export const confirmPayment = async (req, res) => {
     const userId = notes.userId;
     const orderingUser = await User.findById(userId).select("name email").lean();
     const shippingAddress = JSON.parse(notes.shippingAddress);
-    const { totalAmount, orderItems, cart } = await computeOrderDetailsFromCart(
-      userId
-    );
+    const {
+      subtotalAmount,
+      discountAmount,
+      totalAmount,
+      appliedCoupon,
+      orderItems,
+      cart,
+    } = await computeOrderDetailsFromCart(userId, notes.couponCode);
     if (Math.round(totalAmount * 100) !== rzOrder.amount) {
       return res.status(400).json({
         success: false,
@@ -439,6 +575,9 @@ export const confirmPayment = async (req, res) => {
       userId,
       items: orderItems,
       totalAmount,
+      subtotalAmount,
+      discountAmount,
+      coupon: appliedCoupon || undefined,
       shippingAddress,
       paymentMethod: "razorpay",
       paymentStatus: "completed",
@@ -447,11 +586,17 @@ export const confirmPayment = async (req, res) => {
       razorpayOrderId: razorpay_order_id,
       razorpayPaymentId: razorpay_payment_id,
     });
+    appendStatusHistoryEntry(order, {
+      to: "processing",
+      role: "system",
+      reason: "Payment confirmed via Razorpay",
+    });
     await order.save();
     await adjustInventoryForOrderItems(order.items, "decrease");
     order.stockAdjusted = true;
     order.stockRestored = false;
     await order.save();
+    await incrementCouponUsage(appliedCoupon);
     await createVendorNotificationsForOrder(order, userId);
     cart.items = [];
     await cart.save();
@@ -467,8 +612,44 @@ export const confirmPayment = async (req, res) => {
     console.error(error);
     return res.status(500).json({
       success: false,
-      message: "Failed to confirm payment",
+      message: /coupon|cart|stock|invalid|required|not found/i.test(
+        error.message || ""
+      )
+        ? error.message
+        : "Failed to confirm payment",
       error: error.message,
+    });
+  }
+};
+
+export const validateCoupon = async (req, res) => {
+  try {
+    const couponCode = normalizeCouponCode(req.body?.code);
+    if (!couponCode) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Coupon code is required" });
+    }
+
+    const {
+      subtotalAmount,
+      discountAmount,
+      totalAmount,
+      appliedCoupon,
+    } = await computeOrderDetailsFromCart(req.id, couponCode);
+
+    return res.status(200).json({
+      success: true,
+      message: "Coupon applied successfully",
+      subtotalAmount,
+      discountAmount,
+      totalAmount,
+      coupon: appliedCoupon,
+    });
+  } catch (error) {
+    return res.status(400).json({
+      success: false,
+      message: error.message || "Failed to validate coupon",
     });
   }
 };

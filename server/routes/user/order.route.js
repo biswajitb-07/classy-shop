@@ -2,6 +2,7 @@ import express from "express";
 import {
   createOrder,
   confirmPayment,
+  validateCoupon,
   getUserOrders,
   getVendorOrders,
   orderStatusUpdate,
@@ -15,6 +16,7 @@ import isAuthenticatedVendor from "../../middleware/vendor/isAuthenticatedVendor
 const orderRouter = express.Router();
 
 orderRouter.post("/create", isAuthenticatedUser, createOrder);
+orderRouter.post("/coupon/validate", isAuthenticatedUser, validateCoupon);
 orderRouter.post("/confirm-payment", isAuthenticatedUser, confirmPayment);
 orderRouter.get("/", isAuthenticatedUser, getUserOrders);
 orderRouter.get("/notifications", isAuthenticatedUser, getUserNotifications);

@@ -23,6 +23,7 @@ const ElectronicsProductDetails = () => {
   const [mainImage, setMainImage] = useState("");
   const [transformOrigin, setTransformOrigin] = useState("50% 50%");
   const [addLoading, setAddLoading] = useState(false);
+  const [buyLoading, setBuyLoading] = useState(false);
   const [selectedRam, setSelectedRam] = useState("");
   const [selectedStorage, setSelectedStorage] = useState("");
 
@@ -66,13 +67,18 @@ const ElectronicsProductDetails = () => {
     return <div className="flex gap-1 text-sm">{stars}</div>;
   };
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (redirectToCheckout = false) => {
     if (!isAuthenticated) {
       toast.error("please login");
       return;
     }
-    
-    setAddLoading(true);
+
+    if (redirectToCheckout) {
+      setBuyLoading(true);
+    } else {
+      setAddLoading(true);
+    }
+
     try {
       if (!selectedRam || !selectedStorage) {
         toast.error("Please select RAM and Storage");
@@ -89,12 +95,18 @@ const ElectronicsProductDetails = () => {
         ram: selectedRam,
         storage: selectedStorage,
       }).unwrap();
-      toast.success("Product added to cart!");
+      if (redirectToCheckout) {
+        toast.success("Redirecting to checkout...");
+        navigate("/checkout");
+      } else {
+        toast.success("Product added to cart!");
+      }
     } catch (error) {
       toast.error("Failed to add to cart");
       console.error(error);
     } finally {
       setAddLoading(false);
+      setBuyLoading(false);
     }
   };
 
@@ -247,20 +259,27 @@ const ElectronicsProductDetails = () => {
               {product.shippingInfo}
             </p>
 
-            <div className="grid place-items-end">
+            <div className="mt-4 grid w-full gap-3 sm:max-w-md sm:place-items-end sm:self-end">
               <button
-                onClick={handleAddToCart}
+                onClick={() => handleAddToCart(false)}
                 disabled={addLoading}
-                className="mt-4 px-8 bg-red-500 text-white py-2 sm:py-3 rounded-md text-xs sm:text-sm font-medium hover:bg-red-600 transition flex items-center justify-center gap-2 sm:gap-3 disabled:cursor-not-allowed cursor-pointer"
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-red-500 bg-white px-8 py-2 text-xs font-medium text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed sm:py-3 sm:text-sm"
               >
                 {addLoading ? (
                   <AuthButtonLoader />
                 ) : (
                   <>
-                    <ShoppingCart size={16} className="sm:h-5 sm:w-5" /> ADD TO
-                    CART
+                    <ShoppingCart size={16} className="sm:h-5 sm:w-5" /> ADD TO CART
                   </>
                 )}
+              </button>
+
+              <button
+                onClick={() => handleAddToCart(true)}
+                disabled={buyLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-red-500 px-8 py-2 text-xs font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed sm:py-3 sm:text-sm"
+              >
+                {buyLoading ? <AuthButtonLoader /> : "BUY NOW"}
               </button>
             </div>
           </div>

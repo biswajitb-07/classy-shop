@@ -1,25 +1,27 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FaShoppingBag,
-  FaMapMarkerAlt,
   FaCreditCard,
+  FaMapMarkerAlt,
   FaMoneyBillWave,
+  FaShoppingBag,
+  FaTag,
 } from "react-icons/fa";
+import { useSelector } from "react-redux";
+import { toast } from "react-hot-toast";
 import { useGetCartQuery } from "../../../features/api/cartApi.js";
 import {
-  useCreateOrderMutation,
   useConfirmPaymentMutation,
+  useCreateOrderMutation,
+  useValidateCouponMutation,
 } from "../../../features/api/orderApi.js";
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
-import { toast } from "react-hot-toast";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
-import { useSelector } from "react-redux";
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
-  const { user } = useSelector((s) => s.auth);
+  const { user } = useSelector((state) => state.auth);
 
   const {
     data: cartData,
@@ -29,6 +31,8 @@ const CheckoutPage = () => {
   } = useGetCartQuery();
   const [createOrder, { isLoading: createLoading }] = useCreateOrderMutation();
   const [confirmPayment] = useConfirmPaymentMutation();
+  const [validateCoupon, { isLoading: couponLoading }] =
+    useValidateCouponMutation();
 
   const cart = cartData?.cart || [];
   const [shippingAddress, setShippingAddress] = useState({
@@ -46,44 +50,60 @@ const CheckoutPage = () => {
     phone: (user?.phone?.toString() || "").toString() || "",
   });
   const [paymentMethod, setPaymentMethod] = useState("cod");
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  const subtotal = useMemo(
+    () =>
+      cart.reduce(
+        (total, group) =>
+          total +
+          group.variants.reduce(
+            (sum, variant) =>
+              sum + Number(group.product.discountedPrice || 0) * variant.quantity,
+            0,
+          ),
+        0,
+      ),
+    [cart],
+  );
+
+  const totalItems = useMemo(
+    () =>
+      cart.reduce(
+        (total, group) =>
+          total + group.variants.reduce((sum, variant) => sum + variant.quantity, 0),
+        0,
+      ),
+    [cart],
+  );
+
+  const discountAmount = Number(appliedCoupon?.discountAmount || 0);
+  const totalAmount = Math.max(0, subtotal - discountAmount);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    console.log("Initial shippingAddress:", shippingAddress);
   }, []);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    setAppliedCoupon(null);
+  }, [subtotal, totalItems]);
+
+  const handleInputChange = (event) => {
+    const { name, value } = event.target;
     setShippingAddress((prev) => ({ ...prev, [name]: value }));
   };
 
-  const calculateSubtotal = () =>
-    cart.reduce(
-      (total, group) =>
-        total +
-        group.variants.reduce(
-          (sub, v) => sub + group.product.discountedPrice * v.quantity,
-          0
-        ),
-      0
-    );
-
-  const totalItems = cart.reduce(
-    (total, group) =>
-      total + group.variants.reduce((sub, v) => sub + v.quantity, 0),
-    0
-  );
-
-  const loadRazorpayScript = () => {
-    return new Promise((resolve) => {
+  const loadRazorpayScript = () =>
+    new Promise((resolve) => {
       const script = document.createElement("script");
       script.src = "https://checkout.razorpay.com/v1/checkout.js";
       script.onload = () => resolve(true);
       script.onerror = () => resolve(false);
       document.body.appendChild(script);
     });
-  };
 
   const redirectToOrder = (orderId) => {
     if (!orderId) {
@@ -91,13 +111,58 @@ const CheckoutPage = () => {
       return;
     }
 
-    // Replace checkout with cart in browser history, then push the order page.
-    // This keeps the success flow intact while making Back return to cart
-    // instead of re-opening the checkout form.
     navigate("/cart", { replace: true });
     window.setTimeout(() => {
       navigate(`/order/${orderId}`);
     }, 0);
+  };
+
+  const validateAddress = () => {
+    const requiredFields = [
+      "fullName",
+      "village",
+      "city",
+      "district",
+      "state",
+      "postalCode",
+      "country",
+      "phone",
+    ];
+
+    for (const field of requiredFields) {
+      const value = (shippingAddress[field] || "").toString();
+      if (!value.trim()) {
+        toast.error(
+          `Please fill in ${field.replace(/([A-Z])/g, " $1").trim()}`,
+        );
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const handleApplyCoupon = async () => {
+    const normalizedCode = couponCode.trim().toUpperCase();
+    if (!normalizedCode) {
+      toast.error("Enter a coupon code");
+      return;
+    }
+
+    try {
+      const result = await validateCoupon({ code: normalizedCode }).unwrap();
+      setAppliedCoupon(result?.coupon || null);
+      setCouponCode(result?.coupon?.code || normalizedCode);
+      toast.success(result?.message || "Coupon applied");
+    } catch (error) {
+      setAppliedCoupon(null);
+      toast.error(error?.data?.message || "Failed to apply coupon");
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setCouponCode("");
+    setAppliedCoupon(null);
   };
 
   const handlePlaceOrder = async () => {
@@ -110,6 +175,7 @@ const CheckoutPage = () => {
       const response = await createOrder({
         shippingAddress,
         paymentMethod,
+        couponCode: appliedCoupon?.code || "",
       }).unwrap();
 
       if (paymentMethod === "cod") {
@@ -137,12 +203,12 @@ const CheckoutPage = () => {
                 razorpay_signature: razorpayResponse.razorpay_signature,
               }).unwrap();
               toast.success("Payment successful! Order confirmed.");
-              redirectToOrder(
-                confirmedOrder?.order?._id
-              );
-            } catch (err) {
+              redirectToOrder(confirmedOrder?.order?._id);
+            } catch (error) {
               setLoading(false);
-              toast.error("Payment confirmation failed");
+              toast.error(
+                error?.data?.message || "Payment confirmation failed",
+              );
             }
           },
           prefill: {
@@ -165,36 +231,13 @@ const CheckoutPage = () => {
         });
         rzp.open();
       }
-    } catch (err) {
-      toast.error(err?.data?.message || "Failed to place order");
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to place order");
     } finally {
       if (shouldResetLoading) {
         setLoading(false);
       }
     }
-  };
-
-  const validateAddress = () => {
-    const requiredFields = [
-      "fullName",
-      "village",
-      "city",
-      "district",
-      "state",
-      "postalCode",
-      "country",
-      "phone",
-    ];
-    for (let field of requiredFields) {
-      const value = (shippingAddress[field] || "").toString();
-      if (!value.trim()) {
-        toast.error(
-          `Please fill in ${field.replace(/([A-Z])/g, " $1").trim()}`
-        );
-        return false;
-      }
-    }
-    return true;
   };
 
   if (cartError) return <ErrorMessage onRetry={refetchCart} />;
@@ -247,7 +290,7 @@ const CheckoutPage = () => {
               </span>
             </div>
           </div>
-          <div className="w-24 h-1 bg-gradient-to-r from-red-500 to-pink-500 rounded-full"></div>
+          <div className="w-24 h-1 bg-gradient-to-r from-red-500 to-pink-500 rounded-full" />
         </div>
 
         <div className="grid lg:grid-cols-6 gap-8">
@@ -421,27 +464,83 @@ const CheckoutPage = () => {
           </div>
 
           <div className="lg:col-span-2">
-            <div className="sticky top-8">
+            <div className="sticky top-8 space-y-6">
+              <div className="bg-white rounded-2xl shadow-lg p-6">
+                <div className="flex items-center gap-2 mb-4">
+                  <FaTag className="text-red-500" />
+                  <h3 className="text-lg font-bold text-gray-800">Coupon Code</h3>
+                </div>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={couponCode}
+                    onChange={(event) => setCouponCode(event.target.value.toUpperCase())}
+                    placeholder="ENTER CODE"
+                    className="flex-1 rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-red-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyCoupon}
+                    disabled={couponLoading}
+                    className="rounded-xl bg-red-500 px-4 py-3 font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+                  >
+                    {couponLoading ? "Applying..." : "Apply"}
+                  </button>
+                </div>
+
+                {appliedCoupon ? (
+                  <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="font-semibold text-green-700">
+                          {appliedCoupon.code} applied
+                        </p>
+                        <p className="text-sm text-green-600">
+                          You saved Rs {discountAmount.toLocaleString()}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveCoupon}
+                        className="text-sm font-semibold text-green-700 underline"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="mt-3 text-sm text-gray-500">
+                    Create coupons from the vendor dashboard and apply them here.
+                  </p>
+                )}
+              </div>
+
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <h3 className="text-xl font-bold text-gray-800 mb-6 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                  <div className="w-2 h-2 bg-red-500 rounded-full" />
                   Order Summary
                 </h3>
 
                 <div className="space-y-4 mb-6">
                   <div className="flex justify-between text-gray-600">
-                    <span>Items ({totalItems})</span>
-                    <span>₹{calculateSubtotal().toLocaleString()}</span>
+                    <span>Subtotal ({totalItems} items)</span>
+                    <span>Rs {subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-gray-600">
                     <span>Shipping</span>
                     <span className="text-green-500 font-medium">Free</span>
                   </div>
+                  <div className="flex justify-between text-gray-600">
+                    <span>Coupon Discount</span>
+                    <span className="font-medium text-green-600">
+                      - Rs {discountAmount.toLocaleString()}
+                    </span>
+                  </div>
                   <hr className="border-gray-200" />
                   <div className="flex justify-between text-xl font-bold text-gray-800">
                     <span>Total</span>
                     <span className="text-red-500">
-                      ₹{calculateSubtotal().toLocaleString()}
+                      Rs {totalAmount.toLocaleString()}
                     </span>
                   </div>
                 </div>
@@ -451,21 +550,17 @@ const CheckoutPage = () => {
                   disabled={loading || createLoading}
                   className="w-full bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600 text-white font-bold py-4 px-6 rounded-xl transition-all duration-300 transform hover:scale-105 shadow-lg cursor-pointer disabled:opacity-50"
                 >
-                  {loading || createLoading ? (
-                    <AuthButtonLoader />
-                  ) : (
-                    "Place Order"
-                  )}
+                  {loading || createLoading ? <AuthButtonLoader /> : "Place Order"}
                 </button>
 
                 <div className="mt-6 pt-6 border-t border-gray-100">
                   <div className="flex items-center justify-center gap-4 text-sm text-gray-500">
                     <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-green-500 rounded-full" />
                       Secure Payment
                     </div>
                     <div className="flex items-center gap-1">
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full" />
                       Free Returns
                     </div>
                   </div>

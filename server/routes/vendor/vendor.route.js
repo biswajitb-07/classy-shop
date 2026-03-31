@@ -34,6 +34,12 @@ import {
   getVendorSupportConversations,
   sendVendorSupportReply,
 } from "../../controllers/support/support.controller.js";
+import {
+  createCoupon,
+  deleteCoupon,
+  getCoupons,
+  toggleCouponStatus,
+} from "../../controllers/vendor/coupon.controller.js";
 import siteContentVendorRouter from "./siteContent.route.js";
 
 const vendorRouter = express.Router();
@@ -67,6 +73,10 @@ vendorRouter.patch("/vendors/:id/block", isAuthenticatedVendor, toggleVendorBloc
 vendorRouter.get("/notifications", isAuthenticatedVendor, getVendorNotifications);
 vendorRouter.delete("/notifications/:id", isAuthenticatedVendor, deleteVendorNotification);
 vendorRouter.delete("/notifications", isAuthenticatedVendor, clearVendorNotifications);
+vendorRouter.get("/coupons", isAuthenticatedVendor, getCoupons);
+vendorRouter.post("/coupons", isAuthenticatedVendor, createCoupon);
+vendorRouter.patch("/coupons/:id/toggle", isAuthenticatedVendor, toggleCouponStatus);
+vendorRouter.delete("/coupons/:id", isAuthenticatedVendor, deleteCoupon);
 vendorRouter.get("/support/conversations", isAuthenticatedVendor, getVendorSupportConversations);
 vendorRouter.get(
   "/support/conversations/:conversationId",

@@ -24,6 +24,7 @@ const FashionProductDetails = () => {
   const [transformOrigin, setTransformOrigin] = useState("50% 50%");
   const [quantities, setQuantities] = useState({});
   const [addLoading, setAddLoading] = useState(false);
+  const [buyLoading, setBuyLoading] = useState(false);
 
   const [addToCart] = useAddToCartMutation();
 
@@ -73,12 +74,22 @@ const FashionProductDetails = () => {
     });
   };
 
-  const handleAddToCart = async (product, isMulti = false) => {
+  const handleAddToCart = async (
+    product,
+    isMulti = false,
+    redirectToCheckout = false
+  ) => {
     if (!isAuthenticated) {
       toast.error("please login");
       return;
     }
-    setAddLoading(true);
+
+    if (redirectToCheckout) {
+      setBuyLoading(true);
+    } else {
+      setAddLoading(true);
+    }
+
     if (isMulti) {
       try {
         let hasAdded = false;
@@ -98,13 +109,19 @@ const FashionProductDetails = () => {
           toast.error("Please select a size and quantity");
           return;
         }
-        toast.success("Products added to cart!");
+        if (redirectToCheckout) {
+          toast.success("Redirecting to checkout...");
+          navigate("/checkout");
+        } else {
+          toast.success("Products added to cart!");
+        }
         setQuantities({});
       } catch (error) {
         toast.error("Failed to add to cart");
         console.error("Failed to add to cart:", error);
       } finally {
         setAddLoading(false);
+        setBuyLoading(false);
       }
     } else {
       try {
@@ -114,12 +131,18 @@ const FashionProductDetails = () => {
           quantity: 1,
           size: null,
         }).unwrap();
-        toast.success("Product added to cart!");
+        if (redirectToCheckout) {
+          toast.success("Redirecting to checkout...");
+          navigate("/checkout");
+        } else {
+          toast.success("Product added to cart!");
+        }
       } catch (error) {
         toast.error("Failed to add to cart");
         console.error("Failed to add to cart:", error);
       } finally {
         setAddLoading(false);
+        setBuyLoading(false);
       }
     }
   };
@@ -275,22 +298,27 @@ const FashionProductDetails = () => {
               {product.shippingInfo}
             </p>
 
-            <div className="grid place-items-end">
+            <div className="mt-4 grid w-full gap-3 sm:max-w-md sm:place-items-end sm:self-end">
               <button
-                onClick={() =>
-                  handleAddToCart(product, product.sizes?.length > 0)
-                }
+                onClick={() => handleAddToCart(product, product.sizes?.length > 0, false)}
                 disabled={addLoading}
-                className="mt-4 px-8 bg-red-500 text-white py-2 sm:py-3 rounded-md text-xs sm:text-sm font-medium hover:bg-red-600 transition flex items-center justify-center gap-2 sm:gap-3 disabled:cursor-not-allowed cursor-pointer"
+                className="flex w-full items-center justify-center gap-2 rounded-md border border-red-500 bg-white px-8 py-2 text-xs font-medium text-red-500 transition hover:bg-red-50 disabled:cursor-not-allowed sm:py-3 sm:text-sm"
               >
                 {addLoading ? (
                   <AuthButtonLoader />
                 ) : (
                   <>
-                    <ShoppingCart size={16} className="sm:h-5 sm:w-5" /> ADD TO
-                    CART
+                    <ShoppingCart size={16} className="sm:h-5 sm:w-5" /> ADD TO CART
                   </>
                 )}
+              </button>
+
+              <button
+                onClick={() => handleAddToCart(product, product.sizes?.length > 0, true)}
+                disabled={buyLoading}
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-red-500 px-8 py-2 text-xs font-medium text-white transition hover:bg-red-600 disabled:cursor-not-allowed sm:py-3 sm:text-sm"
+              >
+                {buyLoading ? <AuthButtonLoader /> : "BUY NOW"}
               </button>
             </div>
           </div>

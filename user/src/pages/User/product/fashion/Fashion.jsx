@@ -8,6 +8,11 @@ import ProductNotAvailable from "../../../../components/products/ProductNotAvail
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi.js";
 import { CgCloseR } from "react-icons/cg";
 import CategoryPageLoader from "../../../../components/Loader/CategoryPageLoader.jsx";
+import {
+  createDefaultProductFilters,
+  filterAndSortProducts,
+  getAvailableBrands,
+} from "../../../../utils/productFiltering.js";
 
 const PAGE_SIZE = 15;
 
@@ -28,18 +33,9 @@ const Fashion = () => {
       .replace(/\s+/g, " ")
       .trim();
 
-  const normalizeForFilter = (str) =>
-    str
-      ?.toLowerCase()
-      .replace(/[-\s&]/g, "")
-      .trim();
-
-  const [appliedFilters, setAppliedFilters] = useState({
-    categories: [],
-    minPrice: 0,
-    maxPrice: 60000,
-    ratings: [],
-  });
+  const [appliedFilters, setAppliedFilters] = useState(
+    createDefaultProductFilters()
+  );
   const [currentPage, setCurrentPage] = useState(1);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
 
@@ -47,14 +43,11 @@ const Fashion = () => {
     const displaySub = normalizeForDisplay(subcategory);
     const displayThird = normalizeForDisplay(thirdcategory);
 
-    setAppliedFilters((prev) => ({
-      ...prev,
-      categories: displayThird
-        ? [displayThird]
-        : displaySub
-        ? [displaySub]
-        : [],
-    }));
+    setAppliedFilters(
+      createDefaultProductFilters(
+        displayThird ? [displayThird] : displaySub ? [displaySub] : []
+      )
+    );
     setCurrentPage(1);
   }, [subcategory, thirdcategory]);
 
@@ -67,31 +60,7 @@ const Fashion = () => {
   useEffect(() => setCurrentPage(1), [allProducts, appliedFilters]);
 
   const filteredProducts = useMemo(() => {
-    if (!allProducts.length) return [];
-
-    const normalizedFilters = appliedFilters.categories.map(normalizeForFilter);
-
-    return allProducts.filter((p) => {
-      const price = Number(p.discountedPrice ?? p.originalPrice ?? 0);
-      const subCat = p.subCategory || "";
-      const thirdCat = p.thirdLevelCategory || "";
-
-      const matchesCategory =
-        normalizedFilters.length === 0 ||
-        normalizedFilters.some(
-          (filter) =>
-            normalizeForFilter(subCat) === filter ||
-            normalizeForFilter(thirdCat) === filter
-        );
-
-      return (
-        matchesCategory &&
-        price >= appliedFilters.minPrice &&
-        price <= appliedFilters.maxPrice &&
-        (appliedFilters.ratings.length === 0 ||
-          appliedFilters.ratings.some((r) => (p.rating ?? 0) >= r))
-      );
-    });
+    return filterAndSortProducts(allProducts, appliedFilters);
   }, [allProducts, appliedFilters]);
 
   const totalItems = filteredProducts.length;
@@ -127,6 +96,11 @@ const Fashion = () => {
     return [...categoriesSet].filter(Boolean);
   }, [categoryData, allProducts]);
 
+  const availableBrands = useMemo(
+    () => getAvailableBrands(allProducts),
+    [allProducts]
+  );
+
   const handleApplyFilters = (f) => {
     setAppliedFilters(f);
     setCurrentPage(1);
@@ -137,16 +111,11 @@ const Fashion = () => {
     const displaySub = normalizeForDisplay(subcategory);
     const displayThird = normalizeForDisplay(thirdcategory);
 
-    setAppliedFilters({
-      categories: displayThird
-        ? [displayThird]
-        : displaySub
-        ? [displaySub]
-        : [],
-      minPrice: 0,
-      maxPrice: 60000,
-      ratings: [],
-    });
+    setAppliedFilters(
+      createDefaultProductFilters(
+        displayThird ? [displayThird] : displaySub ? [displaySub] : []
+      )
+    );
     setCurrentPage(1);
     setShowMobileFilters(false);
   };
@@ -220,6 +189,7 @@ const Fashion = () => {
 
         <ProductFilter
           availableCategories={availableCategories}
+          availableBrands={availableBrands}
           initialFilters={appliedFilters}
           onApply={handleApplyFilters}
           onClear={handleClearFilters}
