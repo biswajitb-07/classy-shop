@@ -159,7 +159,7 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                 <ul className="flex items-center gap-4 list-none">
                   <li>
                     <Link
-                      to="/support"
+                      to="/help-center"
                       className="text-[13px] link font-[500] transition duration-150 ease-linear"
                     >
                       Help Center

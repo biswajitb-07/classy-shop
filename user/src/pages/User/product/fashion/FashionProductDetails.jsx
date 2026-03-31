@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetFashionItemsQuery } from "../../../../features/api/fashionApi.js";
-import { FaStar, FaStarHalfAlt } from "react-icons/fa";
+import { FaBalanceScale, FaStar, FaStarHalfAlt } from "react-icons/fa";
 import { IoShareSocialOutline } from "react-icons/io5";
 import { ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -14,6 +14,11 @@ import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import { useSelector } from "react-redux";
 import { shareProduct } from "../../../../utils/shareProduct.js";
 import useTrackAiProductClick from "../../../../hooks/useTrackAiProductClick.js";
+import {
+  buildCompareProduct,
+  isProductCompared,
+  toggleCompareProduct,
+} from "../../../../utils/productCompare.js";
 
 const FashionProductDetails = () => {
   const { data, isLoading, refetch } = useGetFashionItemsQuery();
@@ -26,6 +31,7 @@ const FashionProductDetails = () => {
   const [quantities, setQuantities] = useState({});
   const [addLoading, setAddLoading] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
+  const [compareActive, setCompareActive] = useState(false);
 
   const [addToCart] = useAddToCartMutation();
 
@@ -44,6 +50,11 @@ const FashionProductDetails = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [productId]);
+
+  useEffect(() => {
+    if (!product?._id) return;
+    setCompareActive(isProductCompared(product._id, "Fashion"));
+  }, [product?._id]);
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } =
@@ -162,6 +173,26 @@ const FashionProductDetails = () => {
     }
   };
 
+  const handleCompare = () => {
+    if (!product) return;
+
+    const result = toggleCompareProduct(
+      buildCompareProduct(
+        product,
+        "Fashion",
+        `/fashion/fashion-product-details/${product._id}`
+      )
+    );
+
+    if (result.limitReached) {
+      toast.error("Compare list me maximum 4 products add kar sakte ho.");
+      return;
+    }
+
+    setCompareActive(result.compared);
+    toast.success(result.compared ? "Added to compare" : "Removed from compare");
+  };
+
   const pageBack = () => {
     if (window.history.length > 1) {
       navigate(-1);
@@ -185,13 +216,26 @@ const FashionProductDetails = () => {
       <div className="container mx-auto px-4 sm:px-6 md:px-8 pb-14 md:pb-16">
         <div className="flex justify-between items-center mb-4 sm:mb-6">
           {/* Share Button */}
-          <div className="relative share-container">
+          <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={handleShare} // Directly call handleShare
+              onClick={handleShare}
               className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-red-500 border-red-500 hover:bg-red-50 transition-colors cursor-pointer"
             >
               <IoShareSocialOutline size={18} />
               <span className="text-sm">Share</span>
+            </button>
+            <button
+              onClick={handleCompare}
+              className={`flex items-center gap-2 rounded-md border px-3 py-2 transition-colors cursor-pointer ${
+                compareActive
+                  ? "border-cyan-500 bg-cyan-50 text-cyan-700"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <FaBalanceScale size={16} />
+              <span className="text-sm">
+                {compareActive ? "Compared" : "Compare"}
+              </span>
             </button>
           </div>
         </div>

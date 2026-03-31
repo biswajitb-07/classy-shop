@@ -67,10 +67,19 @@ const OrderListPage = lazy(
 const OrderDetailsPage = lazy(
   () => import("./pages/User/order/OrderDetailsPage.jsx"),
 );
+const TrackOrderPage = lazy(
+  () => import("./pages/User/order/TrackOrderPage.jsx"),
+);
+const CompareProductsPage = lazy(
+  () => import("./pages/User/product/CompareProductsPage.jsx"),
+);
 const SearchResultsPage = lazy(
   () => import("./pages/User/SearchResultsPage.jsx"),
 );
 const InfoPage = lazy(() => import("./pages/User/support/InfoPage.jsx"));
+const HelpCenterPage = lazy(
+  () => import("./pages/User/support/HelpCenterPage.jsx"),
+);
 const SupportChatPage = lazy(
   () => import("./pages/User/support/SupportChatPage.jsx"),
 );
@@ -140,6 +149,14 @@ const appRouter = createBrowserRouter([
             <SupportChatPage />
           </UserRoute>
         ),
+      },
+      {
+        path: "/help-center",
+        element: <HelpCenterPage />,
+      },
+      {
+        path: "/compare-products",
+        element: <CompareProductsPage />,
       },
       {
         path: "/product-wishlist",
@@ -338,6 +355,14 @@ const appRouter = createBrowserRouter([
         element: (
           <UserRoute>
             <OrderDetailsPage />
+          </UserRoute>
+        ),
+      },
+      {
+        path: "/track-order/:orderId",
+        element: (
+          <UserRoute>
+            <TrackOrderPage />
           </UserRoute>
         ),
       },

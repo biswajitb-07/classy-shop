@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaChevronRight } from "react-icons/fa";
+import { FaBoxOpen, FaChevronRight, FaRoute } from "react-icons/fa";
 import { useGetUserOrdersQuery } from "../../../features/api/orderApi.js";
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
@@ -181,6 +181,11 @@ const OrderListPage = () => {
           : "pending",
     }));
   };
+
+  const canTrackOrder = (status) =>
+    ["shipped", "out_for_delivery", "return_approved", "delivered"].includes(
+      status
+    );
 
   return (
     <div className={`min-h-screen pb-[2rem] ${isDark ? "bg-[#050816] text-white" : "bg-gradient-to-br from-gray-50 to-gray-100 text-slate-900"}`}>
@@ -371,7 +376,20 @@ const OrderListPage = () => {
                 </div>
 
                 {/* View Details Button */}
-                <div className="flex justify-end">
+                <div className="flex flex-wrap justify-end gap-3">
+                  {canTrackOrder(order.orderStatus) ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        navigate(`/track-order/${order._id}`);
+                      }}
+                      className="flex items-center gap-2 rounded-full bg-cyan-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-600"
+                    >
+                      <FaRoute size={13} />
+                      Track Order
+                    </button>
+                  ) : null}
                   <button className="flex items-center gap-2 text-red-500 hover:text-red-400 font-medium transition-colors duration-200">
                     View Details <FaChevronRight size={14} />
                   </button>

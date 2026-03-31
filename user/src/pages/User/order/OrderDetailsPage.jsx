@@ -7,6 +7,7 @@ import {
   FaHistory,
   FaMapMarkerAlt,
   FaMoneyBillWave,
+  FaRoute,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
@@ -1508,6 +1509,21 @@ const OrderDetailsPage = () => {
                   <FaFileInvoice className="text-red-500" />
                   Download Invoice
                 </button>
+                {[
+                  "shipped",
+                  "out_for_delivery",
+                  "return_approved",
+                  "delivered",
+                ].includes(order.orderStatus) ? (
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/track-order/${order._id}`)}
+                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-600"
+                  >
+                    <FaRoute />
+                    Open Track View
+                  </button>
+                ) : null}
               </div>
               <div className={`space-y-3 ${bodyText} text-sm`}>
                 <div className="flex justify-between">

@@ -1,6 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useGetElectronicItemsQuery } from "../../../../features/api/electronicApi.js";
-import { FaStar, FaStarHalfAlt } from "react-icons/fa";
+import { FaBalanceScale, FaStar, FaStarHalfAlt } from "react-icons/fa";
 import { IoShareSocialOutline } from "react-icons/io5";
 import { ShoppingCart } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -14,6 +14,11 @@ import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import { shareProduct } from "../../../../utils/shareProduct.js";
 import { useSelector } from "react-redux";
 import useTrackAiProductClick from "../../../../hooks/useTrackAiProductClick.js";
+import {
+  buildCompareProduct,
+  isProductCompared,
+  toggleCompareProduct,
+} from "../../../../utils/productCompare.js";
 
 const ElectronicsProductDetails = () => {
   const { data, isLoading, refetch } = useGetElectronicItemsQuery();
@@ -25,6 +30,7 @@ const ElectronicsProductDetails = () => {
   const [transformOrigin, setTransformOrigin] = useState("50% 50%");
   const [addLoading, setAddLoading] = useState(false);
   const [buyLoading, setBuyLoading] = useState(false);
+  const [compareActive, setCompareActive] = useState(false);
   const [selectedRam, setSelectedRam] = useState("");
   const [selectedStorage, setSelectedStorage] = useState("");
 
@@ -45,6 +51,11 @@ const ElectronicsProductDetails = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [productId]);
+
+  useEffect(() => {
+    if (!product?._id) return;
+    setCompareActive(isProductCompared(product._id, "Electronics"));
+  }, [product?._id]);
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } =
@@ -125,6 +136,26 @@ const ElectronicsProductDetails = () => {
     }
   };
 
+  const handleCompare = () => {
+    if (!product) return;
+
+    const result = toggleCompareProduct(
+      buildCompareProduct(
+        product,
+        "Electronics",
+        `/electronics/electronics-product-details/${product._id}`
+      )
+    );
+
+    if (result.limitReached) {
+      toast.error("Compare list me maximum 4 products add kar sakte ho.");
+      return;
+    }
+
+    setCompareActive(result.compared);
+    toast.success(result.compared ? "Added to compare" : "Removed from compare");
+  };
+
   if (isLoading) return <PageLoader message="Loading Product details..." />;
 
   const pageBack = () => {
@@ -147,13 +178,28 @@ const ElectronicsProductDetails = () => {
     <>
       <div className="container mx-auto px-4 sm:px-6 md:px-8 pb-14 md:pb-16">
         <div className="flex justify-between items-center mb-4 sm:mb-6">
-          <button
-            onClick={handleShare}
-            className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-red-500 border-red-500 hover:bg-red-50 transition-colors cursor-pointer"
-          >
-            <IoShareSocialOutline size={18} />
-            <span className="text-sm">Share</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleShare}
+              className="flex items-center gap-2 px-3 py-2 rounded-md border bg-white text-red-500 border-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+            >
+              <IoShareSocialOutline size={18} />
+              <span className="text-sm">Share</span>
+            </button>
+            <button
+              onClick={handleCompare}
+              className={`flex items-center gap-2 rounded-md border px-3 py-2 transition-colors cursor-pointer ${
+                compareActive
+                  ? "border-cyan-500 bg-cyan-50 text-cyan-700"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+            >
+              <FaBalanceScale size={16} />
+              <span className="text-sm">
+                {compareActive ? "Compared" : "Compare"}
+              </span>
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col xl:flex-row gap-5 md:gap-7">
