@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { FaRegCommentDots, FaStar } from "react-icons/fa";
+import { FaChevronLeft, FaChevronRight, FaRegCommentDots, FaStar } from "react-icons/fa";
 import { CheckCircle2, LockKeyhole, Star } from "lucide-react";
 import { toast } from "react-hot-toast";
 import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
@@ -51,6 +51,9 @@ const ProductReviewsSection = ({
   const navigate = useNavigate();
   const { isAuthenticated } = useSelector((state) => state.auth);
   const [form, setForm] = useState(defaultFormState);
+  const reviewSliderRef = useRef(null);
+  const [activeReviewIndex, setActiveReviewIndex] = useState(0);
+  const [failedReviewAvatars, setFailedReviewAvatars] = useState({});
 
   const { data: reviewsData, isLoading: isReviewsLoading } =
     useGetProductReviewsQuery(
@@ -116,8 +119,53 @@ const ProductReviewsSection = ({
     setForm(defaultFormState);
   }, [userReview]);
 
+  useEffect(() => {
+    setActiveReviewIndex(0);
+  }, [reviews.length, productId, productType]);
+
   const handleStarSelect = (value) => {
     setForm((prev) => ({ ...prev, rating: value }));
+  };
+
+  const getReviewInitial = (name) =>
+    String(name || "U").trim().charAt(0).toUpperCase() || "U";
+
+  const handleAvatarError = (reviewId) => {
+    setFailedReviewAvatars((prev) => ({
+      ...prev,
+      [reviewId]: true,
+    }));
+  };
+
+  const scrollToReview = (index) => {
+    if (!reviewSliderRef.current) return;
+
+    const boundedIndex = Math.max(0, Math.min(index, reviews.length - 1));
+    const container = reviewSliderRef.current;
+    const nextCard = container.children[boundedIndex];
+
+    if (!nextCard) return;
+
+    nextCard.scrollIntoView({
+      behavior: "smooth",
+      block: "nearest",
+      inline: "start",
+    });
+    setActiveReviewIndex(boundedIndex);
+  };
+
+  const handleReviewScroll = () => {
+    if (!reviewSliderRef.current) return;
+
+    const container = reviewSliderRef.current;
+    const cardWidth = container.clientWidth;
+
+    if (!cardWidth) return;
+
+    const nextIndex = Math.round(container.scrollLeft / cardWidth);
+    if (nextIndex !== activeReviewIndex) {
+      setActiveReviewIndex(Math.max(0, Math.min(nextIndex, reviews.length - 1)));
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -380,63 +428,113 @@ const ProductReviewsSection = ({
           </div>
 
           <div>
-            <h3 className="text-lg font-semibold text-slate-900">Customer reviews</h3>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-900">Customer reviews</h3>
+              {reviews.length > 1 ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => scrollToReview(activeReviewIndex - 1)}
+                    disabled={activeReviewIndex === 0}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-red-200 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <FaChevronLeft />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollToReview(activeReviewIndex + 1)}
+                    disabled={activeReviewIndex >= reviews.length - 1}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-red-200 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <FaChevronRight />
+                  </button>
+                </div>
+              ) : null}
+            </div>
             <div className="mt-4 space-y-4">
               {isReviewsLoading ? (
                 <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
                   Reviews load ho rahe hain...
                 </div>
               ) : reviews.length ? (
-                reviews.map((review) => (
-                  <article
-                    key={review._id}
-                    className="rounded-[1.75rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                <>
+                  <div
+                    ref={reviewSliderRef}
+                    onScroll={handleReviewScroll}
+                    className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide"
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div className="flex items-center gap-3">
-                        {review.user?.photoUrl ? (
-                          <img
-                            src={review.user.photoUrl}
-                            alt={review.user.name}
-                            className="h-11 w-11 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-200 text-sm font-bold text-slate-700">
-                            {String(review.user?.name || "U").charAt(0).toUpperCase()}
+                    {reviews.map((review) => (
+                      <article
+                        key={review._id}
+                        className="min-w-full snap-start rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            {review.user?.photoUrl &&
+                            !failedReviewAvatars[review._id] ? (
+                              <img
+                                src={review.user.photoUrl}
+                                alt={review.user.name}
+                                className="h-14 w-14 rounded-full object-cover ring-4 ring-slate-50"
+                                onError={() => handleAvatarError(review._id)}
+                              />
+                            ) : (
+                              <div className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-slate-900 to-slate-700 text-base font-bold text-white shadow-sm ring-4 ring-slate-50">
+                                {getReviewInitial(review.user?.name)}
+                              </div>
+                            )}
+                            <div>
+                              <p className="text-2xl font-bold leading-tight text-slate-900">
+                                {review.user?.name || "Customer"}
+                              </p>
+                              <p className="mt-1 text-sm text-slate-500">
+                                {formatReviewDate(review.updatedAt || review.createdAt)}
+                              </p>
+                            </div>
                           </div>
-                        )}
-                        <div>
-                          <p className="font-semibold text-slate-900">
-                            {review.user?.name || "Customer"}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {formatReviewDate(review.updatedAt || review.createdAt)}
-                          </p>
+
+                          <div className="flex flex-col items-start gap-2 sm:items-end">
+                            {renderStaticStars(review.rating)}
+                            {review.isVerifiedPurchase ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1.5 text-[11px] font-semibold text-emerald-700">
+                                <CheckCircle2 size={12} />
+                                Verified purchase
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
 
-                      <div className="flex flex-col items-end gap-2">
-                        {renderStaticStars(review.rating)}
-                        {review.isVerifiedPurchase ? (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-semibold text-emerald-700">
-                            <CheckCircle2 size={12} />
-                            Verified purchase
-                          </span>
+                        {review.title ? (
+                          <h4 className="mt-6 text-2xl font-bold text-slate-900">
+                            {review.title}
+                          </h4>
                         ) : null}
-                      </div>
+
+                        <p className="mt-5 text-lg leading-8 text-slate-700">
+                          {review.comment}
+                        </p>
+                      </article>
+                    ))}
+                  </div>
+
+                  {reviews.length > 1 ? (
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      {reviews.map((review, index) => (
+                        <button
+                          key={review._id}
+                          type="button"
+                          onClick={() => scrollToReview(index)}
+                          aria-label={`Go to review ${index + 1}`}
+                          className={`h-2.5 rounded-full transition-all ${
+                            activeReviewIndex === index
+                              ? "w-8 bg-red-500"
+                              : "w-2.5 bg-slate-300 hover:bg-slate-400"
+                          }`}
+                        />
+                      ))}
                     </div>
-
-                    {review.title ? (
-                      <h4 className="mt-4 text-base font-semibold text-slate-900">
-                        {review.title}
-                      </h4>
-                    ) : null}
-
-                    <p className="mt-3 text-sm leading-6 text-slate-600">
-                      {review.comment}
-                    </p>
-                  </article>
-                ))
+                  ) : null}
+                </>
               ) : (
                 <div className="rounded-[1.75rem] border border-dashed border-slate-300 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
                   No reviews yet. Be the first one to review this product!

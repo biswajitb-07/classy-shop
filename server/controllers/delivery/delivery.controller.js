@@ -115,7 +115,7 @@ export const getDeliveryPartners = async (_req, res) => {
   try {
     const deliveryPartners = await DeliveryPartner.find()
       .select("-password")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1, updatedAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -247,6 +247,14 @@ export const assignDeliveryPartner = async (req, res) => {
       });
     }
 
+    if (!deliveryPartner.isOnline || !deliveryPartner.isAvailable) {
+      return res.status(409).json({
+        success: false,
+        message:
+          "Delivery partner must be online and available before assignment",
+      });
+    }
+
     order.assignedDeliveryPartner = deliveryPartner._id;
     order.assignedDeliveryAt = new Date();
     order.updatedAt = Date.now();
@@ -326,6 +334,8 @@ export const loginDeliveryPartner = async (req, res) => {
     }
 
     deliveryPartner.lastActiveAt = new Date();
+    deliveryPartner.lastSeenAt = new Date();
+    deliveryPartner.isOnline = true;
     await deliveryPartner.save();
     setDeliveryAuthCookies(res, deliveryPartner._id);
 
@@ -362,9 +372,15 @@ export const logoutDeliveryPartner = async (_req, res) => {
 
 export const getDeliveryProfile = async (req, res) => {
   try {
-    const deliveryPartner = await DeliveryPartner.findById(req.id).select(
-      "-password"
-    );
+    const deliveryPartner = await DeliveryPartner.findByIdAndUpdate(
+      req.id,
+      {
+        isOnline: true,
+        lastActiveAt: new Date(),
+        lastSeenAt: new Date(),
+      },
+      { new: true }
+    ).select("-password");
 
     if (!deliveryPartner) {
       return res.status(404).json({
@@ -402,7 +418,9 @@ export const toggleDeliveryAvailability = async (req, res) => {
     return res.status(200).json({
       success: true,
       deliveryPartner,
-      message: "Availability updated successfully",
+      message: deliveryPartner?.isAvailable
+        ? "You are now online for new assignments"
+        : "You are now offline for new assignments",
     });
   } catch (error) {
     return res.status(500).json({
@@ -414,7 +432,14 @@ export const toggleDeliveryAvailability = async (req, res) => {
 
 export const getDeliveryDashboardSummary = async (req, res) => {
   try {
-    const [assignedOrders, completedOrders, outForDeliveryOrders] =
+    const [
+      assignedOrders,
+      completedOrders,
+      outForDeliveryOrders,
+      returnPickupOrders,
+      liveTrackingOrders,
+      cancelledOrders,
+    ] =
       await Promise.all([
         Order.countDocuments({ assignedDeliveryPartner: req.id }),
         Order.countDocuments({
@@ -425,6 +450,18 @@ export const getDeliveryDashboardSummary = async (req, res) => {
           assignedDeliveryPartner: req.id,
           orderStatus: "out_for_delivery",
         }),
+        Order.countDocuments({
+          assignedDeliveryPartner: req.id,
+          orderStatus: "return_approved",
+        }),
+        Order.countDocuments({
+          assignedDeliveryPartner: req.id,
+          "deliveryTracking.isLive": true,
+        }),
+        Order.countDocuments({
+          assignedDeliveryPartner: req.id,
+          orderStatus: "cancelled",
+        }),
       ]);
 
     return res.status(200).json({
@@ -433,6 +470,9 @@ export const getDeliveryDashboardSummary = async (req, res) => {
         assignedOrders,
         completedOrders,
         outForDeliveryOrders,
+        returnPickupOrders,
+        liveTrackingOrders,
+        cancelledOrders,
       },
     });
   } catch (error) {
@@ -446,7 +486,10 @@ export const getDeliveryDashboardSummary = async (req, res) => {
 export const getAssignedOrders = async (req, res) => {
   try {
     const orders = await Order.find({ assignedDeliveryPartner: req.id })
-      .populate("assignedDeliveryPartner", "name email phone vehicleType isAvailable")
+      .populate(
+        "assignedDeliveryPartner",
+        "name email phone vehicleType isAvailable isOnline lastSeenAt"
+      )
       .sort({ createdAt: -1 })
       .lean();
 

@@ -15,7 +15,7 @@ const deliveryNotificationSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["assignment", "system"],
+      enum: ["assignment", "return", "tracking", "system"],
       default: "assignment",
     },
     title: {

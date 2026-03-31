@@ -115,6 +115,78 @@ const orderSchema = new mongoose.Schema({
       default: null,
     },
   },
+  deliveryTracking: {
+    isLive: {
+      type: Boolean,
+      default: false,
+    },
+    startedAt: {
+      type: Date,
+      default: null,
+    },
+    stoppedAt: {
+      type: Date,
+      default: null,
+    },
+    lastSharedAt: {
+      type: Date,
+      default: null,
+    },
+    currentLocation: {
+      latitude: {
+        type: Number,
+        default: null,
+      },
+      longitude: {
+        type: Number,
+        default: null,
+      },
+      accuracy: {
+        type: Number,
+        default: null,
+      },
+      heading: {
+        type: Number,
+        default: null,
+      },
+      speed: {
+        type: Number,
+        default: null,
+      },
+      updatedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+    recentPoints: [
+      {
+        latitude: {
+          type: Number,
+          required: true,
+        },
+        longitude: {
+          type: Number,
+          required: true,
+        },
+        accuracy: {
+          type: Number,
+          default: null,
+        },
+        heading: {
+          type: Number,
+          default: null,
+        },
+        speed: {
+          type: Number,
+          default: null,
+        },
+        at: {
+          type: Date,
+          default: Date.now,
+        },
+      },
+    ],
+  },
   shippingAddress: {
     fullName: {
       type: String,
@@ -150,6 +222,69 @@ const orderSchema = new mongoose.Schema({
     phone: {
       type: String,
       required: true,
+    },
+    location: {
+      latitude: {
+        type: Number,
+        default: null,
+      },
+      longitude: {
+        type: Number,
+        default: null,
+      },
+      label: {
+        type: String,
+        default: "",
+      },
+      source: {
+        type: String,
+        default: "",
+      },
+      geocodedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+  },
+  customerLiveLocation: {
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
+    },
+    accuracy: {
+      type: Number,
+      default: null,
+    },
+    label: {
+      type: String,
+      default: "",
+    },
+    source: {
+      type: String,
+      default: "",
+    },
+    updatedAt: {
+      type: Date,
+      default: null,
+    },
+  },
+  returnRequest: {
+    reason: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+    requestedAt: {
+      type: Date,
+      default: null,
+    },
+    windowEndsAt: {
+      type: Date,
+      default: null,
     },
   },
   paymentMethod: {

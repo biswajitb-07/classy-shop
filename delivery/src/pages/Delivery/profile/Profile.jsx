@@ -1,6 +1,20 @@
 import { useSelector } from "react-redux";
 import { Bike, Mail, Phone, ShieldCheck } from "lucide-react";
 
+const formatPresenceTime = (value) => {
+  if (!value) return "Just now";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Just now";
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const Profile = () => {
   const { deliveryPartner } = useSelector((state) => state.auth);
 
@@ -24,9 +38,17 @@ const Profile = () => {
           <p className="mt-2 text-sm text-slate-400">
             {deliveryPartner?.vehicleType || "Vehicle not set"}
           </p>
-          <div className="mt-6 inline-flex rounded-full bg-emerald-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
-            {deliveryPartner?.isAvailable ? "Available" : "Offline"}
+          <div className="mt-6 flex flex-wrap gap-2">
+            <div className="inline-flex rounded-full bg-cyan-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-300">
+              {deliveryPartner?.isOnline ? "Online now" : "Offline session"}
+            </div>
+            <div className="inline-flex rounded-full bg-emerald-500/15 px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em] text-emerald-300">
+              {deliveryPartner?.isAvailable ? "Accepting orders" : "Paused"}
+            </div>
           </div>
+          <p className="mt-4 text-sm text-slate-500">
+            Last seen {formatPresenceTime(deliveryPartner?.lastSeenAt)}
+          </p>
         </section>
 
         <section className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6">
@@ -66,6 +88,24 @@ const Profile = () => {
               </div>
               <p className="mt-3 text-sm font-medium text-white">
                 {deliveryPartner?.isBlocked ? "Blocked" : "Active"}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="flex items-center gap-3 text-slate-400">
+                <ShieldCheck size={18} />
+                Presence
+              </div>
+              <p className="mt-3 text-sm font-medium text-white">
+                {deliveryPartner?.isOnline ? "Online" : "Offline"}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="flex items-center gap-3 text-slate-400">
+                <ShieldCheck size={18} />
+                Last Seen
+              </div>
+              <p className="mt-3 text-sm font-medium text-white">
+                {formatPresenceTime(deliveryPartner?.lastSeenAt)}
               </p>
             </div>
           </div>

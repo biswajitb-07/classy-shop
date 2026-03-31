@@ -52,6 +52,20 @@ const formatNotificationTime = (value) =>
     minute: "2-digit",
   });
 
+const formatPresenceTime = (value) => {
+  if (!value) return "just now";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "just now";
+
+  return date.toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
 const MainLayout = () => {
   const { deliveryPartner, isOpen } = useSelector((state) => state.auth);
   const dispatch = useDispatch();
@@ -240,6 +254,8 @@ const MainLayout = () => {
         ? location.pathname === item.path
         : location.pathname.startsWith(item.path)
     )?.label || "Delivery Dashboard";
+  const isOnline = Boolean(deliveryPartner?.isOnline);
+  const isAvailable = Boolean(deliveryPartner?.isAvailable);
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-slate-950 text-slate-100">
@@ -279,22 +295,45 @@ const MainLayout = () => {
           <p className="mt-2 text-sm capitalize text-slate-400">
             {deliveryPartner?.vehicleType || "bike"}
           </p>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                isOnline
+                  ? "bg-cyan-500/15 text-cyan-300"
+                  : "bg-slate-800 text-slate-300"
+              }`}
+            >
+              {isOnline ? "Live Session" : "Disconnected"}
+            </span>
+            <span
+              className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
+                isAvailable
+                  ? "bg-emerald-500/15 text-emerald-300"
+                  : "bg-amber-500/15 text-amber-200"
+              }`}
+            >
+              {isAvailable ? "Accepting Orders" : "Offline for Orders"}
+            </span>
+          </div>
+          <p className="mt-3 text-xs text-slate-500">
+            Last seen {formatPresenceTime(deliveryPartner?.lastSeenAt)}
+          </p>
           <button
             type="button"
             onClick={handleToggleAvailability}
             disabled={isUpdatingAvailability}
             className={`mt-5 inline-flex min-h-[3.25rem] w-full items-center justify-center rounded-[1.3rem] px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-80 ${
-              deliveryPartner?.isAvailable
+              isAvailable
                 ? "bg-emerald-500/15 text-emerald-300 hover:bg-emerald-500/25"
                 : "bg-slate-800 text-slate-200 hover:bg-slate-700"
             }`}
           >
             {isUpdatingAvailability ? (
               <AuthButtonLoader />
-            ) : deliveryPartner?.isAvailable ? (
-              "Available for delivery"
+            ) : isAvailable ? (
+              "Go offline for new orders"
             ) : (
-              "Go online for delivery"
+              "Go online for new orders"
             )}
           </button>
         </section>

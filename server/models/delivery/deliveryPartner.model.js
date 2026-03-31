@@ -37,6 +37,10 @@ const deliveryPartnerSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    isOnline: {
+      type: Boolean,
+      default: false,
+    },
     isBlocked: {
       type: Boolean,
       default: false,
@@ -48,6 +52,10 @@ const deliveryPartnerSchema = new mongoose.Schema(
     lastActiveAt: {
       type: Date,
       default: Date.now,
+    },
+    lastSeenAt: {
+      type: Date,
+      default: null,
     },
   },
   { timestamps: true }

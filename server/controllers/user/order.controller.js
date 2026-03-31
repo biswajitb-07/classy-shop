@@ -15,7 +15,11 @@ import { VendorNotification } from "../../models/vendor/vendorNotification.model
 import { UserNotification } from "../../models/user/userNotification.model.js";
 import { Coupon } from "../../models/marketing/coupon.model.js";
 import { DeliveryPartner } from "../../models/delivery/deliveryPartner.model.js";
+import { DeliveryNotification } from "../../models/delivery/deliveryNotification.model.js";
 import {
+  emitDeliveryDashboardUpdate,
+  emitDeliveryNotificationUpdate,
+  emitOrderDestinationUpdated,
   emitUserNotificationUpdate,
   emitVendorDashboardUpdate,
   emitVendorNotificationUpdate,
@@ -26,6 +30,10 @@ import {
   sendOrderOutForDeliveryEmail,
   sendOrderPlacedEmail,
 } from "../../utils/emailService.js";
+import {
+  ensureOrderShippingLocation,
+  geocodeShippingAddress,
+} from "../../utils/geocoding.js";
 
 const productModels = {
   Fashion,
@@ -42,6 +50,16 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+
+const RETURN_POLICY_DAYS = 10;
+const RETURN_POLICY_WINDOW_MS =
+  RETURN_POLICY_DAYS * 24 * 60 * 60 * 1000;
+const INDIA_BOUNDS = {
+  minLatitude: 6,
+  maxLatitude: 38.5,
+  minLongitude: 68,
+  maxLongitude: 98,
+};
 
 const formatStatusLabel = (status) =>
   status
@@ -64,6 +82,29 @@ const maskEmail = (email) => {
 const createOtpHash = (value) =>
   crypto.createHash("sha256").update(String(value || "")).digest("hex");
 
+const sanitizeCustomerGeo = (value, { min = -Infinity, max = Infinity } = {}) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  if (numeric < min || numeric > max) return null;
+  return numeric;
+};
+
+const isWithinIndiaBounds = (location) =>
+  location?.latitude !== null &&
+  location?.latitude !== undefined &&
+  location?.longitude !== null &&
+  location?.longitude !== undefined &&
+  Number(location.latitude) >= INDIA_BOUNDS.minLatitude &&
+  Number(location.latitude) <= INDIA_BOUNDS.maxLatitude &&
+  Number(location.longitude) >= INDIA_BOUNDS.minLongitude &&
+  Number(location.longitude) <= INDIA_BOUNDS.maxLongitude;
+
+const isIndiaOrder = (order) =>
+  String(order?.shippingAddress?.country || "")
+    .trim()
+    .toLowerCase()
+    .includes("india");
+
 const clearDeliveryConfirmation = (order, verifiedAt = null) => {
   order.deliveryConfirmation = {
     otpHash: "",
@@ -71,6 +112,14 @@ const clearDeliveryConfirmation = (order, verifiedAt = null) => {
     otpSentAt: null,
     otpVerifiedAt: verifiedAt,
   };
+};
+
+const stopDeliveryTracking = (order) => {
+  if (!order) return;
+
+  order.deliveryTracking = order.deliveryTracking || {};
+  order.deliveryTracking.isLive = false;
+  order.deliveryTracking.stoppedAt = new Date();
 };
 
 const appendStatusHistoryEntry = (
@@ -91,6 +140,49 @@ const appendStatusHistoryEntry = (
     reason,
     at,
   });
+};
+
+const getDeliveredAtForReturnPolicy = (order) => {
+  if (!order) return null;
+
+  const deliveredEntry = [...(order.statusHistory || [])]
+    .filter((entry) => entry?.to === "delivered" && entry?.at)
+    .sort((a, b) => new Date(b.at || 0) - new Date(a.at || 0))[0];
+
+  const candidates = [
+    deliveredEntry?.at,
+    order.deliveryConfirmation?.otpVerifiedAt,
+    order.orderStatus === "delivered" ? order.updatedAt : null,
+  ].filter(Boolean);
+
+  const firstValidDate = candidates.find((value) => {
+    const parsed = new Date(value);
+    return !Number.isNaN(parsed.getTime());
+  });
+
+  return firstValidDate ? new Date(firstValidDate) : null;
+};
+
+const getReturnPolicyWindow = (order, now = Date.now()) => {
+  const deliveredAt = getDeliveredAtForReturnPolicy(order);
+  if (!deliveredAt) {
+    return {
+      deliveredAt: null,
+      expiresAt: null,
+      remainingMs: 0,
+      isEligible: false,
+    };
+  }
+
+  const expiresAt = new Date(deliveredAt.getTime() + RETURN_POLICY_WINDOW_MS);
+  const remainingMs = expiresAt.getTime() - Number(now);
+
+  return {
+    deliveredAt,
+    expiresAt,
+    remainingMs,
+    isEligible: remainingMs >= 0,
+  };
 };
 
 const normalizeCouponCode = (code) => String(code || "").trim().toUpperCase();
@@ -414,6 +506,26 @@ const createUserNotificationForOrderStatus = async ({
   emitUserNotificationUpdate(order.userId);
 };
 
+const createDeliveryNotificationForOrder = async ({
+  order,
+  type = "system",
+  title,
+  message,
+}) => {
+  if (!order?.assignedDeliveryPartner || !title || !message) return;
+
+  await DeliveryNotification.create({
+    deliveryPartnerId: order.assignedDeliveryPartner,
+    orderId: order._id,
+    type,
+    title,
+    message,
+  });
+
+  emitDeliveryNotificationUpdate(order.assignedDeliveryPartner);
+  emitDeliveryDashboardUpdate(order.assignedDeliveryPartner);
+};
+
 const computeOrderDetailsFromCart = async (userId, couponCode = "") => {
   const cart = await Cart.findOne({ userId });
   if (!cart || !Array.isArray(cart.items) || cart.items.length === 0) {
@@ -500,6 +612,8 @@ export const createOrder = async (req, res) => {
     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)
       .toString()
       .padStart(4, "0")}`;
+    const geocodedShippingAddress = await geocodeShippingAddress(shippingAddress);
+
     if (paymentMethod === "cod") {
       const order = new Order({
         userId,
@@ -508,7 +622,7 @@ export const createOrder = async (req, res) => {
         subtotalAmount,
         discountAmount,
         coupon: appliedCoupon || undefined,
-        shippingAddress,
+        shippingAddress: geocodedShippingAddress,
         paymentMethod,
         paymentStatus: "pending",
         orderStatus: "pending",
@@ -544,7 +658,7 @@ export const createOrder = async (req, res) => {
         receipt: orderId,
         notes: {
           userId: userId.toString(),
-          shippingAddress: JSON.stringify(shippingAddress),
+          shippingAddress: JSON.stringify(geocodedShippingAddress),
           couponCode: normalizeCouponCode(couponCode),
         },
       };
@@ -603,7 +717,9 @@ export const confirmPayment = async (req, res) => {
     }
     const userId = notes.userId;
     const orderingUser = await User.findById(userId).select("name email").lean();
-    const shippingAddress = JSON.parse(notes.shippingAddress);
+    const shippingAddress = await geocodeShippingAddress(
+      JSON.parse(notes.shippingAddress)
+    );
     const {
       subtotalAmount,
       discountAmount,
@@ -706,7 +822,10 @@ export const getUserOrders = async (req, res) => {
   try {
     const userId = req.id;
     const orders = await Order.find({ userId })
-      .populate("assignedDeliveryPartner", "name email phone vehicleType isAvailable")
+      .populate(
+        "assignedDeliveryPartner",
+        "name email phone vehicleType isAvailable isOnline lastSeenAt"
+      )
       .sort({ createdAt: -1 });
     const detailedOrders = await Promise.all(
       orders.map(async (order) => {
@@ -740,7 +859,10 @@ export const getUserOrders = async (req, res) => {
 export const getVendorOrders = async (req, res) => {
   try {
     const orders = await Order.find()
-      .populate("assignedDeliveryPartner", "name email phone vehicleType isAvailable")
+      .populate(
+        "assignedDeliveryPartner",
+        "name email phone vehicleType isAvailable isOnline lastSeenAt"
+      )
       .sort({ createdAt: -1 })
       .lean();
     const detailedOrders = await Promise.all(
@@ -769,6 +891,88 @@ export const getVendorOrders = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Failed to get orders" });
+  }
+};
+
+export const updateCustomerDeliveryLocation = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const latitude = sanitizeCustomerGeo(req.body?.latitude, {
+      min: -90,
+      max: 90,
+    });
+    const longitude = sanitizeCustomerGeo(req.body?.longitude, {
+      min: -180,
+      max: 180,
+    });
+    const accuracy = sanitizeCustomerGeo(req.body?.accuracy, { min: 0 });
+
+    if (latitude === null || longitude === null) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid latitude and longitude are required",
+      });
+    }
+
+    const order = await Order.findById(orderId);
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        message: "Order not found",
+      });
+    }
+
+    if (String(order.userId) !== String(req.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to update this order location",
+      });
+    }
+
+    if (["delivered", "cancelled", "return_completed", "return_rejected"].includes(order.orderStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "This order no longer accepts customer live location updates",
+      });
+    }
+
+    if (
+      isIndiaOrder(order) &&
+      !isWithinIndiaBounds({ latitude, longitude })
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Current location India ke bahar detect ho rahi hai. Browser location settings check karke phir try karo.",
+      });
+    }
+
+    order.customerLiveLocation = {
+      latitude,
+      longitude,
+      accuracy,
+      label:
+        String(req.body?.label || "").trim() || "Customer live location",
+      source: "customer_live",
+      updatedAt: new Date(),
+    };
+    order.updatedAt = Date.now();
+    await order.save();
+
+    emitOrderDestinationUpdated(order);
+
+    return res.status(200).json({
+      success: true,
+      message: "Customer live location updated successfully",
+      order,
+      destination: order.customerLiveLocation,
+    });
+  } catch (error) {
+    console.error("updateCustomerDeliveryLocation error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update customer live location",
+    });
   }
 };
 
@@ -938,7 +1142,14 @@ export const verifyDeliveryCompletionOtp = async (req, res) => {
     });
 
     order.orderStatus = "delivered";
+    stopDeliveryTracking(order);
     clearDeliveryConfirmation(order, new Date());
+    order.returnRequest = {
+      ...(order.returnRequest || {}),
+      reason: "",
+      requestedAt: null,
+      windowEndsAt: new Date(Date.now() + RETURN_POLICY_WINDOW_MS),
+    };
     order.updatedAt = Date.now();
     await order.save();
 
@@ -1035,6 +1246,8 @@ export const orderStatusUpdate = async (req, res) => {
 
       // Allow user to request return only when delivered
       if (normalizedStatus === "return_requested") {
+        const trimmedReason = String(reason || "").trim();
+
         if (order.orderStatus !== "delivered") {
           return res.status(400).json({
             success: false,
@@ -1042,19 +1255,52 @@ export const orderStatusUpdate = async (req, res) => {
           });
         }
 
-        order.statusHistory = order.statusHistory || [];
-        order.statusHistory.push({
+        if (!trimmedReason) {
+          return res.status(400).json({
+            success: false,
+            message: "Please add a return reason before submitting",
+          });
+        }
+
+        const returnPolicy = getReturnPolicyWindow(order);
+        if (!returnPolicy.deliveredAt || !returnPolicy.expiresAt) {
+          return res.status(400).json({
+            success: false,
+            message: "Delivery time could not be verified for this order",
+          });
+        }
+
+        if (!returnPolicy.isEligible) {
+          return res.status(400).json({
+            success: false,
+            message: `Return window expired. Returns are allowed only within ${RETURN_POLICY_DAYS} days of delivery`,
+          });
+        }
+
+        appendStatusHistoryEntry(order, {
           from: order.orderStatus,
           to: "return_requested",
           by: req.id,
           role: "user",
-          reason: reason || "",
+          reason: trimmedReason,
           at: new Date(),
         });
 
         order.orderStatus = "return_requested";
+        order.returnRequest = {
+          reason: trimmedReason,
+          requestedAt: new Date(),
+          windowEndsAt: returnPolicy.expiresAt,
+        };
         order.updatedAt = Date.now();
         await order.save();
+
+        await createDeliveryNotificationForOrder({
+          order,
+          type: "return",
+          title: "Return Requested",
+          message: `Customer requested a return for order #${order.orderId}. Reason: ${trimmedReason}. Wait for vendor approval before pickup.`,
+        });
 
         return res.status(200).json({
           success: true,
@@ -1170,6 +1416,14 @@ export const orderStatusUpdate = async (req, res) => {
           at: new Date(),
         });
         order.orderStatus = "return_approved";
+        await ensureOrderShippingLocation(order);
+
+        await createDeliveryNotificationForOrder({
+          order,
+          type: "return",
+          title: "Return Pickup Approved",
+          message: `Return pickup for order #${order.orderId} is approved. Open your dashboard to handle the pickup.`,
+        });
       } else if (normalizedStatus === "return_rejected") {
         if (order.orderStatus !== "return_requested") {
           return res.status(400).json({
@@ -1187,6 +1441,7 @@ export const orderStatusUpdate = async (req, res) => {
           at: new Date(),
         });
         order.orderStatus = "return_rejected";
+        stopDeliveryTracking(order);
       } else if (normalizedStatus === "return_completed") {
         if (order.orderStatus !== "return_approved") {
           return res.status(400).json({
@@ -1215,6 +1470,7 @@ export const orderStatusUpdate = async (req, res) => {
           order.stockRestored = true;
         }
         order.orderStatus = "return_completed";
+        stopDeliveryTracking(order);
       } else if (normalizedStatus === "cancelled") {
         if (order.orderStatus === "delivered") {
           return res.status(400).json({
@@ -1243,6 +1499,7 @@ export const orderStatusUpdate = async (req, res) => {
           order.stockRestored = true;
         }
         order.orderStatus = "cancelled";
+        stopDeliveryTracking(order);
       } else {
         order.statusHistory = order.statusHistory || [];
         order.statusHistory.push({
@@ -1254,6 +1511,9 @@ export const orderStatusUpdate = async (req, res) => {
           at: new Date(),
         });
         order.orderStatus = normalizedStatus;
+        if (normalizedStatus === "out_for_delivery") {
+          await ensureOrderShippingLocation(order);
+        }
       }
 
       order.updatedAt = Date.now();
@@ -1390,6 +1650,7 @@ export const orderStatusUpdate = async (req, res) => {
         }
 
         order.orderStatus = "cancelled";
+        stopDeliveryTracking(order);
         order.updatedAt = Date.now();
         await order.save();
 
@@ -1434,6 +1695,7 @@ export const orderStatusUpdate = async (req, res) => {
         }
 
         order.orderStatus = "return_completed";
+        stopDeliveryTracking(order);
         order.updatedAt = Date.now();
         await order.save();
 
@@ -1468,6 +1730,13 @@ export const orderStatusUpdate = async (req, res) => {
       });
 
       order.orderStatus = normalizedStatus;
+      if (normalizedStatus === "out_for_delivery") {
+        await ensureOrderShippingLocation(order);
+        order.deliveryTracking = order.deliveryTracking || {};
+        order.deliveryTracking.isLive = false;
+        order.deliveryTracking.startedAt = null;
+        order.deliveryTracking.stoppedAt = new Date();
+      }
       order.updatedAt = Date.now();
       await order.save();
 

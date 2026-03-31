@@ -124,6 +124,14 @@ export const orderApi = createApi({
       }),
       invalidatesTags: ["Order", "UserNotification"],
     }),
+    saveCustomerLiveLocation: builder.mutation({
+      query: ({ orderId, body }) => ({
+        url: `/location/${orderId}`,
+        method: "PUT",
+        body,
+      }),
+      invalidatesTags: ["Order"],
+    }),
     deleteUserNotification: builder.mutation({
       query: (id) => ({
         url: `/notifications/${id}`,
@@ -150,8 +158,8 @@ export const {
   useCreateOrderMutation,
   useValidateCouponMutation,
   useConfirmPaymentMutation,
-  useUpdateOrderStatusMutation
-  ,
+  useUpdateOrderStatusMutation,
+  useSaveCustomerLiveLocationMutation,
   useDeleteUserNotificationMutation,
   useClearUserNotificationsMutation,
 } = orderApi;

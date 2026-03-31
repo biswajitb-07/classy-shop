@@ -1,5 +1,7 @@
 import jwt from "jsonwebtoken";
 import { Server } from "socket.io";
+import { DeliveryPartner } from "../models/delivery/deliveryPartner.model.js";
+import Order from "../models/user/order.model.js";
 import {
   areSupportVendorsOnline,
   isSupportUserOnline,
@@ -9,6 +11,13 @@ import {
 } from "./supportRealtime.js";
 
 let io;
+const MAX_TRACKING_POINTS = 25;
+const INDIA_BOUNDS = {
+  minLatitude: 6,
+  maxLatitude: 38.5,
+  minLongitude: 68,
+  maxLongitude: 98,
+};
 
 // Socket auth can come from a short-lived socket token or fallback cookies.
 // This helper normalizes the cookie path for the fallback branch.
@@ -19,6 +28,292 @@ const parseCookies = (cookieHeader = "") =>
     acc[rawKey] = decodeURIComponent(rawValue.join("=") || "");
     return acc;
   }, {});
+
+const sanitizeGeoNumber = (value, { min = -Infinity, max = Infinity } = {}) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) return null;
+  if (numeric < min || numeric > max) return null;
+  return numeric;
+};
+
+const normalizeTrackingPayload = (payload = {}) => {
+  const latitude = sanitizeGeoNumber(payload.latitude, {
+    min: -90,
+    max: 90,
+  });
+  const longitude = sanitizeGeoNumber(payload.longitude, {
+    min: -180,
+    max: 180,
+  });
+
+  if (latitude === null || longitude === null) {
+    return null;
+  }
+
+  return {
+    latitude,
+    longitude,
+    accuracy: sanitizeGeoNumber(payload.accuracy, { min: 0 }),
+    heading: sanitizeGeoNumber(payload.heading, { min: 0, max: 360 }),
+    speed: sanitizeGeoNumber(payload.speed, { min: 0 }),
+    updatedAt: new Date(),
+  };
+};
+
+const isIndiaOrder = (order) =>
+  String(order?.shippingAddress?.country || "")
+    .trim()
+    .toLowerCase()
+    .includes("india");
+
+const isWithinIndiaBounds = (location) =>
+  location?.latitude !== null &&
+  location?.latitude !== undefined &&
+  location?.longitude !== null &&
+  location?.longitude !== undefined &&
+  Number(location.latitude) >= INDIA_BOUNDS.minLatitude &&
+  Number(location.latitude) <= INDIA_BOUNDS.maxLatitude &&
+  Number(location.longitude) >= INDIA_BOUNDS.minLongitude &&
+  Number(location.longitude) <= INDIA_BOUNDS.maxLongitude;
+
+const setDeliveryPartnerPresence = async (deliveryPartnerId, isOnline) => {
+  if (!deliveryPartnerId) return;
+
+  try {
+    await DeliveryPartner.findByIdAndUpdate(deliveryPartnerId, {
+      isOnline: Boolean(isOnline),
+      lastActiveAt: new Date(),
+      lastSeenAt: new Date(),
+    });
+
+    if (io) {
+      io.emit("delivery:partners:update", {
+        deliveryPartnerId: String(deliveryPartnerId),
+        isOnline: Boolean(isOnline),
+        at: Date.now(),
+      });
+    }
+  } catch (error) {
+    console.error("Failed to sync delivery presence:", error);
+  }
+};
+
+const emitOrderLocationUpdate = ({ order, location, deliveryPartnerId }) => {
+  if (!io || !order?._id || !location) return;
+
+  const payload = {
+    orderId: String(order._id),
+    orderRef: order.orderId,
+    deliveryPartnerId: deliveryPartnerId ? String(deliveryPartnerId) : null,
+    location: {
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracy: location.accuracy ?? null,
+      heading: location.heading ?? null,
+      speed: location.speed ?? null,
+      updatedAt: location.updatedAt,
+    },
+    tracking: order.deliveryTracking || {},
+    at: Date.now(),
+  };
+
+  io.to(`delivery:${deliveryPartnerId}`).emit("delivery:tracking:update", payload);
+
+  if (order.userId) {
+    io.to(`user:${order.userId}`).emit("order:location:update", payload);
+  }
+
+  const vendorIds = Array.from(
+    new Set((order.items || []).map((item) => String(item.vendorId)).filter(Boolean))
+  );
+
+  vendorIds.forEach((vendorId) => {
+    io.to(`vendor:${vendorId}`).emit("order:location:update", payload);
+  });
+};
+
+const emitOrderLocationStopped = ({ order, deliveryPartnerId }) => {
+  if (!io || !order?._id) return;
+
+  const payload = {
+    orderId: String(order._id),
+    orderRef: order.orderId,
+    deliveryPartnerId: deliveryPartnerId ? String(deliveryPartnerId) : null,
+    tracking: order.deliveryTracking || {},
+    at: Date.now(),
+  };
+
+  io.to(`delivery:${deliveryPartnerId}`).emit("delivery:tracking:stopped", payload);
+
+  if (order.userId) {
+    io.to(`user:${order.userId}`).emit("order:location:stopped", payload);
+  }
+
+  const vendorIds = Array.from(
+    new Set((order.items || []).map((item) => String(item.vendorId)).filter(Boolean))
+  );
+
+  vendorIds.forEach((vendorId) => {
+    io.to(`vendor:${vendorId}`).emit("order:location:stopped", payload);
+  });
+};
+
+const emitDeliveryTrackingError = ({ deliveryPartnerId, order, message }) => {
+  if (!io || !deliveryPartnerId || !message) return;
+
+  io.to(`delivery:${deliveryPartnerId}`).emit("delivery:tracking:error", {
+    deliveryPartnerId: String(deliveryPartnerId),
+    orderId: order?._id ? String(order._id) : null,
+    orderRef: order?.orderId || "",
+    message,
+    at: Date.now(),
+  });
+};
+
+const emitOrderDestinationUpdate = ({ order }) => {
+  if (!io || !order?._id) return;
+
+  const destination =
+    order.customerLiveLocation?.latitude !== null &&
+    order.customerLiveLocation?.latitude !== undefined &&
+    order.customerLiveLocation?.longitude !== null &&
+    order.customerLiveLocation?.longitude !== undefined
+      ? order.customerLiveLocation
+      : order.shippingAddress?.location || null;
+
+  const payload = {
+    orderId: String(order._id),
+    orderRef: order.orderId,
+    destination,
+    at: Date.now(),
+  };
+
+  if (order.userId) {
+    io.to(`user:${order.userId}`).emit("order:destination:update", payload);
+  }
+
+  if (order.assignedDeliveryPartner) {
+    io.to(`delivery:${order.assignedDeliveryPartner}`).emit(
+      "order:destination:update",
+      payload
+    );
+  }
+
+  const vendorIds = Array.from(
+    new Set((order.items || []).map((item) => String(item.vendorId)).filter(Boolean))
+  );
+
+  vendorIds.forEach((vendorId) => {
+    io.to(`vendor:${vendorId}`).emit("order:destination:update", payload);
+  });
+};
+
+const registerDeliveryRealtime = (socket) => {
+  if (socket.data.role !== "delivery" || !socket.data.deliveryPartnerId || !io) {
+    return;
+  }
+
+  const deliveryPartnerId = String(socket.data.deliveryPartnerId);
+  void setDeliveryPartnerPresence(deliveryPartnerId, true);
+
+  socket.on("delivery:location:update", async (payload = {}) => {
+    try {
+      const trackingPayload = normalizeTrackingPayload(payload);
+      if (!trackingPayload || !payload.orderId) return;
+
+      const order = await Order.findById(payload.orderId);
+      if (!order) return;
+
+      if (
+        !order.assignedDeliveryPartner ||
+        String(order.assignedDeliveryPartner) !== deliveryPartnerId
+      ) {
+        return;
+      }
+
+      if (!["out_for_delivery", "return_approved"].includes(order.orderStatus)) {
+        return;
+      }
+
+      if (isIndiaOrder(order) && !isWithinIndiaBounds(trackingPayload)) {
+        emitDeliveryTrackingError({
+          deliveryPartnerId,
+          order,
+          message:
+            "Current device location India ke bahar detect ho rahi hai. Browser location settings ya GPS check karke phir try karo.",
+        });
+        return;
+      }
+
+      order.deliveryTracking = order.deliveryTracking || {};
+      order.deliveryTracking.isLive = true;
+      order.deliveryTracking.startedAt =
+        order.deliveryTracking.startedAt || trackingPayload.updatedAt;
+      order.deliveryTracking.stoppedAt = null;
+      order.deliveryTracking.lastSharedAt = trackingPayload.updatedAt;
+      order.deliveryTracking.currentLocation = trackingPayload;
+
+      const recentPoints = Array.isArray(order.deliveryTracking.recentPoints)
+        ? [...order.deliveryTracking.recentPoints]
+        : [];
+      recentPoints.push({
+        latitude: trackingPayload.latitude,
+        longitude: trackingPayload.longitude,
+        accuracy: trackingPayload.accuracy,
+        heading: trackingPayload.heading,
+        speed: trackingPayload.speed,
+        at: trackingPayload.updatedAt,
+      });
+      order.deliveryTracking.recentPoints = recentPoints.slice(-MAX_TRACKING_POINTS);
+      order.updatedAt = Date.now();
+      await order.save();
+
+      await DeliveryPartner.findByIdAndUpdate(deliveryPartnerId, {
+        lastActiveAt: new Date(),
+        lastSeenAt: new Date(),
+        isOnline: true,
+      });
+
+      emitOrderLocationUpdate({
+        order,
+        location: trackingPayload,
+        deliveryPartnerId,
+      });
+    } catch (error) {
+      console.error("delivery:location:update error:", error);
+    }
+  });
+
+  socket.on("delivery:location:stop", async ({ orderId } = {}) => {
+    try {
+      if (!orderId) return;
+
+      const order = await Order.findById(orderId);
+      if (!order) return;
+
+      if (
+        !order.assignedDeliveryPartner ||
+        String(order.assignedDeliveryPartner) !== deliveryPartnerId
+      ) {
+        return;
+      }
+
+      order.deliveryTracking = order.deliveryTracking || {};
+      order.deliveryTracking.isLive = false;
+      order.deliveryTracking.stoppedAt = new Date();
+      order.updatedAt = Date.now();
+      await order.save();
+
+      emitOrderLocationStopped({ order, deliveryPartnerId });
+    } catch (error) {
+      console.error("delivery:location:stop error:", error);
+    }
+  });
+
+  socket.on("disconnect", () => {
+    void setDeliveryPartnerPresence(deliveryPartnerId, false);
+  });
+};
 
 export const initSocket = (httpServer) => {
   io = new Server(httpServer, {
@@ -131,6 +426,8 @@ export const initSocket = (httpServer) => {
         socket.join(`delivery:${socket.data.deliveryPartnerId}`);
       }
 
+      registerDeliveryRealtime(socket);
+
       // The dedicated support realtime module owns presence, chat-room joins,
       // and typing events so this bootstrap file stays focused on auth/setup.
       registerSupportRealtime(io, socket);
@@ -202,6 +499,10 @@ export const emitVendorSummaryUpdate = () => {
   io.to("vendors:all").emit("vendor:summary:update", {
     at: Date.now(),
   });
+};
+
+export const emitOrderDestinationUpdated = (order) => {
+  emitOrderDestinationUpdate({ order });
 };
 
 export const emitSupportMessageCreated = ({

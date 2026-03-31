@@ -6,6 +6,7 @@ import {
   getUserOrders,
   getVendorOrders,
   orderStatusUpdate,
+  updateCustomerDeliveryLocation,
   getUserNotifications,
   deleteUserNotification,
   clearUserNotifications,
@@ -19,6 +20,11 @@ orderRouter.post("/create", isAuthenticatedUser, createOrder);
 orderRouter.post("/coupon/validate", isAuthenticatedUser, validateCoupon);
 orderRouter.post("/confirm-payment", isAuthenticatedUser, confirmPayment);
 orderRouter.get("/", isAuthenticatedUser, getUserOrders);
+orderRouter.put(
+  "/location/:orderId",
+  isAuthenticatedUser,
+  updateCustomerDeliveryLocation
+);
 orderRouter.get("/notifications", isAuthenticatedUser, getUserNotifications);
 orderRouter.get("/vendor-orders", isAuthenticatedVendor, getVendorOrders);
 orderRouter.delete(

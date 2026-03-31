@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Plus, X } from "lucide-react";
 import {
@@ -9,6 +9,7 @@ import {
 } from "../../../features/api/authApi";
 import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
+import { connectVendorSocket } from "../../../lib/socket";
 
 const initialForm = {
   name: "",
@@ -33,6 +34,17 @@ const DeliveryPartners = () => {
     () => data?.deliveryPartners || [],
     [data?.deliveryPartners]
   );
+
+  useEffect(() => {
+    const socket = connectVendorSocket();
+    const handlePartnerUpdate = () => refetch();
+
+    socket.on("delivery:partners:update", handlePartnerUpdate);
+
+    return () => {
+      socket.off("delivery:partners:update", handlePartnerUpdate);
+    };
+  }, [refetch]);
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -138,6 +150,15 @@ const DeliveryPartners = () => {
                       </span>
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                          deliveryPartner.isOnline
+                            ? "bg-cyan-100 text-cyan-700"
+                            : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {deliveryPartner.isOnline ? "Online" : "Offline"}
+                      </span>
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-semibold ${
                           deliveryPartner.isAvailable
                             ? "bg-blue-100 text-blue-700"
                             : "bg-slate-100 text-slate-600"
@@ -172,6 +193,22 @@ const DeliveryPartners = () => {
                           {new Date(deliveryPartner.createdAt).toLocaleDateString(
                             "en-IN"
                           )}
+                        </span>
+                      </p>
+                      <p>
+                        Last Seen:{" "}
+                        <span className="font-semibold text-gray-800">
+                          {deliveryPartner.lastSeenAt
+                            ? new Date(deliveryPartner.lastSeenAt).toLocaleString(
+                                "en-IN",
+                                {
+                                  day: "2-digit",
+                                  month: "short",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                }
+                              )
+                            : "Not available"}
                         </span>
                       </p>
                     </div>
