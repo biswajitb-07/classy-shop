@@ -39,6 +39,25 @@ const toPointArray = (location) =>
     ? [Number(location.latitude), Number(location.longitude)]
     : null;
 
+const toRadians = (value) => (Number(value) * Math.PI) / 180;
+
+const calculateDistanceKm = (origin, destination) => {
+  if (!hasCoordinate(origin) || !hasCoordinate(destination)) return null;
+
+  const earthRadiusKm = 6371;
+  const latDiff = toRadians(Number(destination.latitude) - Number(origin.latitude));
+  const lonDiff = toRadians(Number(destination.longitude) - Number(origin.longitude));
+  const a =
+    Math.sin(latDiff / 2) * Math.sin(latDiff / 2) +
+    Math.cos(toRadians(origin.latitude)) *
+      Math.cos(toRadians(destination.latitude)) *
+      Math.sin(lonDiff / 2) *
+      Math.sin(lonDiff / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Number((earthRadiusKm * c).toFixed(3));
+};
+
 const pointDistanceScore = (point, location) => {
   if (!point || !hasCoordinate(location)) return Number.POSITIVE_INFINITY;
   return (
@@ -323,6 +342,10 @@ const LiveRouteMap = ({
     : sanitizedDestination;
   const requestStartPoint = toPointArray(requestStartLocation);
   const requestEndPoint = toPointArray(requestEndLocation);
+  const directDistanceKm = calculateDistanceKm(
+    requestStartLocation,
+    requestEndLocation,
+  );
   const riderHeading = useMemo(() => {
     const explicitHeading = normalizeHeading(heading);
     if (explicitHeading !== null) return explicitHeading;
@@ -363,6 +386,26 @@ const LiveRouteMap = ({
     const loadRoute = async () => {
       try {
         setIsRouteLoading(true);
+        setRoutePoints(normalizedConnectorPoints);
+        setIsFallbackRoute(true);
+
+        if (
+          Number.isFinite(Number(directDistanceKm)) &&
+          Number(directDistanceKm) <= 0.25
+        ) {
+          if (isActive) {
+            setRoutePoints(normalizedConnectorPoints);
+            setIsFallbackRoute(false);
+            onRouteMetaChange?.({
+              distanceKm: Number(directDistanceKm.toFixed(3)),
+              durationMinutes: 1,
+              isFallback: false,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          return;
+        }
+
         const response = await fetch(
           `https://router.project-osrm.org/route/v1/driving/${requestStartLocation.longitude},${requestStartLocation.latitude};${requestEndLocation.longitude},${requestEndLocation.latitude}?overview=full&geometries=geojson`,
           { signal: controller.signal }
@@ -442,6 +485,7 @@ const LiveRouteMap = ({
     requestStartLocation?.longitude,
     requestEndLocation?.latitude,
     requestEndLocation?.longitude,
+    directDistanceKm,
     onRouteMetaChange,
     reverseRouteDirection,
   ]);
@@ -464,13 +508,6 @@ const LiveRouteMap = ({
     : normalizedConnectorPoints.length
     ? normalizedConnectorPoints
     : [center];
-  const dynamicStartPoint = visibleRoutePoints.length
-    ? visibleRoutePoints[0]
-    : requestStartPoint;
-  const dynamicEndPoint = visibleRoutePoints.length
-    ? visibleRoutePoints[visibleRoutePoints.length - 1]
-    : requestEndPoint;
-
   const focusRoute = () => {
     if (!mapInstance) return;
 
@@ -571,16 +608,16 @@ const LiveRouteMap = ({
           </>
         ) : null}
 
-        {dynamicStartPoint ? (
+        {requestStartPoint ? (
           <Marker
-            position={dynamicStartPoint}
+            position={requestStartPoint}
             icon={userIcon}
           />
         ) : null}
 
-        {dynamicEndPoint ? (
+        {requestEndPoint ? (
           <AnimatedMarker
-            position={dynamicEndPoint}
+            position={requestEndPoint}
             icon={riderIcon}
           />
         ) : null}

@@ -7,7 +7,6 @@ const DEFAULT_LOCATION_OPTIONS = {
 const DEFAULT_BEST_SAMPLE_CONFIG = {
   targetAccuracy: 120,
   acceptableAccuracy: 1200,
-  hardRejectAccuracy: 10000,
   maxWaitMs: 18000,
   maxSamples: 8,
 };
@@ -61,20 +60,12 @@ export const getBestCurrentLocation = (config = {}) =>
         return;
       }
 
-      if (bestSample.accuracy > settings.acceptableAccuracy) {
-        const error = new Error(
-          `Current location accurate nahi mili. GPS accuracy ${Math.round(
-            bestSample.accuracy
-          )} m hai, precise location on karke phir try karo.`
-        );
-        error.code = 3;
-        error.accuracy = bestSample.accuracy;
-        error.bestSample = bestSample;
-        reject(error);
-        return;
-      }
-
-      resolve(bestSample);
+      resolve({
+        ...bestSample,
+        isApproximate:
+          Number.isFinite(Number(bestSample.accuracy)) &&
+          Number(bestSample.accuracy) > settings.acceptableAccuracy,
+      });
     };
 
     watchId = navigator.geolocation.watchPosition(
@@ -112,4 +103,3 @@ export const getBestCurrentLocation = (config = {}) =>
       finalizeWithBestSample();
     }, settings.maxWaitMs);
   });
-

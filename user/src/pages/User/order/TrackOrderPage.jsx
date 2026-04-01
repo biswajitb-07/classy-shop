@@ -66,6 +66,13 @@ const calculateDistanceKm = (origin, destination) => {
   return Number((earthRadiusKm * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)))).toFixed(1));
 };
 
+const getLocationTimestamp = (location) => {
+  const rawValue = location?.updatedAt || location?.at || null;
+  if (!rawValue) return 0;
+  const parsed = new Date(rawValue).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
 const getResolvedTrackingLocation = ({
   liveLocation,
   trailPoints = [],
@@ -78,12 +85,46 @@ const getResolvedTrackingLocation = ({
     currentLocation,
   ].filter((point) => hasCoordinate(point?.latitude, point?.longitude));
 
-  const validCandidate = candidates.find(
+  const latestFirstCandidates = [...candidates].sort(
+    (left, right) => getLocationTimestamp(right) - getLocationTimestamp(left)
+  );
+
+  const validCandidate = latestFirstCandidates.find(
     (point) => !restrictToIndia || isWithinIndiaBounds(point),
   );
 
   return validCandidate || null;
 };
+
+const getTrackingSnapshotTimestamp = (snapshot) => {
+  if (!snapshot) return 0;
+
+  const currentLocationTimestamp = getLocationTimestamp(snapshot.currentLocation);
+  const lastSharedTimestamp = getLocationTimestamp({
+    updatedAt: snapshot.lastSharedAt || snapshot.updatedAt,
+  });
+  const latestTrailTimestamp = Array.isArray(snapshot.recentPoints)
+    ? snapshot.recentPoints.reduce(
+        (latestTimestamp, point) =>
+          Math.max(latestTimestamp, getLocationTimestamp(point)),
+        0,
+      )
+    : 0;
+
+  return Math.max(
+    currentLocationTimestamp,
+    lastSharedTimestamp,
+    latestTrailTimestamp,
+  );
+};
+
+const getFreshestTrackingSnapshot = (...snapshots) =>
+  snapshots
+    .filter(Boolean)
+    .sort(
+      (left, right) =>
+        getTrackingSnapshotTimestamp(right) - getTrackingSnapshotTimestamp(left),
+    )[0] || null;
 
 const estimateEtaMinutes = (distanceKm, speedMetersPerSecond) => {
   if (!Number.isFinite(Number(distanceKm))) return null;
@@ -97,20 +138,8 @@ const estimateEtaMinutes = (distanceKm, speedMetersPerSecond) => {
   return Math.max(3, Math.round((Number(distanceKm) / liveSpeedKmh) * 60));
 };
 
-const isReliableCustomerLocation = (location) => {
-  if (!hasCoordinate(location?.latitude, location?.longitude)) return false;
-
-  if (
-    location?.accuracy !== null &&
-    location?.accuracy !== undefined &&
-    Number.isFinite(Number(location.accuracy)) &&
-    Number(location.accuracy) > MAX_CUSTOMER_LOCATION_ACCURACY_METERS
-  ) {
-    return false;
-  }
-
-  return true;
-};
+const isReliableCustomerLocation = (location) =>
+  hasCoordinate(location?.latitude, location?.longitude);
 
 const resolveEtaMinutes = ({
   routeDurationMinutes,
@@ -335,7 +364,11 @@ const TrackOrderPage = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { isDark } = useTheme();
-  const { data, isLoading, isError, refetch } = useGetUserOrdersQuery();
+  const { data, isLoading, isError, refetch } = useGetUserOrdersQuery(undefined, {
+    pollingInterval: 5000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
   const [saveCustomerLiveLocation, { isLoading: isSavingCustomerLocation }] =
     useSaveCustomerLiveLocationMutation();
 
@@ -359,23 +392,43 @@ const TrackOrderPage = () => {
         ? currentLocation
         : null,
     );
-    setLiveDestination(
-      hasCoordinate(
-        order.customerLiveLocation?.latitude,
-        order.customerLiveLocation?.longitude,
-      )
-        ? order.customerLiveLocation
-        : order.shippingAddress?.location || null,
-    );
     setIsLiveTrackingActive(Boolean(order.deliveryTracking?.isLive));
     setRouteMeta(null);
     nearbyAlertRef.current = "";
   }, [
     order?._id,
+    order?.deliveryTracking,
+  ]);
+
+  useEffect(() => {
+    if (!order) return;
+
+    setLiveDestination((currentDestination) => {
+      const nextDestination = hasCoordinate(
+        order.customerLiveLocation?.latitude,
+        order.customerLiveLocation?.longitude,
+      )
+        ? order.customerLiveLocation
+        : order.shippingAddress?.location || null;
+
+      const currentTimestamp = getLocationTimestamp(currentDestination);
+      const nextTimestamp = getLocationTimestamp(nextDestination);
+
+      if (
+        currentDestination &&
+        currentTimestamp > nextTimestamp &&
+        currentDestination?.source === "customer_live"
+      ) {
+        return currentDestination;
+      }
+
+      return nextDestination;
+    });
+  }, [
+    order?._id,
     order?.customerLiveLocation?.latitude,
     order?.customerLiveLocation?.longitude,
     order?.customerLiveLocation?.updatedAt,
-    order?.deliveryTracking,
     order?.shippingAddress?.location,
   ]);
 
@@ -427,6 +480,18 @@ const TrackOrderPage = () => {
     liveDestination?.updatedAt,
   ]);
 
+  useEffect(() => {
+    setRouteMeta(null);
+  }, [
+    liveLocation?.latitude,
+    liveLocation?.longitude,
+    liveLocation?.updatedAt,
+    trackingSnapshot?.lastSharedAt,
+    trackingSnapshot?.currentLocation?.latitude,
+    trackingSnapshot?.currentLocation?.longitude,
+    trackingSnapshot?.currentLocation?.updatedAt,
+  ]);
+
   const destinationLocation = useMemo(() => {
     if (isReliableCustomerLocation(liveDestination)) {
       return liveDestination;
@@ -438,8 +503,18 @@ const TrackOrderPage = () => {
   }, [liveDestination, order?.customerLiveLocation, order?.shippingAddress?.location]);
 
   const recentTrailPoints = useMemo(
-    () => sanitizeTrackingPoints(trackingSnapshot?.recentPoints || [], true),
-    [trackingSnapshot?.recentPoints],
+    () =>
+      sanitizeTrackingPoints(
+        getFreshestTrackingSnapshot(trackingSnapshot, order?.deliveryTracking)
+          ?.recentPoints || [],
+        true,
+      ),
+    [trackingSnapshot, order?.deliveryTracking],
+  );
+
+  const trackingData = useMemo(
+    () => getFreshestTrackingSnapshot(trackingSnapshot, order?.deliveryTracking) || {},
+    [trackingSnapshot, order?.deliveryTracking],
   );
 
   const trackingLocation = useMemo(
@@ -447,10 +522,10 @@ const TrackOrderPage = () => {
       getResolvedTrackingLocation({
         liveLocation,
         trailPoints: recentTrailPoints,
-        currentLocation: trackingSnapshot?.currentLocation,
+        currentLocation: trackingData?.currentLocation,
         restrictToIndia: true,
       }),
-    [liveLocation, recentTrailPoints, trackingSnapshot?.currentLocation],
+    [liveLocation, recentTrailPoints, trackingData?.currentLocation],
   );
 
   const trackingInfo = useMemo(() => {
@@ -463,7 +538,7 @@ const TrackOrderPage = () => {
       routeDurationMinutes: routeMeta?.durationMinutes,
       routeDistanceKm: routeMeta?.distanceKm,
       fallbackDistanceKm,
-      speedMetersPerSecond: trackingSnapshot?.currentLocation?.speed,
+      speedMetersPerSecond: trackingData?.currentLocation?.speed,
       isFallbackRoute: Boolean(routeMeta?.isFallback),
     });
     const trend = getDistanceTrend({
@@ -476,8 +551,8 @@ const TrackOrderPage = () => {
     const lastPingLabel = formatRelativePingTime(
       trackingLocation?.updatedAt ||
         trackingLocation?.at ||
-        trackingSnapshot?.lastSharedAt ||
-        trackingSnapshot?.updatedAt,
+        trackingData?.lastSharedAt ||
+        trackingData?.updatedAt,
     );
 
     return {
@@ -498,7 +573,7 @@ const TrackOrderPage = () => {
     routeMeta?.durationMinutes,
     routeMeta?.isFallback,
     trackingLocation,
-    trackingSnapshot,
+    trackingData,
   ]);
 
   useEffect(() => {
@@ -537,18 +612,6 @@ const TrackOrderPage = () => {
           const longitude = Number(position.longitude.toFixed(6));
           const accuracy = Number(position.accuracy || 0);
 
-          if (
-            Number.isFinite(accuracy) &&
-            accuracy > MAX_CUSTOMER_LOCATION_ACCURACY_METERS
-          ) {
-            toast.error(
-              `Current location accurate nahi mili. GPS accuracy ${Math.round(
-                accuracy
-              )} m hai, precise location on karke phir try karo.`
-            );
-            return;
-          }
-
           setRouteMeta(null);
 
           const response = await saveCustomerLiveLocation({
@@ -571,7 +634,18 @@ const TrackOrderPage = () => {
             }
           );
           await refetch();
-          toast.success("Current delivery pin updated");
+          if (
+            Number.isFinite(accuracy) &&
+            accuracy > MAX_CUSTOMER_LOCATION_ACCURACY_METERS
+          ) {
+            toast.success(
+              `Current location updated. GPS signal weak tha, exactness around ${Math.round(
+                accuracy
+              )} m ho sakti hai.`
+            );
+          } else {
+            toast.success("Current delivery pin updated");
+          }
         } catch (error) {
           toast.error(error?.data?.message || "Current location save nahi hui.");
         } finally {

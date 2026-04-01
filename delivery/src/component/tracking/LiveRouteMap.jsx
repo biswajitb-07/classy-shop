@@ -34,6 +34,25 @@ const isWithinIndiaBounds = (location) =>
   Number(location.longitude) >= INDIA_BOUNDS.minLongitude &&
   Number(location.longitude) <= INDIA_BOUNDS.maxLongitude;
 
+const toRadians = (value) => (Number(value) * Math.PI) / 180;
+
+const calculateDistanceKm = (origin, destination) => {
+  if (!hasCoordinate(origin) || !hasCoordinate(destination)) return null;
+
+  const earthRadiusKm = 6371;
+  const latDiff = toRadians(Number(destination.latitude) - Number(origin.latitude));
+  const lonDiff = toRadians(Number(destination.longitude) - Number(origin.longitude));
+  const a =
+    Math.sin(latDiff / 2) * Math.sin(latDiff / 2) +
+    Math.cos(toRadians(origin.latitude)) *
+      Math.cos(toRadians(destination.latitude)) *
+      Math.sin(lonDiff / 2) *
+      Math.sin(lonDiff / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return Number((earthRadiusKm * c).toFixed(3));
+};
+
 const normalizeHeading = (heading) => {
   if (!Number.isFinite(Number(heading))) return null;
   const normalized = Number(heading) % 360;
@@ -302,6 +321,10 @@ const LiveRouteMap = ({
       : hasDestination
       ? [[Number(sanitizedDestination.latitude), Number(sanitizedDestination.longitude)]]
       : [];
+  const directDistanceKm = calculateDistanceKm(
+    sanitizedOrigin,
+    sanitizedDestination,
+  );
 
   useEffect(() => {
     if (!hasOrigin || !hasDestination) {
@@ -319,6 +342,24 @@ const LiveRouteMap = ({
     const loadRoute = async () => {
       try {
         setIsRouteLoading(true);
+
+        if (
+          Number.isFinite(Number(directDistanceKm)) &&
+          Number(directDistanceKm) <= 0.25
+        ) {
+          if (isActive) {
+            setRoutePoints(directConnectorPoints);
+            setIsFallbackRoute(false);
+            onRouteMetaChange?.({
+              distanceKm: Number(directDistanceKm.toFixed(3)),
+              durationMinutes: 1,
+              isFallback: false,
+              updatedAt: new Date().toISOString(),
+            });
+          }
+          return;
+        }
+
         const response = await fetch(
           `https://router.project-osrm.org/route/v1/driving/${sanitizedOrigin.longitude},${sanitizedOrigin.latitude};${sanitizedDestination.longitude},${sanitizedDestination.latitude}?overview=full&geometries=geojson`,
           { signal: controller.signal }
@@ -392,6 +433,7 @@ const LiveRouteMap = ({
     sanitizedOrigin?.longitude,
     sanitizedDestination?.latitude,
     sanitizedDestination?.longitude,
+    directDistanceKm,
     onRouteMetaChange,
   ]);
 
