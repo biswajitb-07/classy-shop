@@ -1459,11 +1459,10 @@ const OrderDetailsPage = () => {
           </div>
 
           <LiveRouteMap
-            origin={trackingLocation}
-            destination={hasDestinationLocation ? destinationLocation : null}
+            origin={hasDestinationLocation ? destinationLocation : null}
+            destination={trackingLocation}
             trailPoints={recentTrailPoints}
             heightClass="h-[24rem] md:h-[30rem]"
-            reverseRouteDirection
             restrictToIndia={isIndiaOrder}
             riderLabel={order.assignedDeliveryPartner?.name || "Delivery partner"}
             destinationLabel={

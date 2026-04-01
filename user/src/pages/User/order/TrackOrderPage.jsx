@@ -830,11 +830,10 @@ const TrackOrderPage = () => {
               </div>
 
               <LiveRouteMap
-                origin={trackingLocation}
-                destination={destinationLocation}
+                origin={destinationLocation}
+                destination={trackingLocation}
                 trailPoints={trackingInfo.trailPoints}
                 heightClass="h-[24rem] md:h-[32rem]"
-                reverseRouteDirection
                 riderLabel="Delivery boy live location"
                 destinationLabel={
                   hasCoordinate(
