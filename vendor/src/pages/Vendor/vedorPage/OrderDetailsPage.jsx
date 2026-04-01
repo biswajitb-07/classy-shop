@@ -52,7 +52,7 @@ const getStatusColor = (status) => {
     case "shipped":
       return "bg-purple-500 text-white";
     case "out_for_delivery":
-      return "bg-orange-500 text-white";
+      return "bg-cyan-500 text-white";
     case "delivered":
     case "completed":
       return "bg-green-500 text-white";
@@ -63,7 +63,7 @@ const getStatusColor = (status) => {
     case "return_requested":
       return "bg-yellow-500 text-white";
     case "return_approved":
-      return "bg-orange-500 text-white";
+      return "bg-cyan-600 text-white";
     case "return_completed":
     case "refund":
       return "bg-emerald-600 text-white";
@@ -83,7 +83,7 @@ const getTimelineDotColor = (status) => {
     case "shipped":
       return "bg-purple-500";
     case "out_for_delivery":
-      return "bg-orange-500";
+      return "bg-cyan-500";
     case "delivered":
     case "completed":
       return "bg-green-500";
@@ -94,7 +94,7 @@ const getTimelineDotColor = (status) => {
     case "return_requested":
       return "bg-amber-500";
     case "return_approved":
-      return "bg-orange-500";
+      return "bg-cyan-600";
     case "return_completed":
     case "refund":
       return "bg-emerald-600";

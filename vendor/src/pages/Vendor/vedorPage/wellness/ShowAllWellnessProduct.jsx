@@ -946,7 +946,7 @@ const ShowAllWellnessProduct = () => {
                       <div>
                         <label className="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
                           <FaBoxOpen className="text-purple-500" /> Available
-                          Quantity (kg)
+                          Stock Quantity
                         </label>
                       <input
                           type="number"
@@ -957,7 +957,7 @@ const ShowAllWellnessProduct = () => {
                             handleFieldChange("inStock", e.target.value)
                           }
                           className="w-full border-2 border-gray-200 px-4 py-3 rounded-xl focus:ring-4 focus:ring-purple-200 focus:border-purple-400 transition-all bg-white shadow-sm"
-                          placeholder="Enter quantity in kg"
+                          placeholder="Enter stock quantity"
                         />
                       </div>
                       <div>

@@ -12,6 +12,7 @@ import { DeliveryPartner } from "../../models/delivery/deliveryPartner.model.js"
 import { DeliveryNotification } from "../../models/delivery/deliveryNotification.model.js";
 import {
   clearDeliveryAuthCookies,
+  signSocketToken,
   setDeliveryAuthCookies,
 } from "../../utils/authCookies.js";
 import {
@@ -380,6 +381,23 @@ export const logoutDeliveryPartner = async (_req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to logout",
+    });
+  }
+};
+
+export const getDeliverySocketAuth = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      socketToken: signSocketToken({
+        deliveryPartnerId: req.id,
+        role: "delivery",
+      }),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create socket auth token",
     });
   }
 };

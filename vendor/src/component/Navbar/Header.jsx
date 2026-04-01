@@ -14,6 +14,26 @@ import {
 import { connectVendorSocket } from "../../lib/socket";
 import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
 
+const getSeenStorageKey = (vendorId) =>
+  `classy_vendor_seen_notifications_${String(vendorId || "guest")}`;
+
+const readSeenNotificationIds = (vendorId) => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const rawValue = window.localStorage.getItem(getSeenStorageKey(vendorId));
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch (_error) {
+    return [];
+  }
+};
+
+const persistSeenNotificationIds = (vendorId, ids = []) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(getSeenStorageKey(vendorId), JSON.stringify(ids));
+};
+
 const Header = () => {
   const { isOpen, vendor } = useSelector((store) => store.auth);
   const dispatch = useDispatch();
@@ -21,6 +41,7 @@ const Header = () => {
   const { isDark } = useTheme();
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
+  const [seenNotificationIds, setSeenNotificationIds] = useState([]);
   const notificationRef = useRef(null);
   const {
     data: notificationData,
@@ -38,6 +59,14 @@ const Header = () => {
     () => notificationData?.notifications || [],
     [notificationData?.notifications]
   );
+  const unreadNotifications = useMemo(
+    () =>
+      notifications.filter(
+        (notification) => !seenNotificationIds.includes(String(notification._id)),
+      ),
+    [notifications, seenNotificationIds],
+  );
+  const unreadCount = unreadNotifications.length;
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -52,6 +81,15 @@ const Header = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    setSeenNotificationIds(readSeenNotificationIds(vendor?._id));
+  }, [vendor?._id]);
+
+  useEffect(() => {
+    if (!vendor?._id) return;
+    persistSeenNotificationIds(vendor._id, seenNotificationIds);
+  }, [seenNotificationIds, vendor?._id]);
 
   useEffect(() => {
     if (!vendor?._id) return undefined;
@@ -81,6 +119,9 @@ const Header = () => {
     setDeletingNotificationIds((current) => [...current, id]);
     try {
       await deleteVendorNotification(id).unwrap();
+      setSeenNotificationIds((current) =>
+        current.filter((notificationId) => notificationId !== String(id)),
+      );
     } finally {
       setDeletingNotificationIds((current) =>
         current.filter((notificationId) => notificationId !== id)
@@ -97,6 +138,31 @@ const Header = () => {
       return;
     }
     await clearVendorNotifications().unwrap();
+    setSeenNotificationIds([]);
+  };
+
+  const markNotificationsAsSeen = () => {
+    if (!notifications.length) return;
+
+    setSeenNotificationIds((current) => {
+      const nextIds = new Set(current);
+      notifications.forEach((notification) => {
+        if (notification?._id) {
+          nextIds.add(String(notification._id));
+        }
+      });
+      return Array.from(nextIds);
+    });
+  };
+
+  const handleToggleNotifications = () => {
+    setIsNotificationOpen((current) => {
+      const nextOpen = !current;
+      if (nextOpen) {
+        markNotificationsAsSeen();
+      }
+      return nextOpen;
+    });
   };
 
   return (
@@ -123,7 +189,7 @@ const Header = () => {
         <div className="relative" ref={notificationRef}>
           <button
             type="button"
-            onClick={() => setIsNotificationOpen((current) => !current)}
+            onClick={handleToggleNotifications}
             className={`relative flex h-10 w-10 items-center justify-center rounded-full transition ${
               isDark
                 ? "bg-slate-800 text-slate-200 hover:bg-slate-700"
@@ -131,9 +197,9 @@ const Header = () => {
             }`}
           >
             <IoNotifications className="text-xl cursor-pointer" />
-            {notifications.length > 0 ? (
+            {unreadCount > 0 ? (
               <span className="absolute -bottom-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                {notifications.length}
+                {unreadCount}
               </span>
             ) : null}
           </button>

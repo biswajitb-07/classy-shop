@@ -6,6 +6,7 @@ import {
   getDeliveryDashboardSummary,
   getDeliveryNotifications,
   getDeliveryProfile,
+  getDeliverySocketAuth,
   loginDeliveryPartner,
   logoutDeliveryPartner,
   toggleDeliveryAvailability,
@@ -36,6 +37,7 @@ const otpRateLimit = createRateLimiter({
 
 deliveryRouter.post("/login", authRateLimit, loginDeliveryPartner);
 deliveryRouter.post("/logout", logoutDeliveryPartner);
+deliveryRouter.get("/socket-auth", isAuthenticatedDelivery, getDeliverySocketAuth);
 deliveryRouter.get("/profile", isAuthenticatedDelivery, getDeliveryProfile);
 deliveryRouter.get(
   "/dashboard-summary",

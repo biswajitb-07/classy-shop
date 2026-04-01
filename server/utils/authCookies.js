@@ -28,11 +28,12 @@ export const signDeliveryAccessToken = (deliveryPartnerId) =>
 export const signDeliveryRefreshToken = (deliveryPartnerId) =>
   jwt.sign({ deliveryPartnerId }, process.env.SECRET_KEY, { expiresIn: "30d" });
 
-export const signSocketToken = ({ userId, vendorId, role }) =>
+export const signSocketToken = ({ userId, vendorId, deliveryPartnerId, role }) =>
   jwt.sign(
     {
       userId: userId || undefined,
       vendorId: vendorId || undefined,
+      deliveryPartnerId: deliveryPartnerId || undefined,
       role,
       scope: "socket",
     },

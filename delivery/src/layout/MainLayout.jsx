@@ -53,6 +53,31 @@ const formatNotificationTime = (value) =>
     minute: "2-digit",
   });
 
+const getSeenStorageKey = (deliveryPartnerId) =>
+  `classy_delivery_seen_notifications_${String(deliveryPartnerId || "guest")}`;
+
+const readSeenNotificationIds = (deliveryPartnerId) => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const rawValue = window.localStorage.getItem(
+      getSeenStorageKey(deliveryPartnerId)
+    );
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch (_error) {
+    return [];
+  }
+};
+
+const persistSeenNotificationIds = (deliveryPartnerId, ids = []) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(
+    getSeenStorageKey(deliveryPartnerId),
+    JSON.stringify(ids)
+  );
+};
+
 const formatPresenceTime = (value) => {
   if (!value) return "just now";
 
@@ -76,6 +101,7 @@ const MainLayout = () => {
   const [showOverlay, setShowOverlay] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
+  const [seenNotificationIds, setSeenNotificationIds] = useState([]);
   const [hasAppliedDesktopDefault, setHasAppliedDesktopDefault] = useState(false);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [logoutUser, { isLoading: isLoggingOut }] = useLogoutUserMutation();
@@ -98,6 +124,23 @@ const MainLayout = () => {
     () => notificationData?.notifications || [],
     [notificationData?.notifications]
   );
+  const unreadNotifications = useMemo(
+    () =>
+      notifications.filter(
+        (notification) => !seenNotificationIds.includes(String(notification._id)),
+      ),
+    [notifications, seenNotificationIds]
+  );
+  const unreadCount = unreadNotifications.length;
+
+  useEffect(() => {
+    setSeenNotificationIds(readSeenNotificationIds(deliveryPartner?._id));
+  }, [deliveryPartner?._id]);
+
+  useEffect(() => {
+    if (!deliveryPartner?._id) return;
+    persistSeenNotificationIds(deliveryPartner._id, seenNotificationIds);
+  }, [deliveryPartner?._id, seenNotificationIds]);
 
   useEffect(() => {
     if (isOpen) {
@@ -232,6 +275,9 @@ const MainLayout = () => {
 
     try {
       await deleteDeliveryNotification(id).unwrap();
+      setSeenNotificationIds((current) =>
+        current.filter((notificationId) => notificationId !== String(id))
+      );
     } catch (error) {
       toast.error(error?.data?.message || "Notification delete failed");
     } finally {
@@ -252,10 +298,35 @@ const MainLayout = () => {
 
     try {
       await clearDeliveryNotifications().unwrap();
+      setSeenNotificationIds([]);
       setIsNotificationOpen(false);
     } catch (error) {
       toast.error(error?.data?.message || "Notifications clear failed");
     }
+  };
+
+  const markNotificationsAsSeen = () => {
+    if (!notifications.length) return;
+
+    setSeenNotificationIds((current) => {
+      const nextIds = new Set(current);
+      notifications.forEach((notification) => {
+        if (notification?._id) {
+          nextIds.add(String(notification._id));
+        }
+      });
+      return Array.from(nextIds);
+    });
+  };
+
+  const handleToggleNotifications = () => {
+    setIsNotificationOpen((current) => {
+      const nextOpen = !current;
+      if (nextOpen) {
+        markNotificationsAsSeen();
+      }
+      return nextOpen;
+    });
   };
 
   const handleOpenNotification = (notification) => {
@@ -425,14 +496,14 @@ const MainLayout = () => {
               <div className="relative" ref={notificationRef}>
                 <button
                   type="button"
-                  onClick={() => setIsNotificationOpen((current) => !current)}
+                  onClick={handleToggleNotifications}
                   className="relative inline-flex min-h-[3rem] items-center gap-3 rounded-full border border-slate-800 bg-slate-900 px-4 text-slate-100 transition hover:border-slate-700 hover:bg-slate-800"
                 >
                   <Bell size={18} />
                   <span className="text-base font-medium">Notifications</span>
-                  {notifications.length ? (
+                  {unreadCount ? (
                     <span className="absolute -top-1 -right-1 inline-flex min-h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-                      {notifications.length}
+                      {unreadCount}
                     </span>
                   ) : null}
                 </button>
