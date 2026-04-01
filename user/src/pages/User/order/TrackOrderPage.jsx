@@ -18,6 +18,7 @@ import { useTheme } from "../../../context/ThemeContext.jsx";
 import LiveRouteMap from "../../../components/tracking/LiveRouteMap.jsx";
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
+import { getBestCurrentLocation } from "../../../utils/geolocation.js";
 
 const INDIA_BOUNDS = {
   minLatitude: 6,
@@ -527,12 +528,14 @@ const TrackOrderPage = () => {
 
     setIsResolvingCustomerLocation(true);
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
+    getBestCurrentLocation({
+      acceptableAccuracy: MAX_CUSTOMER_LOCATION_ACCURACY_METERS,
+    })
+      .then(async (position) => {
         try {
-          const latitude = Number(position.coords.latitude.toFixed(6));
-          const longitude = Number(position.coords.longitude.toFixed(6));
-          const accuracy = Number(position.coords.accuracy || 0);
+          const latitude = Number(position.latitude.toFixed(6));
+          const longitude = Number(position.longitude.toFixed(6));
+          const accuracy = Number(position.accuracy || 0);
 
           if (
             Number.isFinite(accuracy) &&
@@ -574,21 +577,11 @@ const TrackOrderPage = () => {
         } finally {
           setIsResolvingCustomerLocation(false);
         }
-      },
-      (error) => {
-        toast.error(
-          error?.code === 3
-            ? "Location detect hone me timeout ho gaya. GPS on karke phir try karo."
-            : "Current location access allow karo."
-        );
+      })
+      .catch((error) => {
+        toast.error(error?.message || "Current location access allow karo.");
         setIsResolvingCustomerLocation(false);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 25000,
-        maximumAge: 0,
-      },
-    );
+      });
   };
 
   useEffect(() => {

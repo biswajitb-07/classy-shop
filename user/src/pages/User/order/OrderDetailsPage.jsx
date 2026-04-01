@@ -22,6 +22,7 @@ import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 import { connectUserSocket } from "../../../lib/socket.js";
 import LiveRouteMap from "../../../components/tracking/LiveRouteMap.jsx";
+import { getBestCurrentLocation } from "../../../utils/geolocation.js";
 
 const STATUS_LABELS = {
   pending: "Pending",
@@ -1575,13 +1576,15 @@ const OrderDetailsPage = () => {
 
     setIsResolvingCustomerLocation(true);
 
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
+    getBestCurrentLocation({
+      acceptableAccuracy: MAX_CUSTOMER_LOCATION_ACCURACY_METERS,
+    })
+      .then(async (position) => {
         try {
           const payload = {
-            latitude: Number(position.coords.latitude.toFixed(6)),
-            longitude: Number(position.coords.longitude.toFixed(6)),
-            accuracy: Number(position.coords.accuracy || 0),
+            latitude: Number(position.latitude.toFixed(6)),
+            longitude: Number(position.longitude.toFixed(6)),
+            accuracy: Number(position.accuracy || 0),
             label: "Customer live location",
           };
 
@@ -1620,23 +1623,15 @@ const OrderDetailsPage = () => {
         } finally {
           setIsResolvingCustomerLocation(false);
         }
-      },
-      (error) => {
+      })
+      .catch((error) => {
         setIsResolvingCustomerLocation(false);
         const message =
           error?.code === 1
             ? "Browser me location permission allow karo"
-            : error?.code === 3
-            ? "Location detect hone me timeout ho gaya. Open sky ya GPS on karke phir try karo."
-            : "Current location detect nahi ho pa rahi";
+            : error?.message || "Current location detect nahi ho pa rahi";
         toast.error(message);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 25000,
-        maximumAge: 0,
-      }
-    );
+      });
   };
 
   const handleReturnRequest = async () => {

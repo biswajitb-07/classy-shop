@@ -25,6 +25,7 @@ import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
 import AddressPinPicker from "../../../components/checkout/AddressPinPicker.jsx";
+import { getBestCurrentLocation } from "../../../utils/geolocation.js";
 
 const emptyShippingAddress = {
   type: "home",
@@ -271,13 +272,15 @@ const CheckoutPage = () => {
     }
 
     setLocationLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
+    getBestCurrentLocation({
+      acceptableAccuracy: 1500,
+    })
+      .then((position) => {
         setShippingAddress((prev) => ({
           ...prev,
           location: {
-            latitude: Number(position.coords.latitude.toFixed(6)),
-            longitude: Number(position.coords.longitude.toFixed(6)),
+            latitude: Number(position.latitude.toFixed(6)),
+            longitude: Number(position.longitude.toFixed(6)),
             label: "Current map pin",
             source: "browser_geolocation",
             updatedAt: new Date().toISOString(),
@@ -285,16 +288,11 @@ const CheckoutPage = () => {
         }));
         setLocationLoading(false);
         toast.success("Current location pin added");
-      },
-      (error) => {
+      })
+      .catch((error) => {
         setLocationLoading(false);
         toast.error(error?.message || "Current location detect nahi hua");
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 12000,
-      },
-    );
+      });
   };
 
   const loadRazorpayScript = () =>
