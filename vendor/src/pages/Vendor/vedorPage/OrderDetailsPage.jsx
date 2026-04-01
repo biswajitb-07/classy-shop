@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { FaBoxOpen, FaHistory, FaMapMarkerAlt } from "react-icons/fa";
 import toast from "react-hot-toast";
 import {
@@ -14,6 +15,7 @@ import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
 import ConfirmDialog from "../../../component/ConfirmDialog";
 import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
+import { resolveVendorOrderIdFromRoute } from "../../../utils/orderRouting";
 
 const STATUS_LABELS = {
   pending: "Pending",
@@ -267,7 +269,13 @@ const OrderTimelineCard = ({ entries }) => (
 );
 
 const OrderDetailsPage = () => {
-  const { orderId } = useParams();
+  const { orderId: routeOrderId, orderSlug } = useParams();
+  const [searchParams] = useSearchParams();
+  const orderId = resolveVendorOrderIdFromRoute({
+    routeOrderId,
+    orderSlug,
+    searchParams,
+  });
   const {
     data: ordersData,
     isLoading,

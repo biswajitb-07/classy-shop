@@ -2,7 +2,7 @@ import { ShoppingCart } from "lucide-react";
 import { FaRegHeart, FaHeart, FaStar, FaStarHalfAlt } from "react-icons/fa";
 import { BsArrowsFullscreen } from "react-icons/bs";
 import { IoShareSocialOutline } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { toast } from "react-hot-toast";
 import {
@@ -30,6 +30,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
   const { isAuthenticated } = useSelector((s) => s.auth);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [addToCart] = useAddToCartMutation();
   const [addToWishlist] = useAddToWishlistMutation();
   const [removeFromWishlist] = useRemoveFromWishlistMutation();
@@ -241,7 +242,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
 
   const goToProduct = (product) => {
     recordProductView(product);
-    navigate(getProductDetailPath(product));
+    navigate(`${getProductDetailPath(product)}${location.search || ""}`);
   };
 
   return (

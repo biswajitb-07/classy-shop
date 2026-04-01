@@ -224,6 +224,22 @@ const appRouter = createBrowserRouter([
         element: <Bag />,
       },
       {
+        path: "/bag/product-details",
+        element: <BagProductDetails />,
+      },
+      {
+        path: "/bags/product-details",
+        element: <BagProductDetails />,
+      },
+      {
+        path: "/bag/details/:productSlug",
+        element: <BagProductDetails />,
+      },
+      {
+        path: "/bags/details/:productSlug",
+        element: <BagProductDetails />,
+      },
+      {
         path: "/grocery/:subcategory/:thirdcategory",
         element: <Grocery />,
       },
@@ -232,12 +248,44 @@ const appRouter = createBrowserRouter([
         element: <Grocery />,
       },
       {
+        path: "/grocery/product-details",
+        element: <GroceryProductDetails />,
+      },
+      {
+        path: "/groceries/product-details",
+        element: <GroceryProductDetails />,
+      },
+      {
+        path: "/grocery/details/:productSlug",
+        element: <GroceryProductDetails />,
+      },
+      {
+        path: "/groceries/details/:productSlug",
+        element: <GroceryProductDetails />,
+      },
+      {
         path: "/beauty/:subcategory/:thirdcategory",
         element: <Beauty />,
       },
       {
+        path: "/beauty/product-details",
+        element: <BeautyProductDetails />,
+      },
+      {
+        path: "/beauty/details/:productSlug",
+        element: <BeautyProductDetails />,
+      },
+      {
         path: "/jewellery/:subcategory/:thirdcategory",
         element: <Jewellery />,
+      },
+      {
+        path: "/jewellery/product-details",
+        element: <JewelleryProductDetails />,
+      },
+      {
+        path: "/jewellery/details/:productSlug",
+        element: <JewelleryProductDetails />,
       },
       {
         path: "/bags/:subcategory/:thirdcategory",
@@ -246,6 +294,14 @@ const appRouter = createBrowserRouter([
       {
         path: "/wellness/:subcategory/:thirdcategory",
         element: <Wellness />,
+      },
+      {
+        path: "/wellness/product-details",
+        element: <WellnessProductDetails />,
+      },
+      {
+        path: "/wellness/details/:productSlug",
+        element: <WellnessProductDetails />,
       },
       {
         path: "/bag/bag-product-details/:productId",
@@ -300,6 +356,22 @@ const appRouter = createBrowserRouter([
         element: <Footwear />,
       },
       {
+        path: "/fashion/product-details",
+        element: <FashionProductDetails />,
+      },
+      {
+        path: "/fashion/details/:productSlug",
+        element: <FashionProductDetails />,
+      },
+      {
+        path: "/footwear/product-details",
+        element: <FootwearProductDetails />,
+      },
+      {
+        path: "/footwear/details/:productSlug",
+        element: <FootwearProductDetails />,
+      },
+      {
         path: "/fashion/fashion-product-details/:productId",
         element: <FashionProductDetails />,
       },
@@ -318,6 +390,14 @@ const appRouter = createBrowserRouter([
       {
         path: "/electronics/:subcategory/:thirdcategory",
         element: <Electronics />,
+      },
+      {
+        path: "/electronics/product-details",
+        element: <ElectronicsProductDetails />,
+      },
+      {
+        path: "/electronics/details/:productSlug",
+        element: <ElectronicsProductDetails />,
       },
       {
         path: "/electronics/electronics-product-details/:productId",

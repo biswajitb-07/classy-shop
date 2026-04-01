@@ -3,7 +3,7 @@ import { FaStar, FaStarHalfAlt, FaRegHeart, FaHeart } from "react-icons/fa";
 import { BsArrowsFullscreen } from "react-icons/bs";
 import { IoShareSocialOutline } from "react-icons/io5";
 import { ShoppingCart } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import {
   useAddToCartMutation,
@@ -16,6 +16,7 @@ import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import ProductModal from "../../../../components/products/ProductModal.jsx";
 import { useSelector } from "react-redux";
 import { shareProduct } from "../../../../utils/shareProduct.js";
+import { getProductDetailPath } from "../../../../utils/productCatalog.js";
 
 const PAGE_SIZE = 15;
 
@@ -27,6 +28,7 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
   const { isAuthenticated } = useSelector((s) => s.auth);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [addToCart] = useAddToCartMutation();
   const [addToWishlist] = useAddToWishlistMutation();
   const [removeFromWishlist] = useRemoveFromWishlistMutation();
@@ -112,7 +114,7 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
 
   const handleShare = async (product, e) => {
     e.stopPropagation();
-    const productUrl = `${window.location.origin}/bag/bag-product-details/${product._id}`;
+    const productUrl = `${window.location.origin}${getProductDetailPath(product, { search: location.search })}`
 
     try {
       const result = await shareProduct({ product, productUrl });
@@ -124,6 +126,9 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
       toast.error("Failed to share product");
     }
   };
+
+  const getProductDetailsPath = (product) =>
+    getProductDetailPath(product, { routeSegment: "bag", search: location.search });
 
   const renderStars = (rating) => {
     const stars = [];
@@ -166,7 +171,7 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
             >
               <div className="relative group overflow-hidden">
                 <img
-                  onClick={() => navigate(`/bag/bag-product-details/${p._id}`)}
+                  onClick={() => navigate(getProductDetailsPath(p))}
                   src={p.image[0]}
                   alt={p.name}
                   className="h-36 md:h-56 w-full object-cover object-top rounded-t-xl transition-opacity duration-700 ease-linear group-hover:opacity-0"
@@ -174,7 +179,7 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
                 {p.image[1] && (
                   <img
                     onClick={() =>
-                      navigate(`/bag/bag-product-details/${p._id}`)
+                      navigate(getProductDetailsPath(p))
                     }
                     src={p.image[1]}
                     alt={p.name}
@@ -215,7 +220,7 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
               </div>
 
               <div
-                onClick={() => navigate(`/bag/bag-product-details/${p._id}`)}
+                onClick={() => navigate(getProductDetailsPath(p))}
                 className="p-3 flex flex-col gap-2"
               >
                 <p className="text-xs font-semibold text-gray-600">{p.brand}</p>

@@ -12,6 +12,7 @@ import {
   useGetVendorNotificationsQuery,
 } from "../../features/api/authApi";
 import { connectVendorSocket } from "../../lib/socket";
+import { getVendorOrderPath } from "../../utils/orderRouting";
 import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
 
 const getSeenStorageKey = (vendorId) =>
@@ -270,7 +271,12 @@ const Header = () => {
                           onClick={() => {
                             setIsNotificationOpen(false);
                             if (notification.orderId) {
-                              navigate(`/order/${notification.orderId}`);
+                              navigate(
+                                getVendorOrderPath(
+                                  { _id: notification.orderId },
+                                  { mode: "query" },
+                                ),
+                              );
                             }
                           }}
                           className="flex min-w-0 flex-1 items-start gap-3 text-left"

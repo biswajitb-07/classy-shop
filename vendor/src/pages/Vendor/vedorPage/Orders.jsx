@@ -14,6 +14,8 @@ import { useGetVendorOrdersQuery } from "../../../features/api/orderApi";
 import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
 import { useTheme } from "../../../context/ThemeContext";
+import { useVendorListingQueryState } from "../../../hooks/useVendorListingQueryState";
+import { getVendorOrderPath } from "../../../utils/orderRouting";
 
 const STATUS_FILTERS = [
   { key: "all", label: "All Orders" },
@@ -192,15 +194,30 @@ const Orders = () => {
     isError,
     refetch,
   } = useGetVendorOrdersQuery();
+  const { searchParams, updateQueryParams } = useVendorListingQueryState();
 
   const orders = ordersData?.orders || [];
-  const [searchTerm, setSearchTerm] = useState("");
-  const [activeFilter, setActiveFilter] = useState("all");
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get("q") || "");
+  const [activeFilter, setActiveFilter] = useState(
+    () => searchParams.get("status") || "all",
+  );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
+
+  useEffect(() => {
+    setSearchTerm(searchParams.get("q") || "");
+    setActiveFilter(searchParams.get("status") || "all");
+  }, [searchParams]);
+
+  useEffect(() => {
+    updateQueryParams({
+      q: searchTerm.trim() || null,
+      status: activeFilter !== "all" ? activeFilter : null,
+    });
+  }, [activeFilter, searchTerm, updateQueryParams]);
 
   const pageClass = isDark
     ? "min-h-screen bg-[radial-gradient(circle_at_top,#101828_0%,#050816_58%,#02040b_100%)]"
@@ -588,7 +605,13 @@ const Orders = () => {
 
                         <button
                           type="button"
-                          onClick={() => navigate(`/order/${order._id}`)}
+                          onClick={() =>
+                            navigate(
+                              getVendorOrderPath(order, {
+                                search: searchParams.toString(),
+                              }),
+                            )
+                          }
                           className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition ${
                             isDark
                               ? "bg-white text-slate-950 hover:bg-slate-200"

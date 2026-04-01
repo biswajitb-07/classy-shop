@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
@@ -23,6 +23,7 @@ import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
 import ConfirmDialog from "../../../component/ConfirmDialog";
 import { getDeliverySocket } from "../../../lib/socket";
 import LiveRouteMap from "../../../component/tracking/LiveRouteMap";
+import { resolveDeliveryOrderIdFromRoute } from "../../../utils/orderRouting";
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -332,7 +333,13 @@ const getTrackingMilestones = (status, isTrackingActive) => {
 
 const OrderDetailsPage = () => {
   const navigate = useNavigate();
-  const { orderId } = useParams();
+  const { orderId: routeOrderId, orderSlug } = useParams();
+  const [searchParams] = useSearchParams();
+  const orderId = resolveDeliveryOrderIdFromRoute({
+    routeOrderId,
+    orderSlug,
+    searchParams,
+  });
   const trackingWatchRef = useRef(null);
   const {
     data,

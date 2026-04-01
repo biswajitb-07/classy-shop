@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   useGetElectronicItemsQuery,
   useDeleteElectronicItemMutation,
@@ -31,6 +31,10 @@ import toast from "react-hot-toast";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import AddElectronicItem from "./AddElectronicItem";
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import {
+  getVendorListingQueryState,
+  useVendorListingQueryState,
+} from "../../../../hooks/useVendorListingQueryState";
 import { useGetElectronicBrandsQuery } from "../../../../features/api/electronic/electronicBrandApi";
 
 const RAMS = ["4gb", "6gb", "8gb", "12gb", "16gb"];
@@ -39,6 +43,8 @@ const CATEGORY = "Electronics";
 const ITEMS_PER_PAGE = 15;
 
 const ShowAllElectronicProduct = () => {
+  const { searchParams, updateQueryParams } = useVendorListingQueryState();
+  const queryState = getVendorListingQueryState(searchParams, { hasBrandTab: true });
   const { data: response, isLoading, refetch } = useGetElectronicItemsQuery();
   const [deleteElectronicItem, { isLoading: isDeleting }] =
     useDeleteElectronicItemMutation();
@@ -56,14 +62,15 @@ const ShowAllElectronicProduct = () => {
   const [editItem, setEditItem] = useState(null);
   const [editFields, setEditFields] = useState({});
   const [currentSlide, setCurrentSlide] = useState({});
-  const [activeTab, setActiveTab] = useState("all");
-  const [searchTerm, setSearchTerm] = useState("");
+  const [activeTab, setActiveTab] = useState(queryState.tab);
+  const [searchTerm, setSearchTerm] = useState(queryState.q);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedSubCategory, setSelectedSubCategory] = useState("all");
-  const [selectedThirdLevel, setSelectedThirdLevel] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState(queryState.category);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(queryState.subCategory);
+  const [selectedThirdLevel, setSelectedThirdLevel] = useState(queryState.thirdLevel);
+  const [currentPage, setCurrentPage] = useState(queryState.page);
   const [deletingItemId, setDeletingItemId] = useState(null);
+  const hasMountedPageResetRef = useRef(false);
 
   const items = response?.electronicItems ?? [];
   const brands = [...new Set(items.map((item) => item.brand))];
@@ -113,6 +120,10 @@ const ShowAllElectronicProduct = () => {
   );
 
   useEffect(() => {
+    if (!hasMountedPageResetRef.current) {
+      hasMountedPageResetRef.current = true;
+      return;
+    }
     setCurrentPage(1);
   }, [
     searchTerm,
@@ -120,6 +131,39 @@ const ShowAllElectronicProduct = () => {
     selectedCategory,
     selectedSubCategory,
     selectedThirdLevel,
+  ]);
+  useEffect(() => {
+    setActiveTab(queryState.tab);
+    setSearchTerm(queryState.q);
+    setSelectedCategory(queryState.category);
+    setSelectedSubCategory(queryState.subCategory);
+    setSelectedThirdLevel(queryState.thirdLevel);
+    setCurrentPage(queryState.page);
+  }, [
+    queryState.category,
+    queryState.page,
+    queryState.q,
+    queryState.subCategory,
+    queryState.tab,
+    queryState.thirdLevel,
+  ]);
+  useEffect(() => {
+    updateQueryParams({
+      brand: activeTab !== "all" ? activeTab : null,
+      q: searchTerm.trim() || null,
+      category: selectedCategory !== "all" ? selectedCategory : null,
+      subCategory: selectedSubCategory !== "all" ? selectedSubCategory : null,
+      thirdLevel: selectedThirdLevel !== "all" ? selectedThirdLevel : null,
+      page: currentPage > 1 ? currentPage : null,
+    });
+  }, [
+    activeTab,
+    currentPage,
+    searchTerm,
+    selectedCategory,
+    selectedSubCategory,
+    selectedThirdLevel,
+    updateQueryParams,
   ]);
 
   useEffect(() => {
@@ -449,7 +493,7 @@ const ShowAllElectronicProduct = () => {
               placeholder="Search products, brands..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-white/10 border border-white/20 text-white placeholder-white/60 px-10 sm:px-12 py-3 sm:py-4 rounded-xlHive xl focus:ring-4 focus:ring-white/30 transition-all text-sm sm:text-base"
+              className="w-full bg-white/10 border border-white/20 text-white placeholder-white/60 px-10 sm:px-12 py-3 sm:py-4 rounded-xl focus:ring-4 focus:ring-white/30 transition-all text-sm sm:text-base"
             />
           </div>
         </div>
@@ -1188,3 +1232,5 @@ const ShowAllElectronicProduct = () => {
 };
 
 export default ShowAllElectronicProduct;
+
+

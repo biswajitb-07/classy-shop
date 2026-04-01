@@ -20,12 +20,24 @@ import {
   toggleCompareProduct,
 } from "../../../../utils/productCompare.js";
 import { buildBuyNowItem, persistBuyNowCheckout } from "../../../../utils/buyNow.js";
+import { getProductDetailPath, resolveProductIdFromRoute } from "../../../../utils/productCatalog.js";
+import {
+  getImageFromQuery,
+  getValidatedQueryValue,
+  useProductDetailQueryState,
+} from "../../../../hooks/useProductDetailQueryState.js";
 
 const ElectronicsProductDetails = () => {
   const { data, isLoading, refetch } = useGetElectronicItemsQuery();
-  const { productId } = useParams();
+  const { productId: routeProductId, productSlug } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useSelector((s) => s.auth);
+  const { searchParams, updateQueryParams } = useProductDetailQueryState();
+  const productId = resolveProductIdFromRoute({
+    routeProductId,
+    productSlug,
+    searchParams,
+  });
 
   const [mainImage, setMainImage] = useState("");
   const [transformOrigin, setTransformOrigin] = useState("50% 50%");
@@ -57,6 +69,21 @@ const ElectronicsProductDetails = () => {
     if (!product?._id) return;
     setCompareActive(isProductCompared(product._id, "Electronics"));
   }, [product?._id]);
+
+  useEffect(() => {
+    if (!product?.image?.length || searchParams.has("image")) return;
+    updateQueryParams({ image: 0 });
+  }, [product?._id, product?.image, searchParams, updateQueryParams]);
+
+  useEffect(() => {
+    if (!product?.image?.length) return;
+
+    setMainImage(getImageFromQuery(searchParams.get("image"), product.image));
+    setSelectedRam(getValidatedQueryValue(searchParams.get("ram"), product.rams));
+    setSelectedStorage(
+      getValidatedQueryValue(searchParams.get("storage"), product.storage)
+    );
+  }, [product?.image, product?.rams, product?.storage, searchParams]);
 
   const handleMouseMove = (e) => {
     const { left, top, width, height } =
@@ -137,7 +164,8 @@ const ElectronicsProductDetails = () => {
   };
 
   const handleShare = async () => {
-    const productUrl = `${window.location.origin}/electronics/electronics-product-details/${product._id}`;
+    const productPath = getProductDetailPath(product, { search: searchParams.toString() });
+    const productUrl = `${window.location.origin}${productPath}`
 
     try {
       const result = await shareProduct({ product, productUrl });
@@ -153,12 +181,12 @@ const ElectronicsProductDetails = () => {
   const handleCompare = () => {
     if (!product) return;
 
+    const productPath = getProductDetailPath(product, { search: searchParams.toString() });
+
     const result = toggleCompareProduct(
       buildCompareProduct(
         product,
-        "Electronics",
-        `/electronics/electronics-product-details/${product._id}`
-      )
+        "Electronics", productPath)
     );
 
     if (result.limitReached) {
@@ -225,7 +253,10 @@ const ElectronicsProductDetails = () => {
                   key={idx}
                   src={img}
                   alt={`${product.name} ${idx}`}
-                  onClick={() => setMainImage(img)}
+                  onClick={() => {
+                    setMainImage(img);
+                    updateQueryParams({ image: idx });
+                  }}
                   className={`w-14 h-20 sm:w-16 sm:h-24 md:w-20 md:h-28 object-cover rounded cursor-pointer transition ${
                     isSelected ? "opacity-100" : "opacity-40 hover:opacity-80"
                   }`}
@@ -285,7 +316,10 @@ const ElectronicsProductDetails = () => {
                         ? "bg-red-500 text-white"
                         : "bg-gray-200 text-black hover:bg-red-500 hover:text-white"
                     }`}
-                    onClick={() => setSelectedRam(ram)}
+                    onClick={() => {
+                      setSelectedRam(ram);
+                      updateQueryParams({ ram });
+                    }}
                   >
                     {ram.toUpperCase()}
                   </button>
@@ -303,7 +337,10 @@ const ElectronicsProductDetails = () => {
                         ? "bg-red-500 text-white"
                         : "bg-gray-200 text-black hover:bg-red-500 hover:text-white"
                     }`}
-                    onClick={() => setSelectedStorage(storage)}
+                    onClick={() => {
+                      setSelectedStorage(storage);
+                      updateQueryParams({ storage });
+                    }}
                   >
                     {storage.toUpperCase()}
                   </button>

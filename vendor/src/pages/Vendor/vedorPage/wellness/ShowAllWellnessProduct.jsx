@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   useGetWellnessItemsQuery,
   useDeleteWellnessItemMutation,
@@ -29,6 +29,10 @@ import toast from "react-hot-toast";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import AddWellnessItem from "./AddWellnessItem";
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import {
+  getVendorListingQueryState,
+  useVendorListingQueryState,
+} from "../../../../hooks/useVendorListingQueryState";
 import { useGetWellnessBrandsQuery } from "../../../../features/api/wellness/welllnessBrandApi";
 
 const CATEGORY = "Wellness";
@@ -36,6 +40,8 @@ const ITEMS_PER_PAGE = 15;
 const EMPTY_ITEMS = [];
 
 const ShowAllWellnessProduct = () => {
+  const { searchParams, updateQueryParams } = useVendorListingQueryState();
+  const queryState = getVendorListingQueryState(searchParams, { hasBrandTab: false });
   const {
     data: response,
     isLoading,
@@ -59,13 +65,14 @@ const ShowAllWellnessProduct = () => {
   const [editItem, setEditItem] = useState(null);
   const [editFields, setEditFields] = useState({});
   const [currentSlide, setCurrentSlide] = useState({});
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(queryState.q);
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("all");
-  const [selectedSubCategory, setSelectedSubCategory] = useState("all");
-  const [selectedThirdLevel, setSelectedThirdLevel] = useState("all");
-  const [currentPage, setCurrentPage] = useState(1);
+  const [selectedCategory, setSelectedCategory] = useState(queryState.category);
+  const [selectedSubCategory, setSelectedSubCategory] = useState(queryState.subCategory);
+  const [selectedThirdLevel, setSelectedThirdLevel] = useState(queryState.thirdLevel);
+  const [currentPage, setCurrentPage] = useState(queryState.page);
   const [deletingItemId, setDeletingItemId] = useState(null);
+  const hasMountedPageResetRef = useRef(false);
 
   const items = useMemo(() => response?.wellnessItems ?? EMPTY_ITEMS, [response]);
   const matchedCategory = categoryData?.categories?.find(
@@ -110,12 +117,45 @@ const ShowAllWellnessProduct = () => {
   );
 
   useEffect(() => {
+    if (!hasMountedPageResetRef.current) {
+      hasMountedPageResetRef.current = true;
+      return;
+    }
     setCurrentPage(1);
   }, [
     searchTerm,
     selectedCategory,
     selectedSubCategory,
     selectedThirdLevel,
+  ]);
+  useEffect(() => {
+    setSearchTerm(queryState.q);
+    setSelectedCategory(queryState.category);
+    setSelectedSubCategory(queryState.subCategory);
+    setSelectedThirdLevel(queryState.thirdLevel);
+    setCurrentPage(queryState.page);
+  }, [
+    queryState.category,
+    queryState.page,
+    queryState.q,
+    queryState.subCategory,
+    queryState.thirdLevel,
+  ]);
+  useEffect(() => {
+    updateQueryParams({
+      q: searchTerm.trim() || null,
+      category: selectedCategory !== "all" ? selectedCategory : null,
+      subCategory: selectedSubCategory !== "all" ? selectedSubCategory : null,
+      thirdLevel: selectedThirdLevel !== "all" ? selectedThirdLevel : null,
+      page: currentPage > 1 ? currentPage : null,
+    });
+  }, [
+    currentPage,
+    searchTerm,
+    selectedCategory,
+    selectedSubCategory,
+    selectedThirdLevel,
+    updateQueryParams,
   ]);
 
   useEffect(() => {
@@ -1110,3 +1150,4 @@ const ShowAllWellnessProduct = () => {
 };
 
 export default ShowAllWellnessProduct;
+

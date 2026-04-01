@@ -26,6 +26,7 @@ import { setSidebarOpen, toggleSidebar } from "../features/authSlice";
 import AuthButtonLoader from "../component/Loader/AuthButtonLoader";
 import RouteTransitionLoader from "../component/router/RouteTransitionLoader.jsx";
 import { disconnectDeliverySocket, getDeliverySocket } from "../lib/socket";
+import { getDeliveryOrderPath } from "../utils/orderRouting";
 
 const navigationItems = [
   {
@@ -332,7 +333,12 @@ const MainLayout = () => {
   const handleOpenNotification = (notification) => {
     setIsNotificationOpen(false);
     if (notification?.orderId) {
-      navigate(`/orders/${notification.orderId}`);
+      navigate(
+        getDeliveryOrderPath(
+          { _id: notification.orderId },
+          { mode: "query" },
+        ),
+      );
     }
   };
 

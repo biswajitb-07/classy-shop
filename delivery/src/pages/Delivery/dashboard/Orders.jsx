@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { useGetAssignedOrdersQuery } from "../../../features/api/orderApi";
 import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
+import { getDeliveryOrderPath } from "../../../utils/orderRouting";
 
 const formatCurrency = (value) =>
   new Intl.NumberFormat("en-IN", {
@@ -48,7 +49,7 @@ const Orders = () => {
           orders.map((order) => (
             <Link
               key={order._id}
-              to={`/orders/${order._id}`}
+              to={getDeliveryOrderPath(order)}
               className="rounded-[1.75rem] border border-slate-800 bg-slate-900/70 p-5 transition hover:border-indigo-500/40 hover:bg-slate-900"
             >
               <div className="flex flex-wrap items-center justify-between gap-4">

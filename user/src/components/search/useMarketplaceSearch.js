@@ -7,6 +7,7 @@ import { useGetGroceryItemsQuery } from "../../features/api/groceryApi.js";
 import { useGetJewelleryItemsQuery } from "../../features/api/jewelleryApi.js";
 import { useGetFootwearItemsQuery } from "../../features/api/footwearApi.js";
 import { useGetWellnessItemsQuery } from "../../features/api/wellnessApi.js";
+import { getProductDetailPath } from "../../utils/productCatalog.js";
 
 const SOURCE_CONFIG = [
   {
@@ -173,12 +174,14 @@ export const useMarketplaceSearch = (searchTerm = "", options = {}) => {
 
   const isLoading = shouldFetchCatalog && sources.some((source) => source.isLoading);
 
-  const getProductPath = (product, searchTerm = "") => {
-    const basePath = `/${product.routePrefix}/${product.detailPath}/${product._id}`;
-    const term = normalizeText(searchTerm);
-    if (!term) return basePath;
-    return `${basePath}?from=search&q=${encodeURIComponent(searchTerm)}`;
-  };
+  const getProductPath = (product, searchTerm = "", options = {}) =>
+    getProductDetailPath(product, {
+      routeSegment: product.routePrefix,
+      mode: options.mode || "premium",
+      query: normalizeText(searchTerm)
+        ? { from: "search", q: searchTerm, ...(options.query || {}) }
+        : options.query || {},
+    });
 
   return {
     catalog,

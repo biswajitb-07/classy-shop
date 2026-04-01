@@ -38,6 +38,7 @@ import { useGetVendorOrdersQuery } from "../../../features/api/orderApi";
 import { useGetDashboardSummaryQuery } from "../../../features/api/authApi";
 import { useTheme } from "../../../context/ThemeContext";
 import { connectVendorSocket } from "../../../lib/socket";
+import { getVendorOrderPath } from "../../../utils/orderRouting";
 import ChartTooltip from "../../../component/charts/ChartTooltip";
 import CategoryInventoryBarChart from "../../../component/charts/CategoryInventoryBarChart";
 import CategoryCatalogSharePieChart from "../../../component/charts/CategoryCatalogSharePieChart";
@@ -1479,7 +1480,7 @@ const Home = () => {
                 {dashboard.recentOrders.map((order) => (
                   <Link
                     key={order._id}
-                    to={`/order/${order._id}`}
+                    to={getVendorOrderPath(order)}
                     className={`grid gap-4 rounded-[24px] border p-4 transition md:grid-cols-[1fr_auto_auto] ${isDark ? "border-slate-700 bg-slate-900/80 hover:border-slate-600 hover:bg-slate-900" : "border-slate-100 bg-slate-50/80 hover:border-slate-200 hover:bg-white"}`}
                   >
                     <div>

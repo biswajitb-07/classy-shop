@@ -81,6 +81,14 @@ const appRouter = createBrowserRouter([
         element: <Orders />,
       },
       {
+        path: "/orders/details",
+        element: <OrderDetailsPage />,
+      },
+      {
+        path: "/orders/details/:orderSlug",
+        element: <OrderDetailsPage />,
+      },
+      {
         path: "/order/:orderId",
         element: <OrderDetailsPage />,
       },

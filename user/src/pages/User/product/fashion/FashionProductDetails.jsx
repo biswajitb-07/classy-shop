@@ -20,12 +20,25 @@ import {
   toggleCompareProduct,
 } from "../../../../utils/productCompare.js";
 import { buildBuyNowItem, persistBuyNowCheckout } from "../../../../utils/buyNow.js";
+import { getProductDetailPath, resolveProductIdFromRoute } from "../../../../utils/productCatalog.js";
+import {
+  getImageFromQuery,
+  parseQuantityMap,
+  serializeQuantityMap,
+  useProductDetailQueryState,
+} from "../../../../hooks/useProductDetailQueryState.js";
 
 const FashionProductDetails = () => {
   const { data, isLoading, refetch } = useGetFashionItemsQuery();
-  const { productId } = useParams();
+  const { productId: routeProductId, productSlug } = useParams();
   const navigate = useNavigate();
   const { isAuthenticated } = useSelector((s) => s.auth);
+  const { searchParams, updateQueryParams } = useProductDetailQueryState();
+  const productId = resolveProductIdFromRoute({
+    routeProductId,
+    productSlug,
+    searchParams,
+  });
 
   const [mainImage, setMainImage] = useState("");
   const [transformOrigin, setTransformOrigin] = useState("50% 50%");
@@ -57,6 +70,18 @@ const FashionProductDetails = () => {
     setCompareActive(isProductCompared(product._id, "Fashion"));
   }, [product?._id]);
 
+  useEffect(() => {
+    if (!product?.image?.length || searchParams.has("image")) return;
+    updateQueryParams({ image: 0 });
+  }, [product?._id, product?.image, searchParams, updateQueryParams]);
+
+  useEffect(() => {
+    if (!product?.image?.length) return;
+
+    setMainImage(getImageFromQuery(searchParams.get("image"), product.image));
+    setQuantities(parseQuantityMap(searchParams.get("sizes"), product.sizes));
+  }, [product?.image, product?.sizes, searchParams]);
+
   const handleMouseMove = (e) => {
     const { left, top, width, height } =
       e.currentTarget.getBoundingClientRect();
@@ -81,9 +106,18 @@ const FashionProductDetails = () => {
 
   const updateQuantity = (size, delta) => {
     setQuantities((prev) => {
-      const newQ = (prev[size] || 0) + delta;
-      if (newQ < 0) return prev;
-      return { ...prev, [size]: newQ };
+      const newQuantity = (prev[size] || 0) + delta;
+      if (newQuantity < 0) return prev;
+
+      const nextQuantities = { ...prev };
+      if (newQuantity === 0) {
+        delete nextQuantities[size];
+      } else {
+        nextQuantities[size] = newQuantity;
+      }
+
+      updateQueryParams({ sizes: serializeQuantityMap(nextQuantities) });
+      return nextQuantities;
     });
   };
 
@@ -137,6 +171,7 @@ const FashionProductDetails = () => {
           toast.success("Products added to cart!");
         }
         setQuantities({});
+        updateQueryParams({ sizes: null });
       } catch (error) {
         toast.error("Failed to add to cart");
         console.error("Failed to add to cart:", error);
@@ -171,7 +206,8 @@ const FashionProductDetails = () => {
   };
 
   const handleShare = async () => {
-    const productUrl = `${window.location.origin}/fashion/fashion-product-details/${product._id}`;
+    const productPath = getProductDetailPath(product, { search: searchParams.toString() });
+    const productUrl = `${window.location.origin}${productPath}`
 
     try {
       const result = await shareProduct({ product, productUrl });
@@ -187,12 +223,12 @@ const FashionProductDetails = () => {
   const handleCompare = () => {
     if (!product) return;
 
+    const productPath = getProductDetailPath(product, { search: searchParams.toString() });
+
     const result = toggleCompareProduct(
       buildCompareProduct(
         product,
-        "Fashion",
-        `/fashion/fashion-product-details/${product._id}`
-      )
+        "Fashion", productPath)
     );
 
     if (result.limitReached) {
@@ -260,7 +296,10 @@ const FashionProductDetails = () => {
                   key={idx}
                   src={img}
                   alt={`${product.name} ${idx}`}
-                  onClick={() => setMainImage(img)}
+                  onClick={() => {
+                    setMainImage(img);
+                    updateQueryParams({ image: idx });
+                  }}
                   className={`w-14 h-20 sm:w-16 sm:h-24 md:w-20 md:h-28 object-cover rounded cursor-pointer transition ${
                     isSelected ? "opacity-100" : "opacity-40 hover:opacity-80"
                   }`}

@@ -3,7 +3,7 @@ import { FaStar, FaStarHalfAlt, FaRegHeart, FaHeart } from "react-icons/fa";
 import { BsArrowsFullscreen } from "react-icons/bs";
 import { IoShareSocialOutline } from "react-icons/io5";
 import { ShoppingCart } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import {
   useAddToCartMutation,
@@ -16,6 +16,7 @@ import ErrorMessage from "../../../../components/error/ErrorMessage.jsx";
 import ProductModal from "../../../../components/products/ProductModal.jsx";
 import { useSelector } from "react-redux";
 import { shareProduct } from "../../../../utils/shareProduct.js";
+import { getProductDetailPath } from "../../../../utils/productCatalog.js";
 
 const PAGE_SIZE = 15;
 
@@ -27,6 +28,7 @@ const ElectronicsProductCard = ({ products = [], isLoading = false }) => {
   const { isAuthenticated } = useSelector((s) => s.auth);
 
   const navigate = useNavigate();
+  const location = useLocation();
   const [addToCart] = useAddToCartMutation();
   const [addToWishlist] = useAddToWishlistMutation();
   const [removeFromWishlist] = useRemoveFromWishlistMutation();
@@ -108,7 +110,7 @@ const ElectronicsProductCard = ({ products = [], isLoading = false }) => {
 
   const handleShare = async (product, e) => {
     e.stopPropagation();
-    const productUrl = `${window.location.origin}/electronics/electronics-product-details/${product._id}`;
+    const productUrl = `${window.location.origin}${getProductDetailPath(product, { search: location.search })}`
 
     try {
       const result = await shareProduct({ product, productUrl });
@@ -120,6 +122,9 @@ const ElectronicsProductCard = ({ products = [], isLoading = false }) => {
       toast.error("Failed to share product");
     }
   };
+
+  const getProductDetailsPath = (product) =>
+    getProductDetailPath(product, { routeSegment: "electronics", search: location.search });
 
   const renderStars = (rating) => {
     const stars = [];
@@ -162,22 +167,14 @@ const ElectronicsProductCard = ({ products = [], isLoading = false }) => {
               {/* images */}
               <div className="relative group overflow-hidden">
                 <img
-                  onClick={() =>
-                    navigate(
-                      `/electronics/electronics-product-details/${p._id}`
-                    )
-                  }
+                  onClick={() => navigate(getProductDetailsPath(p))}
                   src={p.image[0]}
                   alt={p.name}
                   className="h-36 md:h-56 w-full object-cover object-top rounded-t-xl transition-opacity duration-700 ease-linear group-hover:opacity-0"
                 />
                 {p.image[1] && (
                   <img
-                    onClick={() =>
-                      navigate(
-                        `/electronics/electronics-product-details/${p._id}`
-                      )
-                    }
+                    onClick={() => navigate(getProductDetailsPath(p))}
                     src={p.image[1]}
                     alt={p.name}
                     className="absolute top-0 left-0 h-36 md:h-56 w-full object-cover object-top rounded-t-xl opacity-0 transition-opacity duration-700 ease-linear group-hover:opacity-100"
@@ -219,7 +216,7 @@ const ElectronicsProductCard = ({ products = [], isLoading = false }) => {
               {/* details */}
               <div
                 onClick={() =>
-                  navigate(`/electronics/electronics-product-details/${p._id}`)
+                  navigate(getProductDetailsPath(p))
                 }
                 className="p-3 flex flex-col gap-2"
               >
