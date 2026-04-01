@@ -9,10 +9,10 @@ import ProductNotAvailable from "../../../../components/products/ProductNotAvail
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi.js";
 import CategoryPageLoader from "../../../../components/Loader/CategoryPageLoader.jsx";
 import {
-  createDefaultProductFilters,
   filterAndSortProducts,
   getAvailableBrands,
 } from "../../../../utils/productFiltering.js";
+import { useProductListingQueryState } from "../../../../hooks/useProductListingQueryState.js";
 
 const PAGE_SIZE = 15;
 
@@ -24,30 +24,18 @@ const Grocery = () => {
   const categoryData = categories?.[0]?.categories || [];
   const allProducts = data?.groceryItems ?? [];
 
-  const normalizeForDisplay = (cat) =>
-    cat
-      ?.replace(/-/g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase())
-      .replace(/\s+/g, " ")
-      .trim();
-
-  const [appliedFilters, setAppliedFilters] = useState(
-    createDefaultProductFilters()
-  );
-  const [currentPage, setCurrentPage] = useState(1);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
-
-  useEffect(() => {
-    const displaySub = normalizeForDisplay(subcategory);
-    const displayThird = normalizeForDisplay(thirdcategory);
-
-    setAppliedFilters(
-      createDefaultProductFilters(
-        displayThird ? [displayThird] : displaySub ? [displaySub] : []
-      )
-    );
-    setCurrentPage(1);
-  }, [subcategory, thirdcategory]);
+  const {
+    normalizeForDisplay,
+    appliedFilters,
+    currentPage,
+    setListingFilters,
+    clearListingFilters,
+    setListingPage,
+  } = useProductListingQueryState({
+    subcategory,
+    thirdcategory,
+  });
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -56,8 +44,6 @@ const Grocery = () => {
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [currentPage, appliedFilters]);
-
-  useEffect(() => setCurrentPage(1), [allProducts, appliedFilters]);
 
   const filteredProducts = useMemo(() => {
     return filterAndSortProducts(allProducts, appliedFilters);
@@ -70,6 +56,12 @@ const Grocery = () => {
     const start = (currentPage - 1) * PAGE_SIZE;
     return filteredProducts.slice(start, start + PAGE_SIZE);
   }, [filteredProducts, currentPage]);
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setListingPage(totalPages);
+    }
+  }, [currentPage, setListingPage, totalPages]);
 
   const availableCategories = useMemo(() => {
     const categoriesSet = new Set();
@@ -102,21 +94,12 @@ const Grocery = () => {
   );
 
   const handleApplyFilters = (filters) => {
-    setAppliedFilters(filters);
-    setCurrentPage(1);
+    setListingFilters(filters);
     setShowMobileFilters(false);
   };
 
   const handleClearFilters = () => {
-    const displaySub = normalizeForDisplay(subcategory);
-    const displayThird = normalizeForDisplay(thirdcategory);
-
-    setAppliedFilters(
-      createDefaultProductFilters(
-        displayThird ? [displayThird] : displaySub ? [displaySub] : []
-      )
-    );
-    setCurrentPage(1);
+    clearListingFilters();
     setShowMobileFilters(false);
   };
 
@@ -233,7 +216,7 @@ const Grocery = () => {
                   </span>
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      onClick={() => setListingPage(Math.max(1, currentPage - 1))}
                       disabled={currentPage === 1}
                       className="px-3 py-1 rounded text-white disabled:bg-red-300 bg-red-500 disabled:cursor-not-allowed cursor-pointer"
                     >
@@ -242,11 +225,11 @@ const Grocery = () => {
                     {renderPaginationNumbers(
                       currentPage,
                       totalPages,
-                      setCurrentPage
+                      setListingPage
                     )}
                     <button
                       onClick={() =>
-                        setCurrentPage((p) => Math.min(totalPages, p + 1))
+                        setListingPage(Math.min(totalPages, currentPage + 1))
                       }
                       disabled={currentPage === totalPages}
                       className="px-3 py-1 rounded disabled:cursor-not-allowed text-white disabled:bg-red-300 bg-red-500 cursor-pointer"
