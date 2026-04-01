@@ -49,6 +49,9 @@ const STATUS_SEQUENCE = [
 
 const RETURN_POLICY_DAYS = 10;
 const RETURN_POLICY_MS = RETURN_POLICY_DAYS * 24 * 60 * 60 * 1000;
+const MAX_CUSTOMER_LOCATION_ACCURACY_METERS = 1200;
+const MIN_REASONABLE_ROUTE_SPEED_KMH = 8;
+const MAX_REASONABLE_ROUTE_SPEED_KMH = 120;
 const INDIA_BOUNDS = {
   minLatitude: 6,
   maxLatitude: 38.5,
@@ -261,6 +264,61 @@ const estimateEtaMinutes = (distanceKm, speedMetersPerSecond) => {
       : 24;
 
   return Math.max(3, Math.round((Number(distanceKm) / liveSpeedKmh) * 60));
+};
+
+const isReliableCustomerLocation = (location) => {
+  if (!hasCoordinate(location?.latitude, location?.longitude)) return false;
+
+  if (
+    location?.accuracy !== null &&
+    location?.accuracy !== undefined &&
+    Number.isFinite(Number(location.accuracy)) &&
+    Number(location.accuracy) > MAX_CUSTOMER_LOCATION_ACCURACY_METERS
+  ) {
+    return false;
+  }
+
+  return true;
+};
+
+const resolveEtaMinutes = ({
+  routeDurationMinutes,
+  routeDistanceKm,
+  fallbackDistanceKm,
+  speedMetersPerSecond,
+  isFallbackRoute = false,
+}) => {
+  const normalizedRouteDuration = Number(routeDurationMinutes);
+  const normalizedRouteDistance = Number(routeDistanceKm);
+  const distanceForFallbackEta = Number.isFinite(normalizedRouteDistance)
+    ? normalizedRouteDistance
+    : fallbackDistanceKm;
+  const fallbackEtaMinutes = estimateEtaMinutes(
+    distanceForFallbackEta,
+    speedMetersPerSecond
+  );
+
+  if (isFallbackRoute) return fallbackEtaMinutes;
+  if (!Number.isFinite(normalizedRouteDuration) || normalizedRouteDuration <= 0) {
+    return fallbackEtaMinutes;
+  }
+
+  if (!Number.isFinite(normalizedRouteDistance) || normalizedRouteDistance <= 0) {
+    return Math.max(3, Math.round(normalizedRouteDuration));
+  }
+
+  const averageRouteSpeedKmh =
+    normalizedRouteDistance / Math.max(normalizedRouteDuration / 60, 0.01);
+  const looksImplausible =
+    averageRouteSpeedKmh < MIN_REASONABLE_ROUTE_SPEED_KMH ||
+    averageRouteSpeedKmh > MAX_REASONABLE_ROUTE_SPEED_KMH ||
+    (Number.isFinite(Number(fallbackEtaMinutes)) &&
+      normalizedRouteDuration > Number(fallbackEtaMinutes) * 4 &&
+      normalizedRouteDistance <= 30);
+
+  return looksImplausible
+    ? fallbackEtaMinutes
+    : Math.max(3, Math.round(normalizedRouteDuration));
 };
 
 const formatEta = (etaMinutes) => {
@@ -784,6 +842,15 @@ const OrderDetailsPage = () => {
   }, [order?._id]);
 
   useEffect(() => {
+    setRouteMeta(null);
+    nearbyAlertRef.current = "";
+  }, [
+    liveDestination?.latitude,
+    liveDestination?.longitude,
+    liveDestination?.updatedAt,
+  ]);
+
+  useEffect(() => {
     if (!order?._id) return;
     const isIndiaOrder = String(order.shippingAddress?.country || "")
       .trim()
@@ -922,8 +989,10 @@ const OrderDetailsPage = () => {
     restrictToIndia: isIndiaOrder,
   });
   const rawDestinationLocation =
-    liveDestination ||
-    order.customerLiveLocation ||
+    (isReliableCustomerLocation(liveDestination) ? liveDestination : null) ||
+    (isReliableCustomerLocation(order.customerLiveLocation)
+      ? order.customerLiveLocation
+      : null) ||
     order.shippingAddress?.location;
   const destinationLocation =
     isIndiaOrder &&
@@ -967,14 +1036,13 @@ const OrderDetailsPage = () => {
     routeMeta?.distanceKm !== null && routeMeta?.distanceKm !== undefined
       ? routeMeta.distanceKm
       : fallbackDistanceKm;
-  const fallbackEtaMinutes = estimateEtaMinutes(
+  const etaMinutes = resolveEtaMinutes({
+    routeDurationMinutes: routeMeta?.durationMinutes,
+    routeDistanceKm: routeMeta?.distanceKm,
     fallbackDistanceKm,
-    trackingLocation?.speed
-  );
-  const etaMinutes =
-    routeMeta?.durationMinutes !== null && routeMeta?.durationMinutes !== undefined
-      ? routeMeta.durationMinutes
-      : fallbackEtaMinutes;
+    speedMetersPerSecond: trackingLocation?.speed,
+    isFallbackRoute: Boolean(routeMeta?.isFallback),
+  });
   const movementTrend = getDistanceTrend({
     trailPoints: recentTrailPoints,
     currentLocation: trackingLocation,
@@ -1511,22 +1579,39 @@ const OrderDetailsPage = () => {
       async (position) => {
         try {
           const payload = {
-            latitude: Number(position.coords.latitude),
-            longitude: Number(position.coords.longitude),
+            latitude: Number(position.coords.latitude.toFixed(6)),
+            longitude: Number(position.coords.longitude.toFixed(6)),
             accuracy: Number(position.coords.accuracy || 0),
             label: "Customer live location",
           };
 
-          await saveCustomerLiveLocation({
+          if (
+            Number.isFinite(payload.accuracy) &&
+            payload.accuracy > MAX_CUSTOMER_LOCATION_ACCURACY_METERS
+          ) {
+            toast.error(
+              `Current location accurate nahi mili. GPS accuracy ${Math.round(
+                payload.accuracy
+              )} m hai, precise location on karke phir try karo.`
+            );
+            return;
+          }
+
+          setRouteMeta(null);
+
+          const response = await saveCustomerLiveLocation({
             orderId: order._id,
             body: payload,
           }).unwrap();
 
-          setLiveDestination({
-            ...payload,
-            source: "customer_live",
-            updatedAt: new Date().toISOString(),
-          });
+          setLiveDestination(
+            response?.destination || {
+              ...payload,
+              source: "customer_live",
+              updatedAt: new Date().toISOString(),
+            }
+          );
+          await refetch();
           toast.success("Your current delivery location has been saved");
         } catch (error) {
           toast.error(
@@ -1541,13 +1626,15 @@ const OrderDetailsPage = () => {
         const message =
           error?.code === 1
             ? "Browser me location permission allow karo"
+            : error?.code === 3
+            ? "Location detect hone me timeout ho gaya. Open sky ya GPS on karke phir try karo."
             : "Current location detect nahi ho pa rahi";
         toast.error(message);
       },
       {
         enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000,
+        timeout: 25000,
+        maximumAge: 0,
       }
     );
   };

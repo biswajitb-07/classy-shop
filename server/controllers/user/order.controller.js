@@ -1134,6 +1134,19 @@ export const updateCustomerDeliveryLocation = async (req, res) => {
       });
     }
 
+    if (
+      accuracy !== null &&
+      accuracy !== undefined &&
+      Number.isFinite(Number(accuracy)) &&
+      Number(accuracy) > 1200
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Current location accurate nahi mili. Precise GPS location on karke phir try karo.",
+      });
+    }
+
     order.customerLiveLocation = {
       latitude,
       longitude,
