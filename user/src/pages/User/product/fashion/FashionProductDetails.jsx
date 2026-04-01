@@ -19,6 +19,7 @@ import {
   isProductCompared,
   toggleCompareProduct,
 } from "../../../../utils/productCompare.js";
+import { buildBuyNowItem, persistBuyNowCheckout } from "../../../../utils/buyNow.js";
 
 const FashionProductDetails = () => {
   const { data, isLoading, refetch } = useGetFashionItemsQuery();
@@ -104,27 +105,35 @@ const FashionProductDetails = () => {
 
     if (isMulti) {
       try {
-        let hasAdded = false;
-        for (const size in quantities) {
-          const qty = quantities[size];
-          if (qty > 0) {
-            hasAdded = true;
-            await addToCart({
-              productId: product._id,
+        const selectedItems = Object.entries(quantities)
+          .filter(([, qty]) => qty > 0)
+          .map(([size, qty]) =>
+            buildBuyNowItem({
+              product,
               productType: "Fashion",
               quantity: qty,
               size,
-            }).unwrap();
-          }
-        }
+            }),
+          );
+
+        let hasAdded = selectedItems.length > 0;
         if (!hasAdded) {
           toast.error("Please select a size and quantity");
           return;
         }
         if (redirectToCheckout) {
+          persistBuyNowCheckout(selectedItems);
           toast.success("Redirecting to checkout...");
-          navigate("/checkout");
+          navigate("/checkout?mode=buy-now", { state: { buyNowItems: selectedItems } });
         } else {
+          for (const item of selectedItems) {
+            await addToCart({
+              productId: item.productId,
+              productType: item.productType,
+              quantity: item.quantity,
+              size: item.size,
+            }).unwrap();
+          }
           toast.success("Products added to cart!");
         }
         setQuantities({});
@@ -137,18 +146,20 @@ const FashionProductDetails = () => {
       }
     } else {
       try {
+        if (redirectToCheckout) {
+          const buyNowItems = [buildBuyNowItem({ product, productType: "Fashion" })];
+          persistBuyNowCheckout(buyNowItems);
+          toast.success("Redirecting to checkout...");
+          navigate("/checkout?mode=buy-now", { state: { buyNowItems } });
+          return;
+        }
         await addToCart({
           productId: product._id,
           productType: "Fashion",
           quantity: 1,
           size: null,
         }).unwrap();
-        if (redirectToCheckout) {
-          toast.success("Redirecting to checkout...");
-          navigate("/checkout");
-        } else {
-          toast.success("Product added to cart!");
-        }
+        toast.success("Product added to cart!");
       } catch (error) {
         toast.error("Failed to add to cart");
         console.error("Failed to add to cart:", error);

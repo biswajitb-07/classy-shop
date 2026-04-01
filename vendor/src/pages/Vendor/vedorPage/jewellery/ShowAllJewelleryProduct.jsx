@@ -29,6 +29,7 @@ import toast from "react-hot-toast";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import AddJewelleryItem from "./AddJewelleryItem";
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import { useGetJewelleryBrandsQuery } from "../../../../features/api/jewellery/jewelleryBrandApi";
 
 const CATEGORY = "Jewellery";
 const ITEMS_PER_PAGE = 15;
@@ -52,6 +53,7 @@ const ShowAllJewelleryProduct = () => {
     useGetVendorCategoriesQuery(undefined, {
       refetchOnMountOrArgChange: false,
     });
+  const { data: jewelleryBrands, refetch: brandRefetch } = useGetJewelleryBrandsQuery();
   const [selectedUpdates, setSelectedUpdates] = useState({});
   const [newImages, setNewImages] = useState({});
   const [editItem, setEditItem] = useState(null);
@@ -1097,6 +1099,8 @@ const ShowAllJewelleryProduct = () => {
           onClose={closeAddDialog}
           refetch={refetch}
           categoryData={categoryData}
+          jewelleryBrands={jewelleryBrands}
+          brandRefetch={brandRefetch}
         />
       )}
 

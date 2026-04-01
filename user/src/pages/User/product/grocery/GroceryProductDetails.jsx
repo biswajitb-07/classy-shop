@@ -19,6 +19,7 @@ import {
   isProductCompared,
   toggleCompareProduct,
 } from "../../../../utils/productCompare.js";
+import { buildBuyNowItem, persistBuyNowCheckout } from "../../../../utils/buyNow.js";
 
 const GroceryProductDetails = () => {
   const { data, isLoading, refetch } = useGetGroceryItemsQuery();
@@ -85,10 +86,14 @@ const GroceryProductDetails = () => {
     }
 
     if (redirectToCheckout) {
-      setBuyLoading(true);
-    } else {
-      setAddLoading(true);
+      const buyNowItems = [buildBuyNowItem({ product, productType: "Grocery" })];
+      persistBuyNowCheckout(buyNowItems);
+      toast.success("Redirecting to checkout...");
+      navigate("/checkout?mode=buy-now", { state: { buyNowItems } });
+      return;
     }
+
+    setAddLoading(true);
 
     try {
       await addToCart({
@@ -96,12 +101,7 @@ const GroceryProductDetails = () => {
         productType: "Grocery",
         quantity: 1,
       }).unwrap();
-      if (redirectToCheckout) {
-        toast.success("Redirecting to checkout...");
-        navigate("/checkout");
-      } else {
-        toast.success("Product added to cart!");
-      }
+      toast.success("Product added to cart!");
     } catch (error) {
       toast.error(error?.data?.message || "Failed to add to cart");
     } finally {

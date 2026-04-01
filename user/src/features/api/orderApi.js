@@ -39,6 +39,7 @@ export const orderApi = createApi({
         try {
           const result = await queryFulfilled;
           const nextOrder = result?.data?.order;
+          const isBuyNowCheckout = Array.isArray(arg?.items) && arg.items.length > 0;
 
           if (!nextOrder) return;
 
@@ -57,12 +58,14 @@ export const orderApi = createApi({
             })
           );
 
-          dispatch(
-            cartApi.util.upsertQueryData("getCart", undefined, {
-              success: true,
-              cart: [],
-            })
-          );
+          if (!isBuyNowCheckout) {
+            dispatch(
+              cartApi.util.upsertQueryData("getCart", undefined, {
+                success: true,
+                cart: [],
+              })
+            );
+          }
         } catch (error) {
           console.error(error);
         }
@@ -86,6 +89,7 @@ export const orderApi = createApi({
         try {
           const result = await queryFulfilled;
           const nextOrder = result?.data?.order;
+          const isBuyNowCheckout = Array.isArray(arg?.items) && arg.items.length > 0;
 
           if (!nextOrder) return;
 
@@ -104,12 +108,14 @@ export const orderApi = createApi({
             })
           );
 
-          dispatch(
-            cartApi.util.upsertQueryData("getCart", undefined, {
-              success: true,
-              cart: [],
-            })
-          );
+          if (!isBuyNowCheckout) {
+            dispatch(
+              cartApi.util.upsertQueryData("getCart", undefined, {
+                success: true,
+                cart: [],
+              })
+            );
+          }
         } catch (error) {
           console.error(error);
         }

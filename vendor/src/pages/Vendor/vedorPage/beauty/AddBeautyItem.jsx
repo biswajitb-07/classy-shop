@@ -8,15 +8,23 @@ import {
   FaBoxOpen,
   FaStar,
   FaInfoCircle,
+  FaTag,
 } from "react-icons/fa";
 import { HiSparkles, HiTrendingUp } from "react-icons/hi";
 import { MdLuggage } from "react-icons/md";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import toast from "react-hot-toast";
 
-const AddBeautyItem = ({ onClose, refetch, categoryData }) => {
+const AddBeautyItem = ({
+  onClose,
+  refetch,
+  categoryData,
+  beautyBrands,
+  brandRefetch,
+}) => {
   const [form, setForm] = useState({
     name: "",
+    brand: "",
     originalPrice: "",
     discountedPrice: "",
     inStock: "",
@@ -78,6 +86,7 @@ const AddBeautyItem = ({ onClose, refetch, categoryData }) => {
 
     const formData = new FormData();
     formData.append("name", form.name);
+    formData.append("brand", form.brand);
     formData.append("originalPrice", form.originalPrice);
     formData.append("discountedPrice", form.discountedPrice);
     formData.append("inStock", form.inStock);
@@ -93,6 +102,7 @@ const AddBeautyItem = ({ onClose, refetch, categoryData }) => {
       toast.success("Product added successfully!");
       setForm({
         name: "",
+        brand: "",
         originalPrice: "",
         discountedPrice: "",
         inStock: "",
@@ -111,6 +121,7 @@ const AddBeautyItem = ({ onClose, refetch, categoryData }) => {
   };
 
   const categories = categoryData?.categories || [];
+  const brands = beautyBrands?.brand || [];
   const subCategories = form.category
     ? categories.find((cat) => cat.name === form.category)?.subCategories || []
     : [];
@@ -179,6 +190,29 @@ const AddBeautyItem = ({ onClose, refetch, categoryData }) => {
                       className="w-full border-2 border-gray-200 px-3 sm:px-4 py-2 sm:py-3 rounded-xl focus:ring-4 focus:ring-indigo-200 focus:border-indigo-400 transition-all bg-white shadow-sm text-sm sm:text-base"
                       placeholder="Enter product name"
                     />
+                  </div>
+                  <div>
+                    <label className="text-xs sm:text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                      <FaTag className="text-indigo-500" />
+                      Brand
+                    </label>
+                    <select
+                      required
+                      name="brand"
+                      value={form.brand}
+                      onChange={handleChange}
+                      onClick={brandRefetch}
+                      className="w-full border-2 border-gray-200 px-3 sm:px-4 py-2 sm:py-3 rounded-xl focus:ring-4 focus:ring-indigo-200 focus:border-indigo-400 transition-all bg-white shadow-sm text-sm sm:text-base"
+                    >
+                      <option value="" disabled>
+                        Select Brand
+                      </option>
+                      {brands.map((brand, index) => (
+                        <option key={index} value={brand}>
+                          {brand}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
               </div>

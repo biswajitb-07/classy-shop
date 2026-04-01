@@ -415,11 +415,6 @@ const ProductReviewsSection = ({
                     <p className="font-semibold text-slate-900">
                       Review unlock after delivered order
                     </p>
-                    <p className="mt-1 text-sm leading-6 text-slate-600">
-                      Sirf delivered purchase wale users review submit kar sakte hain.
-                      Jab ye product aapke delivered orders me hoga tab yahi form active
-                      ho jayega.
-                    </p>
                   </div>
                 </div>
               </div>

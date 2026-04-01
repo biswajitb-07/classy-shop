@@ -28,11 +28,32 @@ import {
   waitForNextPaint,
 } from "../../utils/uiFeedbackSounds.js";
 
+const getSeenStorageKey = (userId) =>
+  `classy_user_seen_notifications_${String(userId || "guest")}`;
+
+const readSeenNotificationIds = (userId) => {
+  if (typeof window === "undefined") return [];
+
+  try {
+    const rawValue = window.localStorage.getItem(getSeenStorageKey(userId));
+    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
+    return Array.isArray(parsedValue) ? parsedValue : [];
+  } catch (_error) {
+    return [];
+  }
+};
+
+const persistSeenNotificationIds = (userId, ids = []) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(getSeenStorageKey(userId), JSON.stringify(ids));
+};
+
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const [isOpenCartPanel, setIsOpenCartPanel] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
   const [hasProfileAvatarError, setHasProfileAvatarError] = useState(false);
+  const [seenNotificationIds, setSeenNotificationIds] = useState([]);
   const notificationRef = useRef(null);
 
   const navigate = useNavigate();
@@ -60,6 +81,14 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     () => notificationData?.notifications || [],
     [notificationData?.notifications]
   );
+  const unreadNotifications = useMemo(
+    () =>
+      notifications.filter(
+        (notification) => !seenNotificationIds.includes(String(notification._id)),
+      ),
+    [notifications, seenNotificationIds],
+  );
+  const unreadCount = unreadNotifications.length;
 
   const openCartPanel = () => {
     setIsOpenCartPanel(!isOpenCartPanel);
@@ -82,6 +111,15 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   useEffect(() => {
     primeUiFeedbackSounds();
   }, []);
+
+  useEffect(() => {
+    setSeenNotificationIds(readSeenNotificationIds(user?._id));
+  }, [user?._id]);
+
+  useEffect(() => {
+    if (!user?._id) return;
+    persistSeenNotificationIds(user._id, seenNotificationIds);
+  }, [seenNotificationIds, user?._id]);
 
   useEffect(() => {
     setHasProfileAvatarError(false);
@@ -120,6 +158,9 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     setDeletingNotificationIds((current) => [...current, notificationId]);
     try {
       await deleteUserNotification(notificationId).unwrap();
+      setSeenNotificationIds((current) =>
+        current.filter((id) => id !== String(notificationId)),
+      );
     } finally {
       setDeletingNotificationIds((current) =>
         current.filter((id) => id !== notificationId)
@@ -136,6 +177,31 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
       return;
     }
     await clearUserNotifications().unwrap();
+    setSeenNotificationIds([]);
+  };
+
+  const markNotificationsAsSeen = () => {
+    if (!notifications.length) return;
+
+    setSeenNotificationIds((current) => {
+      const nextIds = new Set(current);
+      notifications.forEach((notification) => {
+        if (notification?._id) {
+          nextIds.add(String(notification._id));
+        }
+      });
+      return Array.from(nextIds);
+    });
+  };
+
+  const handleToggleNotifications = () => {
+    setIsNotificationOpen((current) => {
+      const nextOpen = !current;
+      if (nextOpen) {
+        markNotificationsAsSeen();
+      }
+      return nextOpen;
+    });
   };
 
   return (
@@ -169,16 +235,14 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
                     <li className="relative" ref={notificationRef}>
                       <button
                         type="button"
-                        onClick={() =>
-                          setIsNotificationOpen((current) => !current)
-                        }
+                        onClick={handleToggleNotifications}
                         className="relative flex items-center gap-2 text-[13px] font-[600] text-gray-700 hover:text-red-500 transition duration-150 ease-linear"
                       >
                         <IoNotifications className="w-4 h-4" />
                         <span>Notifications</span>
-                        {notifications.length ? (
+                        {unreadCount ? (
                           <span className="absolute -top-2 -right-3 bg-red-500 text-white text-[10px] rounded-full min-w-5 h-5 px-1 flex items-center justify-center font-bold">
-                            {notifications.length}
+                            {unreadCount}
                           </span>
                         ) : null}
                       </button>

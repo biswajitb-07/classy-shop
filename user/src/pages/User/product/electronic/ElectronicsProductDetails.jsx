@@ -19,6 +19,7 @@ import {
   isProductCompared,
   toggleCompareProduct,
 } from "../../../../utils/productCompare.js";
+import { buildBuyNowItem, persistBuyNowCheckout } from "../../../../utils/buyNow.js";
 
 const ElectronicsProductDetails = () => {
   const { data, isLoading, refetch } = useGetElectronicItemsQuery();
@@ -86,6 +87,10 @@ const ElectronicsProductDetails = () => {
     }
 
     if (redirectToCheckout) {
+      if (!selectedRam || !selectedStorage) {
+        toast.error("Please select RAM and Storage");
+        return;
+      }
       setBuyLoading(true);
     } else {
       setAddLoading(true);
@@ -100,6 +105,20 @@ const ElectronicsProductDetails = () => {
         toast.error(`Only ${product.inStock} items available`);
         return;
       }
+      if (redirectToCheckout) {
+        const buyNowItems = [
+          buildBuyNowItem({
+            product,
+            productType: "Electronics",
+            ram: selectedRam,
+            storage: selectedStorage,
+          }),
+        ];
+        persistBuyNowCheckout(buyNowItems);
+        toast.success("Redirecting to checkout...");
+        navigate("/checkout?mode=buy-now", { state: { buyNowItems } });
+        return;
+      }
       await addToCart({
         productId: product._id,
         productType: "Electronics",
@@ -107,12 +126,7 @@ const ElectronicsProductDetails = () => {
         ram: selectedRam,
         storage: selectedStorage,
       }).unwrap();
-      if (redirectToCheckout) {
-        toast.success("Redirecting to checkout...");
-        navigate("/checkout");
-      } else {
-        toast.success("Product added to cart!");
-      }
+      toast.success("Product added to cart!");
     } catch (error) {
       toast.error("Failed to add to cart");
       console.error(error);

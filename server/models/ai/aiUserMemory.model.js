@@ -145,6 +145,10 @@ const aiUserMemorySchema = new mongoose.Schema(
         default: [],
       },
     },
+    behaviorSignalsUpdatedAt: {
+      type: Date,
+      default: Date.now,
+    },
     lastInteractionAt: {
       type: Date,
       default: Date.now,

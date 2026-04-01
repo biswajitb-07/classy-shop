@@ -29,6 +29,7 @@ import toast from "react-hot-toast";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import AddBeautyItem from "./AddBeautyItem";
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import { useGetBeautyBrandsQuery } from "../../../../features/api/beauty/beautyBrandApi";
 
 const CATEGORY = "Beauty";
 const ITEMS_PER_PAGE = 15;
@@ -52,6 +53,7 @@ const ShowAllBeautyProduct = () => {
     useGetVendorCategoriesQuery(undefined, {
       refetchOnMountOrArgChange: false,
     });
+  const { data: beautyBrands, refetch: brandRefetch } = useGetBeautyBrandsQuery();
   const [selectedUpdates, setSelectedUpdates] = useState({});
   const [newImages, setNewImages] = useState({});
   const [editItem, setEditItem] = useState(null);
@@ -1097,6 +1099,8 @@ const ShowAllBeautyProduct = () => {
           onClose={closeAddDialog}
           refetch={refetch}
           categoryData={categoryData}
+          beautyBrands={beautyBrands}
+          brandRefetch={brandRefetch}
         />
       )}
 

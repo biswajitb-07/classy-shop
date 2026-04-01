@@ -248,6 +248,7 @@ const Home = () => {
   const { isDark } = useTheme();
   const [liveRefreshCount, setLiveRefreshCount] = useState(0);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(() => new Date());
+  const [isRefreshingDashboard, setIsRefreshingDashboard] = useState(false);
   const dashboardQueryOptions = {
     pollingInterval: 30000,
     refetchOnFocus: true,
@@ -552,20 +553,25 @@ const Home = () => {
     [lastUpdatedAt],
   );
   const refreshDashboard = useCallback(async () => {
-    await Promise.allSettled([
-      refetchFashion(),
-      refetchElectronic(),
-      refetchBag(),
-      refetchGrocery(),
-      refetchFootwear(),
-      refetchBeauty(),
-      refetchWellness(),
-      refetchJewellery(),
-      refetchOrders(),
-      refetchSummary(),
-    ]);
-    setLiveRefreshCount((count) => count + 1);
-    setLastUpdatedAt(new Date());
+    setIsRefreshingDashboard(true);
+    try {
+      await Promise.allSettled([
+        refetchFashion(),
+        refetchElectronic(),
+        refetchBag(),
+        refetchGrocery(),
+        refetchFootwear(),
+        refetchBeauty(),
+        refetchWellness(),
+        refetchJewellery(),
+        refetchOrders(),
+        refetchSummary(),
+      ]);
+      setLiveRefreshCount((count) => count + 1);
+      setLastUpdatedAt(new Date());
+    } finally {
+      setIsRefreshingDashboard(false);
+    }
   }, [
     refetchBag,
     refetchBeauty,
@@ -841,10 +847,14 @@ const Home = () => {
                   <button
                     type="button"
                     onClick={refreshDashboard}
+                    disabled={isRefreshingDashboard}
                     className={`inline-flex items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold backdrop-blur transition duration-300 hover:-translate-y-0.5 ${isDark ? "border-emerald-400/20 bg-emerald-400/10 text-emerald-200 hover:bg-emerald-400/15" : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"}`}
                   >
-                    <FiRefreshCw size={16} />
-                    Refresh Data
+                    <FiRefreshCw
+                      size={16}
+                      className={isRefreshingDashboard ? "animate-spin" : ""}
+                    />
+                    {isRefreshingDashboard ? "Refreshing..." : "Refresh Data"}
                   </button>
                 </div>
 

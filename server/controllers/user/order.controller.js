@@ -51,6 +51,150 @@ const productModels = {
   Jewellery,
 };
 
+const CATEGORY_FIELDS = {
+  Fashion: ["size"],
+  Footwear: ["size"],
+  Electronics: ["ram", "storage"],
+};
+
+const buildVariantKey = (productType, payload = {}, hasVariants = false) => {
+  if (!hasVariants) return "default";
+
+  if (payload?.variant) {
+    return String(payload.variant).trim() || "default";
+  }
+
+  const fields = CATEGORY_FIELDS[productType] || [];
+  const kvPairs = [];
+
+  for (const field of fields) {
+    if (payload[field] === undefined || payload[field] === null || payload[field] === "") {
+      throw new Error(`${field} is required for ${productType} when variants are available`);
+    }
+    kvPairs.push(`${field}:${payload[field]}`);
+  }
+
+  return kvPairs.length ? kvPairs.sort().join("|") : "default";
+};
+
+const hasProductVariants = (productType, product) => {
+  if (!product) return false;
+
+  switch (productType) {
+    case "Fashion":
+    case "Footwear":
+      return Array.isArray(product.sizes) && product.sizes.length > 0;
+    case "Electronics":
+      return (
+        (Array.isArray(product.rams) && product.rams.length > 0) ||
+        (Array.isArray(product.storage) && product.storage.length > 0)
+      );
+    default:
+      return false;
+  }
+};
+
+const computeOrderDetailsFromItems = async (
+  userId,
+  rawItems = [],
+  couponCode = "",
+  walletInput = 0,
+) => {
+  if (!Array.isArray(rawItems) || rawItems.length === 0) {
+    throw new Error("No items selected for checkout");
+  }
+
+  let subtotalAmount = 0;
+  const orderItems = [];
+
+  for (const item of rawItems) {
+    const Model = productModels[item?.productType];
+    if (!Model) {
+      throw new Error(`Invalid product type: ${item?.productType}`);
+    }
+
+    const product = await Model.findById(item?.productId);
+    if (!product) {
+      throw new Error(`Product not found: ${item?.productId}`);
+    }
+
+    const price = Number(product.discountedPrice);
+    if (!Number.isFinite(price) || price < 0) {
+      throw new Error(`Invalid or missing discountedPrice for product: ${item?.productId}`);
+    }
+
+    const quantity = Number(item?.quantity || 0);
+    if (!Number.isFinite(quantity) || quantity < 1) {
+      throw new Error("Invalid quantity selected");
+    }
+
+    if (Number(product.inStock || 0) < quantity) {
+      throw new Error(`${product.name} does not have enough stock`);
+    }
+
+    const variant = buildVariantKey(
+      item.productType,
+      item,
+      hasProductVariants(item.productType, product),
+    );
+    const subtotal = price * quantity;
+
+    subtotalAmount += subtotal;
+    orderItems.push({
+      productId: item.productId,
+      vendorId: product.vendorId,
+      productType: item.productType,
+      productName: product.name || "",
+      variant,
+      quantity,
+      price,
+      subtotal,
+    });
+  }
+
+  if (subtotalAmount === 0 || orderItems.length === 0) {
+    throw new Error("No valid items selected for checkout");
+  }
+
+  const { appliedCoupon, discountAmount } = await resolveCouponForOrder({
+    code: couponCode,
+    subtotalAmount,
+  });
+  const user = await User.findById(userId).select("wallet referral");
+  if (!user) {
+    throw new Error("User not found");
+  }
+  await ensureUserBenefits(user);
+  await user.save();
+
+  const walletRequest = normalizeWalletRequest(walletInput);
+  const discountedTotal = Math.max(0, subtotalAmount - discountAmount);
+  const availableWalletBalance = sanitizeCurrencyAmount(user.wallet?.balance);
+  const walletAmountUsed = walletRequest.enabled
+    ? Math.min(
+        discountedTotal,
+        availableWalletBalance,
+        walletRequest.amount === null
+          ? discountedTotal
+          : sanitizeCurrencyAmount(walletRequest.amount),
+      )
+    : 0;
+  const totalAmount = Math.max(0, discountedTotal - walletAmountUsed);
+
+  return {
+    subtotalAmount,
+    discountAmount,
+    walletAmountUsed,
+    availableWalletBalance,
+    totalAmount,
+    appliedCoupon,
+    orderItems,
+    cart: null,
+    user,
+    isBuyNowCheckout: true,
+  };
+};
+
 const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
@@ -709,12 +853,13 @@ const computeOrderDetailsFromCart = async (
     orderItems,
     cart,
     user,
+    isBuyNowCheckout: false,
   };
 };
 
 export const createOrder = async (req, res) => {
   try {
-    const { shippingAddress, paymentMethod, couponCode, useWallet, walletAmount } =
+    const { shippingAddress, paymentMethod, couponCode, useWallet, walletAmount, items } =
       req.body;
     const userId = req.id;
     const orderingUser = await User.findById(userId).select("name email").lean();
@@ -739,7 +884,10 @@ export const createOrder = async (req, res) => {
       appliedCoupon,
       orderItems,
       cart,
-    } = await computeOrderDetailsFromCart(userId, couponCode, requestedWalletValue);
+      isBuyNowCheckout,
+    } = Array.isArray(items) && items.length
+      ? await computeOrderDetailsFromItems(userId, items, couponCode, requestedWalletValue)
+      : await computeOrderDetailsFromCart(userId, couponCode, requestedWalletValue);
     const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 10000)
       .toString()
       .padStart(4, "0")}`;
@@ -792,8 +940,10 @@ export const createOrder = async (req, res) => {
       Array.from(new Set(order.items.map((item) => String(item.vendorId)))).forEach(
         (vendorId) => emitVendorDashboardUpdate(vendorId)
       );
-      cart.items = [];
-      await cart.save();
+      if (!isBuyNowCheckout && cart) {
+        cart.items = [];
+        await cart.save();
+      }
       // Order response ko email latency se block nahi karte; post-checkout
       // UI should redirect instantly while mail sends in background.
       void safelySendOrderPlacedEmail({ order, user: orderingUser });
@@ -817,6 +967,7 @@ export const createOrder = async (req, res) => {
           shippingAddress: JSON.stringify(geocodedShippingAddress),
           couponCode: normalizeCouponCode(couponCode),
           walletAmount: String(walletAmountUsed || 0),
+          items: isBuyNowCheckout ? JSON.stringify(items) : "",
         },
       };
       const rzOrder = await razorpay.orders.create(options);
@@ -885,11 +1036,20 @@ export const confirmPayment = async (req, res) => {
       appliedCoupon,
       orderItems,
       cart,
-    } = await computeOrderDetailsFromCart(
-      userId,
-      notes.couponCode,
-      notes.walletAmount || 0
-    );
+      isBuyNowCheckout,
+    } =
+      notes.items && String(notes.items).trim()
+        ? await computeOrderDetailsFromItems(
+            userId,
+            JSON.parse(notes.items),
+            notes.couponCode,
+            notes.walletAmount || 0,
+          )
+        : await computeOrderDetailsFromCart(
+            userId,
+            notes.couponCode,
+            notes.walletAmount || 0
+          );
     if (Math.round(totalAmount * 100) !== rzOrder.amount) {
       return res.status(400).json({
         success: false,
@@ -937,8 +1097,10 @@ export const confirmPayment = async (req, res) => {
     await order.save();
     await incrementCouponUsage(appliedCoupon);
     await createVendorNotificationsForOrder(order, userId);
-    cart.items = [];
-    await cart.save();
+    if (!isBuyNowCheckout && cart) {
+      cart.items = [];
+      await cart.save();
+    }
     // Payment success response ko email latency se block nahi karte; the
     // order is already committed and cart is cleared before this fires.
     void safelySendOrderPlacedEmail({ order, user: orderingUser });
@@ -964,6 +1126,7 @@ export const confirmPayment = async (req, res) => {
 export const validateCoupon = async (req, res) => {
   try {
     const couponCode = normalizeCouponCode(req.body?.code);
+    const selectedItems = Array.isArray(req.body?.items) ? req.body.items : [];
     const requestedWalletValue =
       req.body?.useWallet === undefined
         ? req.body?.walletAmount
@@ -978,7 +1141,14 @@ export const validateCoupon = async (req, res) => {
       availableWalletBalance,
       totalAmount,
       appliedCoupon,
-    } = await computeOrderDetailsFromCart(req.id, couponCode, requestedWalletValue);
+    } = selectedItems.length
+      ? await computeOrderDetailsFromItems(
+          req.id,
+          selectedItems,
+          couponCode,
+          requestedWalletValue,
+        )
+      : await computeOrderDetailsFromCart(req.id, couponCode, requestedWalletValue);
 
     return res.status(200).json({
       success: true,

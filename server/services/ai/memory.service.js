@@ -2,6 +2,7 @@ import { AiUserMemory } from "../../models/ai/aiUserMemory.model.js";
 
 const MEMORY_LIST_LIMIT = 10;
 const QUERY_HISTORY_LIMIT = 10;
+const BEHAVIOR_SIGNALS_RESET_WINDOW_MS = 5 * 24 * 60 * 60 * 1000;
 
 const normalizeMemoryValue = (value) =>
   String(value || "")
@@ -79,9 +80,46 @@ const getPriceRangeLabel = (filters = {}) => {
   return budgetLevel ? `${budgetLevel}-budget` : "";
 };
 
+const createEmptyBehaviorSignals = () => ({
+  clickedProducts: [],
+  viewedCategories: [],
+});
+
+const isBehaviorSignalsExpired = (memory) => {
+  const lastUpdatedAt = new Date(
+    memory?.behaviorSignalsUpdatedAt || memory?.updatedAt || memory?.createdAt || 0,
+  );
+
+  if (Number.isNaN(lastUpdatedAt.getTime())) {
+    return false;
+  }
+
+  return Date.now() - lastUpdatedAt.getTime() >= BEHAVIOR_SIGNALS_RESET_WINDOW_MS;
+};
+
+const resetBehaviorSignalsIfExpired = async (memory) => {
+  if (!memory || !isBehaviorSignalsExpired(memory)) {
+    return memory;
+  }
+
+  memory.behaviorSignals = createEmptyBehaviorSignals();
+  memory.behaviorSignalsUpdatedAt = new Date();
+  await memory.save();
+  return memory;
+};
+
+const touchBehaviorSignals = (memory) => {
+  memory.behaviorSignalsUpdatedAt = new Date();
+};
+
 export const getAiUserMemory = async (userId) => {
   if (!userId) return null;
-  return AiUserMemory.findOne({ userId }).lean();
+
+  const memory = await AiUserMemory.findOne({ userId });
+  if (!memory) return null;
+
+  await resetBehaviorSignalsIfExpired(memory);
+  return memory.toObject();
 };
 
 export const ensureAiUserMemory = async (userId) => {
@@ -105,6 +143,7 @@ export const ensureAiUserMemory = async (userId) => {
           clickedProducts: [],
           viewedCategories: [],
         },
+        behaviorSignalsUpdatedAt: new Date(),
         lastInteractionAt: new Date(),
       },
     },
@@ -115,6 +154,7 @@ export const ensureAiUserMemory = async (userId) => {
     },
   );
 
+  await resetBehaviorSignalsIfExpired(memory);
   return memory?.toObject?.() || memory;
 };
 
@@ -135,6 +175,8 @@ export const updateAiUserMemoryFromChat = async ({
     new AiUserMemory({
       userId,
     });
+
+  await resetBehaviorSignalsIfExpired(memory);
 
   const inferredCategory =
     filters.category ||
@@ -162,6 +204,7 @@ export const updateAiUserMemoryFromChat = async ({
       (entry) =>
         normalizeMemoryValue(entry.value) === normalizeMemoryValue(inferredCategory),
     );
+    touchBehaviorSignals(memory);
   }
 
   if (inferredBrand) {
@@ -218,6 +261,8 @@ export const recordAiBehaviorEvent = async ({
       userId,
     });
 
+  await resetBehaviorSignalsIfExpired(memory);
+
   if (eventType === "product_click" && product?._id) {
     memory.behaviorSignals.clickedProducts = pushRecentUniqueItem(
       memory.behaviorSignals.clickedProducts,
@@ -246,6 +291,8 @@ export const recordAiBehaviorEvent = async ({
           normalizeMemoryValue(product.sourceLabel || product.category),
       );
     }
+
+    touchBehaviorSignals(memory);
   }
 
   if (eventType === "category_view" && category) {
@@ -259,6 +306,7 @@ export const recordAiBehaviorEvent = async ({
       (entry) =>
         normalizeMemoryValue(entry.value) === normalizeMemoryValue(category),
     );
+    touchBehaviorSignals(memory);
   }
 
   memory.lastInteractionAt = new Date();

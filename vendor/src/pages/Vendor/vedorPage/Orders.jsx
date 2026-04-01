@@ -38,6 +38,17 @@ const formatOrderDate = (value) =>
     year: "numeric",
   }).format(new Date(value));
 
+const formatCurrency = (value) => `Rs ${Number(value || 0).toLocaleString("en-IN")}`;
+
+const getDestinationLine = (shippingAddress = {}) =>
+  [
+    shippingAddress.village || shippingAddress.city,
+    shippingAddress.district,
+    shippingAddress.state,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
 const getStatusClasses = (status, isDark) => {
   if (String(status || "").startsWith("return")) {
     if (status === "return_completed") {
@@ -102,7 +113,7 @@ const getStatusAccent = (status) => {
     case "shipped":
       return "from-violet-500 to-fuchsia-500";
     case "out_for_delivery":
-      return "from-orange-500 to-amber-500";
+      return "from-cyan-500 to-sky-500";
     case "delivered":
       return "from-emerald-500 to-teal-500";
     case "cancelled":
@@ -143,10 +154,10 @@ const getOrderSteps = (orderStatus) => {
         orderStatus === "return_rejected" && step.key === "return_rejected"
           ? "active"
           : index < currentIndex
-          ? "done"
-          : index === currentIndex
-          ? "active"
-          : "pending",
+            ? "done"
+            : index === currentIndex
+              ? "active"
+              : "pending",
     }));
   }
 
@@ -185,6 +196,7 @@ const Orders = () => {
   const orders = ordersData?.orders || [];
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilter, setActiveFilter] = useState("all");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -217,8 +229,8 @@ const Orders = () => {
         activeFilter === "all"
           ? true
           : activeFilter === "returns"
-          ? String(order.orderStatus || "").startsWith("return")
-          : order.orderStatus === activeFilter;
+            ? String(order.orderStatus || "").startsWith("return")
+            : order.orderStatus === activeFilter;
 
       return matchesQuery && matchesFilter;
     });
@@ -241,6 +253,15 @@ const Orders = () => {
       totalRevenue,
     };
   }, [orders]);
+
+  const handleRefreshOrders = async () => {
+    setIsRefreshing(true);
+    try {
+      await refetch();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   if (isError) return <ErrorMessage onRetry={refetch} />;
 
@@ -280,8 +301,16 @@ const Orders = () => {
   return (
     <div className={pageClass}>
       <div className="container mx-auto px-4 pb-10 pt-4">
-        <section className={`${sectionCardClass} overflow-hidden px-6 py-6 md:px-8`}>
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <section className={`${sectionCardClass} relative overflow-hidden px-6 py-6 md:px-8`}>
+          <div
+            className={`pointer-events-none absolute inset-x-0 top-0 h-40 ${
+              isDark
+                ? "bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.18),transparent_45%),radial-gradient(circle_at_top_right,rgba(34,197,94,0.14),transparent_35%)]"
+                : "bg-[radial-gradient(circle_at_top_left,rgba(251,146,60,0.12),transparent_42%),radial-gradient(circle_at_top_right,rgba(14,165,233,0.10),transparent_34%)]"
+            }`}
+          />
+
+          <div className="relative flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <div className="flex items-center gap-3">
                 <div
@@ -304,25 +333,26 @@ const Orders = () => {
               </div>
               <p className={`mt-4 max-w-2xl text-sm leading-7 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
                 Track fulfilment, returns, delivery assignments, and customer destinations from one
-                clean management view.
+                cleaner, higher-contrast operations view.
               </p>
             </div>
 
             <button
               type="button"
-              onClick={refetch}
+              onClick={handleRefreshOrders}
+              disabled={isRefreshing}
               className={`inline-flex items-center justify-center gap-2 rounded-2xl border px-5 py-3 text-sm font-semibold transition ${
                 isDark
-                  ? "border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  ? "border-slate-700 bg-slate-900 text-slate-100 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-70"
               }`}
             >
-              <FiRefreshCcw className="h-4 w-4" />
-              Refresh Orders
+              <FiRefreshCcw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
+              {isRefreshing ? "Refreshing..." : "Refresh Orders"}
             </button>
           </div>
 
-          <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="relative mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {[
               {
                 label: "Total Orders",
@@ -350,7 +380,7 @@ const Orders = () => {
               },
               {
                 label: "Total GMV",
-                value: `Rs ${stats.totalRevenue.toLocaleString()}`,
+                value: formatCurrency(stats.totalRevenue),
                 tone: isDark
                   ? "from-emerald-950/70 to-slate-900 border-emerald-900/60 text-emerald-100"
                   : "from-emerald-50 to-white border-emerald-200 text-emerald-900",
@@ -374,7 +404,7 @@ const Orders = () => {
             ))}
           </div>
 
-          <div className="mt-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="relative mt-8 grid gap-4 xl:grid-cols-[minmax(0,1fr)_auto]">
             <div
               className={`flex items-center gap-3 rounded-[1.4rem] border px-4 py-3 ${
                 isDark ? "border-slate-800 bg-slate-950/60" : "border-slate-200 bg-slate-50"
@@ -414,8 +444,8 @@ const Orders = () => {
                           ? "bg-white text-slate-950"
                           : "bg-slate-900 text-white"
                         : isDark
-                        ? "bg-slate-900 text-slate-300 hover:bg-slate-800"
-                        : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          ? "bg-slate-900 text-slate-300 hover:bg-slate-800"
+                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
                     }`}
                   >
                     {filter.label}
@@ -447,168 +477,284 @@ const Orders = () => {
                 .filter(Boolean)
                 .join(", ");
               const extraItems = Math.max((order.items || []).length - 2, 0);
+              const destinationLine = getDestinationLine(order.shippingAddress);
 
               return (
                 <article
                   key={order._id}
-                  className={`${sectionCardClass} overflow-hidden px-6 py-6 md:px-7`}
+                  className={`${sectionCardClass} relative overflow-hidden px-6 py-6 md:px-7`}
                 >
-                  <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                    <div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                          Order #{order.orderId}
-                        </h2>
-                        <span
-                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusClasses}`}
-                        >
-                          {formatStatus(order.orderStatus)}
-                        </span>
-                        <span
-                          className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                            isDark ? "bg-slate-900 text-slate-300" : "bg-slate-100 text-slate-600"
-                          }`}
-                        >
-                          {String(order.paymentMethod || "cod").toUpperCase()}
-                        </span>
-                      </div>
+                  <div
+                    className={`pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-r ${accent} opacity-10`}
+                  />
 
-                      <div
-                        className={`mt-4 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm ${
-                          isDark ? "text-slate-400" : "text-slate-600"
-                        }`}
-                      >
-                        <span>Placed {formatOrderDate(order.createdAt)}</span>
-                        <span>Customer: {customerName}</span>
-                        <span>
-                          {order.shippingAddress?.city}, {order.shippingAddress?.state}
-                        </span>
-                      </div>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/order/${order._id}`)}
-                      className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition ${
-                        isDark
-                          ? "bg-white text-slate-950 hover:bg-slate-200"
-                          : "bg-slate-900 text-white hover:bg-slate-800"
-                      }`}
-                    >
-                      Open Details
-                      <FaChevronRight className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="mt-6 grid gap-4 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,0.9fr)]">
-                    <div
-                      className={`rounded-[1.7rem] border px-5 py-5 ${
-                        isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-200 bg-slate-50/80"
-                      }`}
-                    >
-                      <div className="flex items-center justify-between gap-3">
-                        <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
-                          Fulfilment Progress
-                        </p>
-                        <span className={`text-xs font-medium ${isDark ? "text-slate-500" : "text-slate-500"}`}>
-                          {doneCount}/{steps.length} stages
-                        </span>
-                      </div>
-
-                      <div className="mt-5">
-                        <div className={`relative h-2 overflow-hidden rounded-full ${isDark ? "bg-slate-800" : "bg-slate-200"}`}>
+                  <div className="relative flex flex-col gap-6">
+                    <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+                      <div className="space-y-4">
+                        <div className="flex flex-wrap items-center gap-3">
                           <div
-                            className={`h-full rounded-full bg-gradient-to-r ${accent}`}
-                            style={{ width: `${Math.max(0, progressPercent)}%` }}
-                          />
-                        </div>
-
-                        <div className="mt-5 grid gap-3 sm:grid-cols-5">
-                          {steps.map((step) => (
-                            <div
-                              key={step.label}
-                              className={`rounded-2xl border px-3 py-3 text-center ${
-                                step.state === "done"
-                                  ? isDark
-                                    ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-200"
-                                    : "border-emerald-200 bg-emerald-50 text-emerald-700"
-                                  : step.state === "active"
-                                  ? isDark
-                                    ? "border-slate-700 bg-slate-900 text-white"
-                                    : "border-slate-300 bg-white text-slate-900"
-                                  : isDark
-                                  ? "border-slate-800 bg-slate-950 text-slate-500"
-                                  : "border-slate-200 bg-white text-slate-400"
+                            className={`flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br ${accent} text-white shadow-lg shadow-black/10`}
+                          >
+                            <FaBoxOpen className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p
+                              className={`text-[11px] font-semibold uppercase tracking-[0.26em] ${
+                                isDark ? "text-slate-500" : "text-slate-500"
                               }`}
                             >
-                              <p className="text-[11px] font-semibold uppercase tracking-[0.18em]">
-                                {step.state === "done"
-                                  ? "Done"
-                                  : step.state === "active"
-                                  ? "Live"
-                                  : "Next"}
+                              Active Order
+                            </p>
+                            <h2
+                              className={`mt-1 text-xl font-bold md:text-2xl ${
+                                isDark ? "text-white" : "text-slate-900"
+                              }`}
+                            >
+                              Order #{order.orderId}
+                            </h2>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3">
+                          <span
+                            className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${statusClasses}`}
+                          >
+                            {formatStatus(order.orderStatus)}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                              isDark ? "bg-slate-900 text-slate-300" : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {String(order.paymentMethod || "cod").toUpperCase()}
+                          </span>
+                          <span
+                            className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
+                              isDark
+                                ? "bg-slate-900/80 text-slate-400 ring-1 ring-white/5"
+                                : "bg-white text-slate-500 ring-1 ring-slate-200"
+                            }`}
+                          >
+                            {order.items?.length || 0} item{(order.items?.length || 0) > 1 ? "s" : ""}
+                          </span>
+                        </div>
+
+                        <div
+                          className={`grid gap-3 sm:grid-cols-3 ${
+                            isDark ? "text-slate-300" : "text-slate-700"
+                          }`}
+                        >
+                          {[
+                            { label: "Placed", value: formatOrderDate(order.createdAt) },
+                            { label: "Customer", value: customerName },
+                            { label: "Destination", value: destinationLine || "Address unavailable" },
+                          ].map((item) => (
+                            <div
+                              key={item.label}
+                              className={`rounded-2xl border px-4 py-3 ${
+                                isDark
+                                  ? "border-slate-800 bg-slate-950/60"
+                                  : "border-slate-200 bg-white/80"
+                              }`}
+                            >
+                              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                                {item.label}
                               </p>
-                              <p className="mt-2 text-sm font-semibold leading-5">{step.label}</p>
+                              <p className="mt-2 text-sm font-semibold leading-6">{item.value}</p>
                             </div>
                           ))}
                         </div>
                       </div>
+
+                      <div className="flex flex-col items-start gap-3 xl:items-end">
+                        <div
+                          className={`rounded-[1.6rem] border px-4 py-4 text-left xl:max-w-[18rem] ${
+                            isDark
+                              ? "border-slate-800 bg-slate-950/80 text-slate-300"
+                              : "border-slate-200 bg-white/90 text-slate-600"
+                          }`}
+                        >
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-slate-500">
+                            Quick Snapshot
+                          </p>
+                          <p className={`mt-3 text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                            {formatCurrency(order.totalAmount)}
+                          </p>
+                          <p className="mt-2 text-sm leading-6">
+                            {productPreview || "Order items"}
+                            {extraItems ? ` +${extraItems} more` : ""}
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/order/${order._id}`)}
+                          className={`inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-semibold transition ${
+                            isDark
+                              ? "bg-white text-slate-950 hover:bg-slate-200"
+                              : "bg-slate-900 text-white hover:bg-slate-800"
+                          }`}
+                        >
+                          Open Details
+                          <FaChevronRight className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
 
-                    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-1">
+                    <div className="grid gap-4 xl:grid-cols-[minmax(0,1.4fr)_minmax(320px,0.9fr)]">
                       <div
-                        className={`rounded-[1.7rem] border px-5 py-5 ${
+                        className={`rounded-[1.8rem] border p-5 ${
                           isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-200 bg-slate-50/80"
                         }`}
                       >
-                        <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
-                          Order Snapshot
-                        </p>
-                        <div className="mt-4 grid grid-cols-2 gap-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
                           <div>
-                            <p className={`text-xs uppercase tracking-[0.18em] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
-                              Items
+                            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                              Fulfilment Flow
                             </p>
-                            <p className={`mt-2 text-2xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
-                              {order.items?.length || 0}
+                            <p
+                              className={`mt-2 text-sm ${
+                                isDark ? "text-slate-400" : "text-slate-600"
+                              }`}
+                            >
+                              {doneCount} of {steps.length} milestones cleared
                             </p>
                           </div>
-                          <div>
-                            <p className={`text-xs uppercase tracking-[0.18em] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
-                              Total
-                            </p>
-                            <p className="mt-2 text-2xl font-bold text-rose-500">
-                              Rs {Number(order.totalAmount || 0).toLocaleString()}
-                            </p>
+                          <div
+                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                              isDark ? "bg-slate-900 text-slate-300" : "bg-white text-slate-600"
+                            }`}
+                          >
+                            {Math.round(Math.max(0, progressPercent))}% complete
+                          </div>
+                        </div>
+
+                        <div className="mt-5">
+                          <div
+                            className={`relative h-2 overflow-hidden rounded-full ${
+                              isDark ? "bg-slate-800" : "bg-slate-200"
+                            }`}
+                          >
+                            <div
+                              className={`h-full rounded-full bg-gradient-to-r ${accent}`}
+                              style={{ width: `${Math.max(6, progressPercent)}%` }}
+                            />
+                          </div>
+
+                          <div className="mt-6 grid gap-3 sm:grid-cols-5">
+                            {steps.map((step, index) => (
+                              <div
+                                key={step.label}
+                                className={`rounded-[1.4rem] border px-4 py-4 ${
+                                  step.state === "done"
+                                    ? isDark
+                                      ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-100"
+                                      : "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                    : step.state === "active"
+                                      ? isDark
+                                        ? "border-slate-700 bg-slate-900 text-white"
+                                        : "border-slate-300 bg-white text-slate-900"
+                                      : isDark
+                                        ? "border-slate-800 bg-slate-950 text-slate-500"
+                                        : "border-slate-200 bg-white text-slate-400"
+                                }`}
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <span className="text-[11px] font-semibold uppercase tracking-[0.18em]">
+                                    {step.state === "done"
+                                      ? "Done"
+                                      : step.state === "active"
+                                        ? "Live"
+                                        : "Queued"}
+                                  </span>
+                                  <span className="text-xs font-semibold opacity-70">
+                                    {String(index + 1).padStart(2, "0")}
+                                  </span>
+                                </div>
+                                <p className="mt-4 text-sm font-semibold leading-5">{step.label}</p>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       </div>
 
-                      <div
-                        className={`rounded-[1.7rem] border px-5 py-5 ${
-                          isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-200 bg-slate-50/80"
-                        }`}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`mt-0.5 flex h-10 w-10 items-center justify-center rounded-2xl ${
-                              isDark ? "bg-slate-900 text-cyan-300" : "bg-cyan-50 text-cyan-600"
-                            }`}
-                          >
-                            <FaMapMarkerAlt className="h-4 w-4" />
+                      <div className="grid gap-4">
+                        <div
+                          className={`rounded-[1.8rem] border p-5 ${
+                            isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-200 bg-white/90"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                                Revenue Desk
+                              </p>
+                              <p className={`mt-3 text-3xl font-bold ${isDark ? "text-white" : "text-slate-900"}`}>
+                                {formatCurrency(order.totalAmount)}
+                              </p>
+                            </div>
+                            <div
+                              className={`rounded-2xl p-3 ${
+                                isDark ? "bg-rose-500/10 text-rose-300" : "bg-rose-50 text-rose-500"
+                              }`}
+                            >
+                              <FaClipboardList className="h-5 w-5" />
+                            </div>
                           </div>
-                          <div className="min-w-0">
-                            <p className={`text-xs font-semibold uppercase tracking-[0.24em] ${isDark ? "text-slate-500" : "text-slate-500"}`}>
-                              Destination
-                            </p>
-                            <p className={`mt-2 text-sm font-semibold leading-6 ${isDark ? "text-white" : "text-slate-900"}`}>
-                              {order.shippingAddress?.village}, {order.shippingAddress?.district},{" "}
-                              {order.shippingAddress?.state}
-                            </p>
-                            <p className={`mt-3 text-sm leading-6 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
-                              {productPreview || "Order items"}
-                              {extraItems ? ` +${extraItems} more` : ""}
-                            </p>
+
+                          <div className="mt-5 grid grid-cols-2 gap-3">
+                            {[
+                              { label: "Items", value: order.items?.length || 0 },
+                              { label: "Payment", value: String(order.paymentMethod || "cod").toUpperCase() },
+                            ].map((item) => (
+                              <div
+                                key={item.label}
+                                className={`rounded-2xl px-4 py-3 ${
+                                  isDark ? "bg-slate-900 text-slate-200" : "bg-slate-50 text-slate-700"
+                                }`}
+                              >
+                                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                                  {item.label}
+                                </p>
+                                <p className="mt-2 text-lg font-bold">{item.value}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div
+                          className={`rounded-[1.8rem] border p-5 ${
+                            isDark ? "border-slate-800 bg-slate-950/70" : "border-slate-200 bg-white/90"
+                          }`}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`mt-0.5 flex h-11 w-11 items-center justify-center rounded-2xl ${
+                                isDark ? "bg-slate-900 text-cyan-300" : "bg-cyan-50 text-cyan-600"
+                              }`}
+                            >
+                              <FaMapMarkerAlt className="h-4 w-4" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+                                Delivery Destination
+                              </p>
+                              <p
+                                className={`mt-3 text-base font-semibold leading-7 ${
+                                  isDark ? "text-white" : "text-slate-900"
+                                }`}
+                              >
+                                {destinationLine || "Address unavailable"}
+                              </p>
+                              <p
+                                className={`mt-3 text-sm leading-6 ${
+                                  isDark ? "text-slate-400" : "text-slate-600"
+                                }`}
+                              >
+                                {productPreview || "Order items"}
+                                {extraItems ? ` +${extraItems} more` : ""}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </div>

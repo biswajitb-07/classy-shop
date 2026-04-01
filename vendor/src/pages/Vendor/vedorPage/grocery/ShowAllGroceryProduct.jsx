@@ -29,6 +29,7 @@ import toast from "react-hot-toast";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import AddGroceryItem from "./AddGroceryItem";
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import { useGetGroceryBrandsQuery } from "../../../../features/api/grocery/groceryBrandApi";
 
 const CATEGORY = "Grocery";
 const ITEMS_PER_PAGE = 15;
@@ -52,6 +53,7 @@ const ShowAllGroceryProduct = () => {
     useGetVendorCategoriesQuery(undefined, {
       refetchOnMountOrArgChange: false,
     });
+  const { data: groceryBrands, refetch: brandRefetch } = useGetGroceryBrandsQuery();
   const [selectedUpdates, setSelectedUpdates] = useState({});
   const [newImages, setNewImages] = useState({});
   const [editItem, setEditItem] = useState(null);
@@ -1097,6 +1099,8 @@ const ShowAllGroceryProduct = () => {
           onClose={closeAddDialog}
           refetch={refetch}
           categoryData={categoryData}
+          groceryBrands={groceryBrands}
+          brandRefetch={brandRefetch}
         />
       )}
 

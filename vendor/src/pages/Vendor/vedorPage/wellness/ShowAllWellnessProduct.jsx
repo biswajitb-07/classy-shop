@@ -29,6 +29,7 @@ import toast from "react-hot-toast";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import AddWellnessItem from "./AddWellnessItem";
 import { useGetVendorCategoriesQuery } from "../../../../features/api/categoryApi";
+import { useGetWellnessBrandsQuery } from "../../../../features/api/wellness/welllnessBrandApi";
 
 const CATEGORY = "Wellness";
 const ITEMS_PER_PAGE = 15;
@@ -52,6 +53,7 @@ const ShowAllWellnessProduct = () => {
     useGetVendorCategoriesQuery(undefined, {
       refetchOnMountOrArgChange: false,
     });
+  const { data: wellnessBrands, refetch: brandRefetch } = useGetWellnessBrandsQuery();
   const [selectedUpdates, setSelectedUpdates] = useState({});
   const [newImages, setNewImages] = useState({});
   const [editItem, setEditItem] = useState(null);
@@ -1097,6 +1099,8 @@ const ShowAllWellnessProduct = () => {
           onClose={closeAddDialog}
           refetch={refetch}
           categoryData={categoryData}
+          wellnessBrands={wellnessBrands}
+          brandRefetch={brandRefetch}
         />
       )}
 

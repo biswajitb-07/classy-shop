@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
   FaCreditCard,
   FaMapMarkerAlt,
@@ -24,7 +24,11 @@ import {
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
-import AddressPinPicker from "../../../components/checkout/AddressPinPicker.jsx";
+import {
+  clearBuyNowCheckout,
+  persistBuyNowCheckout,
+  readBuyNowCheckout,
+} from "../../../utils/buyNow.js";
 
 const emptyShippingAddress = {
   type: "home",
@@ -103,6 +107,7 @@ const buildAddressBookPayload = ({ currentAddress, savedAddresses, selectedIndex
 
 const CheckoutPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useSelector((state) => state.auth);
   const { refetch: refetchUser } = useLoadUserQuery();
 
@@ -138,13 +143,67 @@ const CheckoutPage = () => {
   const [useWallet, setUseWallet] = useState(false);
   const [pricingPreview, setPricingPreview] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [buyNowItems, setBuyNowItems] = useState(() => {
+    const stateItems =
+      Array.isArray(location.state?.buyNowItems) && location.state.buyNowItems.length
+        ? location.state.buyNowItems
+        : [];
+    if (stateItems.length) return stateItems;
+    return new URLSearchParams(location.search).get("mode") === "buy-now"
+      ? readBuyNowCheckout()
+      : [];
+  });
 
   const cart = cartData?.cart || [];
   const walletBalance = Number(user?.wallet?.balance || 0);
+  const isBuyNowMode = useMemo(
+    () => new URLSearchParams(location.search).get("mode") === "buy-now",
+    [location.search],
+  );
+
+  useEffect(() => {
+    if (!isBuyNowMode) {
+      clearBuyNowCheckout();
+      setBuyNowItems([]);
+      return;
+    }
+
+    const nextItems =
+      Array.isArray(location.state?.buyNowItems) && location.state.buyNowItems.length
+        ? location.state.buyNowItems
+        : readBuyNowCheckout();
+
+    setBuyNowItems(nextItems);
+
+    if (nextItems.length) {
+      persistBuyNowCheckout(nextItems);
+    }
+  }, [isBuyNowMode, location.state]);
+
+  const checkoutItems = useMemo(() => {
+    if (buyNowItems.length) {
+      return buyNowItems.map((item) => ({
+        product: {
+          discountedPrice: Number(item.price || 0),
+          name: item.productName || "",
+        },
+        variants: [
+          {
+            variant: item.variant || "default",
+            quantity: Number(item.quantity || 1),
+          },
+        ],
+      }));
+    }
+
+    return cart;
+  }, [buyNowItems, cart]);
+
+  const isBuyNowCheckout = buyNowItems.length > 0;
 
   const subtotal = useMemo(
     () =>
-      cart.reduce(
+      checkoutItems.reduce(
         (total, group) =>
           total +
           group.variants.reduce(
@@ -154,17 +213,17 @@ const CheckoutPage = () => {
           ),
         0,
       ),
-    [cart],
+    [checkoutItems],
   );
 
   const totalItems = useMemo(
     () =>
-      cart.reduce(
+      checkoutItems.reduce(
         (total, group) =>
           total + group.variants.reduce((sum, variant) => sum + variant.quantity, 0),
         0,
       ),
-    [cart],
+    [checkoutItems],
   );
 
   const discountAmount = Number(
@@ -204,30 +263,17 @@ const CheckoutPage = () => {
     setShippingAddress((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handlePinChange = (pin) => {
-    setHasManualAddressChanges(true);
-    setShippingAddress((prev) => ({
-      ...prev,
-      location: {
-        latitude: pin.latitude,
-        longitude: pin.longitude,
-        label: `${prev.village || prev.city || "Selected"} pin`,
-        source: "map_click",
-        updatedAt: new Date().toISOString(),
-      },
-    }));
-  };
-
   const refreshPricing = async ({
     nextCouponCode = appliedCoupon?.code || "",
     nextUseWallet = useWallet,
   } = {}) => {
-    if (!cart.length) return;
+    if (!checkoutItems.length) return;
 
     try {
       const response = await validateCoupon({
         code: nextCouponCode,
         useWallet: nextUseWallet,
+        items: isBuyNowCheckout ? buyNowItems : undefined,
       }).unwrap();
       setPricingPreview({
         subtotalAmount: response.subtotalAmount,
@@ -280,6 +326,8 @@ const CheckoutPage = () => {
     });
 
   const redirectToOrder = (orderId) => {
+    clearBuyNowCheckout();
+
     if (!orderId) {
       navigate("/orders", { replace: true });
       return;
@@ -327,6 +375,7 @@ const CheckoutPage = () => {
       const result = await validateCoupon({
         code: normalizedCode,
         useWallet,
+        items: isBuyNowCheckout ? buyNowItems : undefined,
       }).unwrap();
       setAppliedCoupon(result?.coupon || null);
       setCouponCode(result?.coupon?.code || normalizedCode);
@@ -403,6 +452,7 @@ const CheckoutPage = () => {
         paymentMethod: effectivePaymentMethod,
         couponCode: appliedCoupon?.code || "",
         useWallet,
+        items: isBuyNowCheckout ? buyNowItems : undefined,
       }).unwrap();
 
       if (effectivePaymentMethod === "cod" || effectivePaymentMethod === "wallet") {
@@ -433,6 +483,7 @@ const CheckoutPage = () => {
                 razorpay_payment_id: razorpayResponse.razorpay_payment_id,
                 razorpay_order_id: razorpayResponse.razorpay_order_id,
                 razorpay_signature: razorpayResponse.razorpay_signature,
+                items: isBuyNowCheckout ? buyNowItems : undefined,
               }).unwrap();
               await refetchUser();
               toast.success("Payment successful! Order confirmed.");
@@ -473,13 +524,13 @@ const CheckoutPage = () => {
     }
   };
 
-  if (cartError) return <ErrorMessage onRetry={refetchCart} />;
+  if (cartError && !isBuyNowCheckout) return <ErrorMessage onRetry={refetchCart} />;
 
-  if (cartLoading) {
+  if (cartLoading && !isBuyNowCheckout) {
     return <PageLoader message="Loading checkout..." />;
   }
 
-  if (!cart.length) {
+  if (!checkoutItems.length) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
         <div className="container mx-auto px-4 py-16">
@@ -706,31 +757,6 @@ const CheckoutPage = () => {
                 ))}
               </form>
 
-              <div className="mt-6 space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <h4 className="text-base font-bold text-gray-800">
-                      Map pin for exact drop location
-                    </h4>
-                    <p className="text-sm text-gray-500">
-                      Address type ke saath pin choose karne se delivery tracking aur accurate hogi.
-                    </p>
-                  </div>
-                </div>
-
-                <AddressPinPicker
-                  value={shippingAddress.location}
-                  onChange={handlePinChange}
-                />
-              </div>
-
-              {shippingAddress.location?.latitude !== null &&
-              shippingAddress.location?.longitude !== null ? (
-                <div className="mt-4 rounded-2xl border border-cyan-100 bg-cyan-50 px-4 py-3 text-sm text-cyan-800">
-                  Selected pin: {shippingAddress.location.latitude.toFixed(6)},{" "}
-                  {shippingAddress.location.longitude.toFixed(6)}
-                </div>
-              ) : null}
             </div>
 
             <div className="bg-white rounded-2xl shadow-lg p-6">
@@ -858,9 +884,7 @@ const CheckoutPage = () => {
                     </div>
                   </div>
                 ) : (
-                  <p className="mt-3 text-sm text-gray-500">
-                    Vendor dashboard se create kiye gaye coupon yahan apply kar sakte ho.
-                  </p>
+                  <></>
                 )}
               </div>
 
@@ -924,15 +948,6 @@ const CheckoutPage = () => {
                           : paymentMethod === "cod"
                             ? "Cash on Delivery"
                             : "Razorpay"}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <span>Map pin status</span>
-                      <span className="font-semibold text-gray-800">
-                        {shippingAddress.location?.latitude !== null &&
-                        shippingAddress.location?.longitude !== null
-                          ? "Pinned"
-                          : "Address only"}
                       </span>
                     </div>
                   </div>
