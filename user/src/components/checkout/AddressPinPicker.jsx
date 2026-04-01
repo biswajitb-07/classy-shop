@@ -1,5 +1,11 @@
 import { useEffect } from "react";
-import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
+import {
+  MapContainer,
+  Marker,
+  TileLayer,
+  useMap,
+  useMapEvents,
+} from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 
@@ -13,16 +19,16 @@ L.Icon.Default.mergeOptions({
 
 const DEFAULT_CENTER = [20.5937, 78.9629];
 
-const MapSync = ({ position }) => {
+const MapSync = ({ position, zoom }) => {
   const map = useMap();
 
   useEffect(() => {
     if (!position?.latitude || !position?.longitude) return;
-    map.setView([position.latitude, position.longitude], Math.max(map.getZoom(), 14), {
+    map.setView([position.latitude, position.longitude], zoom || Math.max(map.getZoom(), 14), {
       animate: true,
       duration: 0.8,
     });
-  }, [map, position?.latitude, position?.longitude]);
+  }, [map, position?.latitude, position?.longitude, zoom]);
 
   return null;
 };
@@ -48,6 +54,8 @@ const AddressPinPicker = ({ value, onChange }) => {
     value?.longitude !== undefined
       ? [value.latitude, value.longitude]
       : null;
+  const mapFocusPosition = markerPosition || DEFAULT_CENTER;
+  const mapZoom = markerPosition ? 16 : 5;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-gray-200">
@@ -67,8 +75,8 @@ const AddressPinPicker = ({ value, onChange }) => {
 
       <div className="h-72 w-full">
         <MapContainer
-          center={markerPosition || DEFAULT_CENTER}
-          zoom={markerPosition ? 14 : 5}
+          center={mapFocusPosition}
+          zoom={mapZoom}
           scrollWheelZoom={false}
           className="h-full w-full"
         >
@@ -77,7 +85,7 @@ const AddressPinPicker = ({ value, onChange }) => {
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
           <PinSelector onSelect={onChange} />
-          <MapSync position={value} />
+          <MapSync position={value} zoom={mapZoom} />
           {markerPosition ? <Marker position={markerPosition} /> : null}
         </MapContainer>
       </div>

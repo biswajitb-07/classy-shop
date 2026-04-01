@@ -130,6 +130,27 @@ export const orderApi = createApi({
         method: "PUT",
         body,
       }),
+      async onQueryStarted({ orderId }, { queryFulfilled, dispatch }) {
+        try {
+          const { data } = await queryFulfilled;
+          const nextDestination = data?.destination;
+
+          if (!nextDestination) return;
+
+          dispatch(
+            orderApi.util.updateQueryData("getUserOrders", undefined, (draft) => {
+              if (!draft?.orders?.length) return;
+
+              const matchedOrder = draft.orders.find((order) => order?._id === orderId);
+              if (!matchedOrder) return;
+
+              matchedOrder.customerLiveLocation = nextDestination;
+            }),
+          );
+        } catch (_error) {
+          // Mutation error is handled by the caller toast path.
+        }
+      },
       invalidatesTags: ["Order"],
     }),
     deleteUserNotification: builder.mutation({

@@ -67,9 +67,6 @@ const OrderListPage = lazy(
 const OrderDetailsPage = lazy(
   () => import("./pages/User/order/OrderDetailsPage.jsx"),
 );
-const TrackOrderPage = lazy(
-  () => import("./pages/User/order/TrackOrderPage.jsx"),
-);
 const CompareProductsPage = lazy(
   () => import("./pages/User/product/CompareProductsPage.jsx"),
 );
@@ -355,14 +352,6 @@ const appRouter = createBrowserRouter([
         element: (
           <UserRoute>
             <OrderDetailsPage />
-          </UserRoute>
-        ),
-      },
-      {
-        path: "/track-order/:orderId",
-        element: (
-          <UserRoute>
-            <TrackOrderPage />
           </UserRoute>
         ),
       },

@@ -8,7 +8,7 @@ import {
   FaTag,
   FaWallet,
 } from "react-icons/fa";
-import { FiCheck, FiCrosshair, FiMapPin, FiPlus } from "react-icons/fi";
+import { FiCheck, FiMapPin, FiPlus } from "react-icons/fi";
 import { useSelector } from "react-redux";
 import { toast } from "react-hot-toast";
 import { useGetCartQuery } from "../../../features/api/cartApi.js";
@@ -25,7 +25,6 @@ import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import AuthButtonLoader from "../../../components/Loader/AuthButtonLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
 import AddressPinPicker from "../../../components/checkout/AddressPinPicker.jsx";
-import { getBestCurrentLocation } from "../../../utils/geolocation.js";
 
 const emptyShippingAddress = {
   type: "home",
@@ -129,6 +128,7 @@ const CheckoutPage = () => {
       ? savedAddresses.findIndex((address) => address === defaultSavedAddress)
       : null,
   );
+  const [hasManualAddressChanges, setHasManualAddressChanges] = useState(false);
   const [shippingAddress, setShippingAddress] = useState(() =>
     normalizeAddress(defaultSavedAddress || emptyShippingAddress, user),
   );
@@ -138,7 +138,6 @@ const CheckoutPage = () => {
   const [useWallet, setUseWallet] = useState(false);
   const [pricingPreview, setPricingPreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [locationLoading, setLocationLoading] = useState(false);
 
   const cart = cartData?.cart || [];
   const walletBalance = Number(user?.wallet?.balance || 0);
@@ -183,6 +182,8 @@ const CheckoutPage = () => {
   }, []);
 
   useEffect(() => {
+    if (hasManualAddressChanges) return;
+
     const nextDefault =
       savedAddresses.find((address) => address.isDefault) || savedAddresses[0];
 
@@ -195,14 +196,16 @@ const CheckoutPage = () => {
     const defaultIndex = savedAddresses.findIndex((address) => address === nextDefault);
     setSelectedAddressIndex(defaultIndex);
     setShippingAddress(normalizeAddress(nextDefault, user));
-  }, [user?.addresses, user?.name, user?.phone]);
+  }, [hasManualAddressChanges, user?.addresses, user?.name, user?.phone]);
 
   const handleInputChange = (event) => {
     const { name, value } = event.target;
+    setHasManualAddressChanges(true);
     setShippingAddress((prev) => ({ ...prev, [name]: value }));
   };
 
   const handlePinChange = (pin) => {
+    setHasManualAddressChanges(true);
     setShippingAddress((prev) => ({
       ...prev,
       location: {
@@ -248,11 +251,13 @@ const CheckoutPage = () => {
 
   const handleSelectSavedAddress = (index) => {
     setSelectedAddressIndex(index);
+    setHasManualAddressChanges(false);
     setShippingAddress(normalizeAddress(savedAddresses[index], user));
   };
 
   const handleCreateNewAddress = () => {
     setSelectedAddressIndex(null);
+    setHasManualAddressChanges(false);
     setShippingAddress(
       normalizeAddress(
         {
@@ -263,36 +268,6 @@ const CheckoutPage = () => {
         user,
       ),
     );
-  };
-
-  const handleUseCurrentLocationPin = () => {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation browser me supported nahi hai");
-      return;
-    }
-
-    setLocationLoading(true);
-    getBestCurrentLocation({
-      acceptableAccuracy: 1500,
-    })
-      .then((position) => {
-        setShippingAddress((prev) => ({
-          ...prev,
-          location: {
-            latitude: Number(position.latitude.toFixed(6)),
-            longitude: Number(position.longitude.toFixed(6)),
-            label: "Current map pin",
-            source: "browser_geolocation",
-            updatedAt: new Date().toISOString(),
-          },
-        }));
-        setLocationLoading(false);
-        toast.success("Current location pin added");
-      })
-      .catch((error) => {
-        setLocationLoading(false);
-        toast.error(error?.message || "Current location detect nahi hua");
-      });
   };
 
   const loadRazorpayScript = () =>
@@ -404,6 +379,7 @@ const CheckoutPage = () => {
         selectedIndex: selectedAddressIndex,
       });
       await updateUserAddresses(nextAddresses).unwrap();
+      setHasManualAddressChanges(false);
       toast.success(
         selectedAddressIndex !== null
           ? "Saved address updated"
@@ -740,15 +716,6 @@ const CheckoutPage = () => {
                       Address type ke saath pin choose karne se delivery tracking aur accurate hogi.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={handleUseCurrentLocationPin}
-                    disabled={locationLoading}
-                    className="inline-flex items-center gap-2 rounded-xl bg-cyan-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-600 disabled:opacity-60"
-                  >
-                    <FiCrosshair />
-                    {locationLoading ? "Detecting..." : "Use Current Location"}
-                  </button>
                 </div>
 
                 <AddressPinPicker

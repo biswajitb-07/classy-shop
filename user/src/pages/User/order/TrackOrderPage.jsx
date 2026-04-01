@@ -3,22 +3,17 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   ExternalLink,
-  MapPinned,
   Navigation,
   Route,
   Timer,
 } from "lucide-react";
 import toast from "react-hot-toast";
 import { connectUserSocket } from "../../../lib/socket.js";
-import {
-  useGetUserOrdersQuery,
-  useSaveCustomerLiveLocationMutation,
-} from "../../../features/api/orderApi.js";
+import { useGetUserOrdersQuery } from "../../../features/api/orderApi.js";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 import LiveRouteMap from "../../../components/tracking/LiveRouteMap.jsx";
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
-import { getBestCurrentLocation } from "../../../utils/geolocation.js";
 
 const INDIA_BOUNDS = {
   minLatitude: 6,
@@ -26,7 +21,6 @@ const INDIA_BOUNDS = {
   minLongitude: 68,
   maxLongitude: 98,
 };
-const MAX_CUSTOMER_LOCATION_ACCURACY_METERS = 1200;
 const MIN_REASONABLE_ROUTE_SPEED_KMH = 8;
 const MAX_REASONABLE_ROUTE_SPEED_KMH = 120;
 
@@ -125,6 +119,23 @@ const getFreshestTrackingSnapshot = (...snapshots) =>
       (left, right) =>
         getTrackingSnapshotTimestamp(right) - getTrackingSnapshotTimestamp(left),
     )[0] || null;
+
+const shouldApplyIncomingTrackingSnapshot = ({
+  currentSnapshot,
+  currentLiveLocation,
+  incomingSnapshot,
+}) => {
+  const incomingTimestamp = getTrackingSnapshotTimestamp(incomingSnapshot);
+  const currentSnapshotTimestamp = getTrackingSnapshotTimestamp(currentSnapshot);
+  const currentLiveTimestamp = getLocationTimestamp(currentLiveLocation);
+  const currentBestTimestamp = Math.max(
+    currentSnapshotTimestamp,
+    currentLiveTimestamp,
+  );
+
+  if (!currentBestTimestamp) return true;
+  return incomingTimestamp >= currentBestTimestamp;
+};
 
 const estimateEtaMinutes = (distanceKm, speedMetersPerSecond) => {
   if (!Number.isFinite(Number(distanceKm))) return null;
@@ -369,14 +380,9 @@ const TrackOrderPage = () => {
     refetchOnFocus: true,
     refetchOnReconnect: true,
   });
-  const [saveCustomerLiveLocation, { isLoading: isSavingCustomerLocation }] =
-    useSaveCustomerLiveLocationMutation();
-
   const [liveLocation, setLiveLocation] = useState(null);
-  const [liveDestination, setLiveDestination] = useState(null);
   const [trackingSnapshot, setTrackingSnapshot] = useState(null);
   const [isLiveTrackingActive, setIsLiveTrackingActive] = useState(false);
-  const [isResolvingCustomerLocation, setIsResolvingCustomerLocation] = useState(false);
   const [routeMeta, setRouteMeta] = useState(null);
   const nearbyAlertRef = useRef("");
 
@@ -385,51 +391,38 @@ const TrackOrderPage = () => {
   useEffect(() => {
     if (!order) return;
 
-    const currentLocation = order.deliveryTracking?.currentLocation;
-    setTrackingSnapshot(order.deliveryTracking || null);
-    setLiveLocation(
-      hasCoordinate(currentLocation?.latitude, currentLocation?.longitude)
-        ? currentLocation
-        : null,
-    );
-    setIsLiveTrackingActive(Boolean(order.deliveryTracking?.isLive));
-    setRouteMeta(null);
-    nearbyAlertRef.current = "";
-  }, [
-    order?._id,
-    order?.deliveryTracking,
-  ]);
+    const incomingSnapshot = order.deliveryTracking || null;
+    const incomingLocation = incomingSnapshot?.currentLocation;
 
-  useEffect(() => {
-    if (!order) return;
+    setTrackingSnapshot((currentSnapshot) => {
+      const shouldApplyIncoming = shouldApplyIncomingTrackingSnapshot({
+        currentSnapshot,
+        currentLiveLocation: liveLocation,
+        incomingSnapshot,
+      });
 
-    setLiveDestination((currentDestination) => {
-      const nextDestination = hasCoordinate(
-        order.customerLiveLocation?.latitude,
-        order.customerLiveLocation?.longitude,
-      )
-        ? order.customerLiveLocation
-        : order.shippingAddress?.location || null;
-
-      const currentTimestamp = getLocationTimestamp(currentDestination);
-      const nextTimestamp = getLocationTimestamp(nextDestination);
-
-      if (
-        currentDestination &&
-        currentTimestamp > nextTimestamp &&
-        currentDestination?.source === "customer_live"
-      ) {
-        return currentDestination;
+      if (!shouldApplyIncoming) {
+        return currentSnapshot;
       }
 
-      return nextDestination;
+      setLiveLocation(
+        hasCoordinate(incomingLocation?.latitude, incomingLocation?.longitude)
+          ? incomingLocation
+          : null,
+      );
+      setIsLiveTrackingActive(Boolean(incomingSnapshot?.isLive));
+      setRouteMeta(null);
+      nearbyAlertRef.current = "";
+      return incomingSnapshot;
     });
   }, [
+    liveLocation,
     order?._id,
-    order?.customerLiveLocation?.latitude,
-    order?.customerLiveLocation?.longitude,
-    order?.customerLiveLocation?.updatedAt,
-    order?.shippingAddress?.location,
+    order?.deliveryTracking?.isLive,
+    order?.deliveryTracking?.currentLocation?.latitude,
+    order?.deliveryTracking?.currentLocation?.longitude,
+    order?.deliveryTracking?.currentLocation?.updatedAt,
+    order?.deliveryTracking?.lastSharedAt,
   ]);
 
   useEffect(() => {
@@ -454,31 +447,15 @@ const TrackOrderPage = () => {
       setIsLiveTrackingActive(false);
     };
 
-    const handleDestinationUpdate = (payload) => {
-      if (payload?.orderId !== order._id) return;
-      setLiveDestination(payload.destination || null);
-    };
-
     socket.on("order:location:update", handleLocationUpdate);
     socket.on("order:location:stopped", handleLocationStopped);
-    socket.on("order:destination:update", handleDestinationUpdate);
 
     return () => {
       socket.emit("leave:user:order", order._id);
       socket.off("order:location:update", handleLocationUpdate);
       socket.off("order:location:stopped", handleLocationStopped);
-      socket.off("order:destination:update", handleDestinationUpdate);
     };
   }, [order?._id]);
-
-  useEffect(() => {
-    setRouteMeta(null);
-    nearbyAlertRef.current = "";
-  }, [
-    liveDestination?.latitude,
-    liveDestination?.longitude,
-    liveDestination?.updatedAt,
-  ]);
 
   useEffect(() => {
     setRouteMeta(null);
@@ -492,15 +469,10 @@ const TrackOrderPage = () => {
     trackingSnapshot?.currentLocation?.updatedAt,
   ]);
 
-  const destinationLocation = useMemo(() => {
-    if (isReliableCustomerLocation(liveDestination)) {
-      return liveDestination;
-    }
-    if (isReliableCustomerLocation(order?.customerLiveLocation)) {
-      return order.customerLiveLocation;
-    }
-    return order?.shippingAddress?.location || null;
-  }, [liveDestination, order?.customerLiveLocation, order?.shippingAddress?.location]);
+  const destinationLocation = useMemo(
+    () => order?.shippingAddress?.location || null,
+    [order?.shippingAddress?.location],
+  );
 
   const recentTrailPoints = useMemo(
     () =>
@@ -595,69 +567,6 @@ const TrackOrderPage = () => {
     trackingInfo.nearbyState?.priority,
   ]);
 
-  const handleSaveCurrentLocation = () => {
-    if (!navigator.geolocation) {
-      toast.error("Browser geolocation support nahi karta.");
-      return;
-    }
-
-    setIsResolvingCustomerLocation(true);
-
-    getBestCurrentLocation({
-      acceptableAccuracy: MAX_CUSTOMER_LOCATION_ACCURACY_METERS,
-    })
-      .then(async (position) => {
-        try {
-          const latitude = Number(position.latitude.toFixed(6));
-          const longitude = Number(position.longitude.toFixed(6));
-          const accuracy = Number(position.accuracy || 0);
-
-          setRouteMeta(null);
-
-          const response = await saveCustomerLiveLocation({
-            orderId,
-            body: {
-              latitude,
-              longitude,
-              accuracy,
-              label: "Customer live location",
-            },
-          }).unwrap();
-
-          setLiveDestination(
-            response?.destination || {
-              latitude,
-              longitude,
-              accuracy,
-              source: "customer_live",
-              updatedAt: new Date().toISOString(),
-            }
-          );
-          await refetch();
-          if (
-            Number.isFinite(accuracy) &&
-            accuracy > MAX_CUSTOMER_LOCATION_ACCURACY_METERS
-          ) {
-            toast.success(
-              `Current location updated. GPS signal weak tha, exactness around ${Math.round(
-                accuracy
-              )} m ho sakti hai.`
-            );
-          } else {
-            toast.success("Current delivery pin updated");
-          }
-        } catch (error) {
-          toast.error(error?.data?.message || "Current location save nahi hui.");
-        } finally {
-          setIsResolvingCustomerLocation(false);
-        }
-      })
-      .catch((error) => {
-        toast.error(error?.message || "Current location access allow karo.");
-        setIsResolvingCustomerLocation(false);
-      });
-  };
-
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -672,11 +581,6 @@ const TrackOrderPage = () => {
       />
     );
 
-  const canUpdateCustomerLocation = [
-    "shipped",
-    "out_for_delivery",
-    "return_approved",
-  ].includes(order.orderStatus);
   const cardSurface = isDark
     ? "border-slate-800 bg-slate-900 text-white"
     : "border-slate-200 bg-white text-slate-950";
@@ -830,19 +734,17 @@ const TrackOrderPage = () => {
               </div>
 
               <LiveRouteMap
+                key={`${Number(destinationLocation?.latitude || 0).toFixed(6)}:${Number(
+                  destinationLocation?.longitude || 0,
+                ).toFixed(6)}-${Number(trackingLocation?.latitude || 0).toFixed(6)}:${Number(
+                  trackingLocation?.longitude || 0,
+                ).toFixed(6)}`}
                 origin={destinationLocation}
                 destination={trackingLocation}
                 trailPoints={trackingInfo.trailPoints}
                 heightClass="h-[24rem] md:h-[32rem]"
                 riderLabel="Delivery boy live location"
-                destinationLabel={
-                  hasCoordinate(
-                    liveDestination?.latitude,
-                    liveDestination?.longitude,
-                  )
-                    ? "Customer live location"
-                    : "Saved delivery address"
-                }
+                destinationLabel="Saved delivery address"
                 restrictToIndia
                 statusLabel={
                   isLiveTrackingActive ? "Tracking your order" : "Waiting for live ping"
@@ -948,56 +850,11 @@ const TrackOrderPage = () => {
                 <div className="flex items-start justify-between gap-3">
                   <span className={isDark ? "text-slate-300" : "text-slate-600"}>Destination</span>
                   <span className="max-w-[14rem] text-right font-semibold">
-                    {hasCoordinate(
-                      liveDestination?.latitude,
-                      liveDestination?.longitude,
-                    )
-                      ? "Customer current live location"
-                      : `${order.shippingAddress?.city}, ${order.shippingAddress?.district}, ${order.shippingAddress?.state}`}
+                    {`${order.shippingAddress?.city}, ${order.shippingAddress?.district}, ${order.shippingAddress?.state}`}
                   </span>
                 </div>
               </div>
             </div>
-
-            {canUpdateCustomerLocation ? (
-              <div className={`rounded-[28px] border p-5 ${cardSurface}`}>
-                <div className="flex items-start gap-3">
-                  <span
-                    className={`mt-1 inline-flex h-11 w-11 items-center justify-center rounded-2xl ${
-                      isDark ? "bg-slate-800 text-cyan-300" : "bg-cyan-50 text-cyan-700"
-                    }`}
-                  >
-                    <MapPinned size={20} />
-                  </span>
-                  <div className="flex-1">
-                    <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-500">
-                      Customer pin
-                    </p>
-                    <h2 className="mt-2 text-xl font-black">Update current location</h2>
-                    <p className={`mt-2 text-sm leading-7 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                      Agar delivery address se alag current point par receive karna hai to
-                      yahan se live pin save karo.
-                    </p>
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSaveCurrentLocation}
-                  disabled={isSavingCustomerLocation}
-                  className="mt-5 inline-flex min-h-[3rem] w-full items-center justify-center rounded-2xl bg-cyan-500 px-6 text-sm font-semibold text-white transition hover:bg-cyan-600 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {isSavingCustomerLocation ? (
-                    <span className="inline-flex items-center gap-2">
-                      <span className="h-4 w-4 rounded-full border-2 border-white/35 border-t-white animate-spin" />
-                      {isResolvingCustomerLocation ? "Detecting..." : "Saving..."}
-                    </span>
-                  ) : (
-                    "Use current location"
-                  )}
-                </button>
-              </div>
-            ) : null}
 
             <div className={`rounded-[28px] border p-5 ${cardSurface}`}>
               <p className="text-xs font-bold uppercase tracking-[0.18em] text-cyan-500">

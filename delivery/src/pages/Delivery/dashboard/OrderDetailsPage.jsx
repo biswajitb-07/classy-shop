@@ -948,7 +948,7 @@ const OrderDetailsPage = () => {
                 </div>
               </div>
 
-              {hasMapLocation ? (
+              {false ? (
                 <div className="space-y-4">
                   <div className="rounded-[24px] border border-slate-800 bg-slate-950/80 p-4">
                     <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -1006,6 +1006,11 @@ const OrderDetailsPage = () => {
                   </div>
 
                   <LiveRouteMap
+                    key={`${Number(mapLocation?.latitude || 0).toFixed(6)}:${Number(
+                      mapLocation?.longitude || 0,
+                    ).toFixed(6)}-${Number(destinationLocation?.latitude || 0).toFixed(6)}:${Number(
+                      destinationLocation?.longitude || 0,
+                    ).toFixed(6)}`}
                     origin={mapLocation}
                     destination={destinationLocation}
                     trailPoints={recentTrailPoints}
@@ -1099,75 +1104,9 @@ const OrderDetailsPage = () => {
                 </div>
               ) : null}
 
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <button
-                  onClick={handleStartLiveTracking}
-                  disabled={
-                    !canShareLiveLocation ||
-                    isTrackingActive ||
-                    isTrackingActionLoading ||
-                    isSendingOtp ||
-                    isVerifyingOtp
-                  }
-                  className="inline-flex min-h-[3rem] flex-1 items-center justify-center gap-2 rounded-2xl bg-cyan-500 px-4 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isStartingTracking ? (
-                    <AuthButtonLoader className="border-slate-950/30 border-t-slate-950" />
-                  ) : (
-                    <LocateFixed size={18} />
-                  )}
-                  {isStartingTracking
-                    ? "Starting..."
-                    : canCompleteReturn
-                    ? "Start Return Pickup Tracking"
-                    : "Start Live Tracking"}
-                </button>
-                <button
-                  onClick={() => stopLiveTracking()}
-                  disabled={!isTrackingActive || isTrackingActionLoading}
-                  className="inline-flex min-h-[3rem] flex-1 items-center justify-center gap-2 rounded-2xl border border-slate-700 px-4 text-sm font-semibold text-slate-200 transition hover:bg-slate-900 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isStoppingTracking ? (
-                    <AuthButtonLoader />
-                  ) : (
-                    <LocateOff size={18} />
-                  )}
-                  {isStoppingTracking ? "Stopping..." : "Stop Tracking"}
-                </button>
+              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
+                Live map tracking remove kar diya gaya hai. Order handling ab status, OTP, cancel, aur return actions se manage hoga.
               </div>
-
-              {isStartingTracking ? (
-                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/10 px-4 py-3 text-sm text-cyan-200">
-                  Live tracking start ho raha hai. Browser location permission allow rakho aur first GPS ping ka wait karo.
-                </div>
-              ) : null}
-
-              {isStoppingTracking ? (
-                <div className="rounded-2xl border border-slate-700 bg-slate-900/80 px-4 py-3 text-sm text-slate-300">
-                  Tracking safely stop ki ja rahi hai.
-                </div>
-              ) : null}
-
-              {hasMapLocation ? (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <a
-                    href={mapLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-700 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-slate-900"
-                  >
-                    Open in Google Maps
-                  </a>
-                  <a
-                    href={directionsUrl || mapLink}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex w-full items-center justify-center rounded-2xl bg-cyan-500 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-cyan-400"
-                  >
-                    Navigate to customer
-                  </a>
-                </div>
-              ) : null}
             </div>
           </div>
 
