@@ -158,8 +158,8 @@ const AIRecommendationDialog = () => {
   return (
     <>
       {isOpen ? (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/35 px-3 pb-24 pt-20 sm:items-center sm:px-4 sm:pb-4">
-          <div className="max-h-[calc(100vh-3rem)] w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_26px_80px_rgba(15,23,42,0.28)] lg:max-w-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/40 px-3 py-4 sm:px-4">
+          <div className="max-h-[min(88vh,46rem)] w-full max-w-md overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_26px_80px_rgba(15,23,42,0.28)] lg:max-w-2xl">
             <div className="flex items-start justify-between gap-4 rounded-t-[28px] bg-gradient-to-r from-orange-500 via-rose-500 to-red-500 px-5 py-4 text-white">
               <div>
                 <p className="text-sm font-bold">Recommended For You</p>
@@ -176,7 +176,7 @@ const AIRecommendationDialog = () => {
               </button>
             </div>
 
-            <div className="themed-scrollbar max-h-[min(60vh,32rem)] space-y-3 overflow-y-auto px-4 py-4 lg:grid lg:grid-cols-1 lg:gap-4 lg:px-5 lg:py-5">
+            <div className="themed-scrollbar max-h-[min(65vh,34rem)] space-y-3 overflow-y-auto px-4 py-4 lg:grid lg:grid-cols-1 lg:gap-4 lg:px-5 lg:py-5">
               {recommendation.products.map((product) => (
                 <Link
                   key={product._id}

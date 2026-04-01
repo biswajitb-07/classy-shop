@@ -19,6 +19,7 @@ import {
   emitDeliveryDashboardUpdate,
   emitDeliveryNotificationUpdate,
 } from "../../socket/socket.js";
+import { ensureOrderShippingLocation } from "../../utils/geocoding.js";
 import {
   createDeliveryPartnerSchema,
   deliveryLoginSchema,
@@ -41,8 +42,10 @@ const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const enrichOrders = async (orders = []) =>
   Promise.all(
     orders.map(async (order) => {
+      const orderObject =
+        typeof order?.toObject === "function" ? order.toObject() : order;
       const detailedItems = await Promise.all(
-        (order.items || []).map(async (item) => {
+        (orderObject.items || []).map(async (item) => {
           const Model = productModels[item.productType];
           if (!Model) return null;
           const product = await Model.findById(item.productId).lean();
@@ -55,11 +58,22 @@ const enrichOrders = async (orders = []) =>
       );
 
       return {
-        ...order,
+        ...orderObject,
         items: detailedItems.filter(Boolean),
       };
     })
   );
+
+const ensureOrdersHaveShippingLocations = async (orders = []) => {
+  await Promise.all(
+    orders.map(async (order) => {
+      const didUpdateLocation = await ensureOrderShippingLocation(order);
+      if (didUpdateLocation) {
+        await order.save();
+      }
+    })
+  );
+};
 
 export const createDeliveryPartner = async (req, res) => {
   try {
@@ -490,8 +504,9 @@ export const getAssignedOrders = async (req, res) => {
         "assignedDeliveryPartner",
         "name email phone vehicleType isAvailable isOnline lastSeenAt"
       )
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
+
+    await ensureOrdersHaveShippingLocations(orders);
 
     const detailedOrders = await enrichOrders(orders);
 

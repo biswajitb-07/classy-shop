@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   FaBoxOpen,
@@ -153,6 +153,28 @@ const formatTimelineTime = (value) => {
   }).format(date);
 };
 
+const formatRelativePingTime = (value) => {
+  if (!value) return "Waiting for live ping";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Waiting for live ping";
+
+  const diffMs = Date.now() - date.getTime();
+  if (diffMs <= 0) return "Last updated just now";
+
+  const diffSeconds = Math.round(diffMs / 1000);
+  if (diffSeconds < 10) return "Last updated just now";
+  if (diffSeconds < 60) return `Last updated ${diffSeconds} sec ago`;
+
+  const diffMinutes = Math.round(diffSeconds / 60);
+  if (diffMinutes < 60) return `Last updated ${diffMinutes} min ago`;
+
+  const diffHours = Math.round(diffMinutes / 60);
+  if (diffHours < 24) return `Last updated ${diffHours} hr ago`;
+
+  return `Last updated ${Math.round(diffHours / 24)} day ago`;
+};
+
 const getMapUrl = (latitude, longitude) =>
   `https://www.google.com/maps?q=${latitude},${longitude}`;
 
@@ -201,6 +223,25 @@ const calculateDistanceKm = (origin, destination) => {
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
   return Number((earthRadiusKm * c).toFixed(1));
+};
+
+const getResolvedTrackingLocation = ({
+  liveLocation,
+  trailPoints = [],
+  currentLocation,
+  restrictToIndia = false,
+}) => {
+  const candidates = [
+    liveLocation,
+    ...(Array.isArray(trailPoints) ? [...trailPoints].reverse() : []),
+    currentLocation,
+  ].filter((point) => hasCoordinate(point?.latitude, point?.longitude));
+
+  const validCandidate = candidates.find(
+    (point) => !restrictToIndia || isWithinIndiaBounds(point),
+  );
+
+  return validCandidate || null;
 };
 
 const formatDistance = (distanceKm) => {
@@ -313,6 +354,58 @@ const getDistanceTrend = ({ trailPoints = [], currentLocation, destination }) =>
     label: "Holding nearby",
     detail: "Rider ki movement stable hai, next ping par fresh direction milegi.",
     tone: "steady",
+  };
+};
+
+const getNearbyState = (distanceKm, isTrackingActive) => {
+  if (!Number.isFinite(Number(distanceKm))) {
+    return {
+      label: isTrackingActive ? "Waiting for route" : "Waiting for ping",
+      detail: isTrackingActive
+        ? "Road route sync hote hi nearby state update hogi."
+        : "Rider ki next live location aate hi nearby state show hogi.",
+      tone: "neutral",
+      priority: false,
+      alertMessage: "",
+    };
+  }
+
+  if (distanceKm <= 0.03) {
+    return {
+      label: "Arriving now",
+      detail: "Delivery partner bilkul aapke pickup point ke paas pahunch gaya hai.",
+      tone: "arrived",
+      priority: true,
+      alertMessage: "Delivery partner has arrived nearby.",
+    };
+  }
+
+  if (distanceKm <= 0.1) {
+    return {
+      label: "Within 100 m",
+      detail: "Rider bahut paas hai. Delivery receive karne ke liye ready raho.",
+      tone: "nearby",
+      priority: true,
+      alertMessage: "Delivery partner is within 100 meters.",
+    };
+  }
+
+  if (distanceKm <= 0.5) {
+    return {
+      label: "Within 500 m",
+      detail: "Delivery partner nearby hai aur kuch hi der me pahunch sakta hai.",
+      tone: "nearby",
+      priority: true,
+      alertMessage: "Delivery partner is nearby.",
+    };
+  }
+
+  return {
+    label: "En route",
+    detail: "Delivery partner abhi route par hai aur aapki taraf aa raha hai.",
+    tone: "neutral",
+    priority: false,
+    alertMessage: "",
   };
 };
 
@@ -590,6 +683,8 @@ const OrderDetailsPage = () => {
   const [liveDestination, setLiveDestination] = useState(null);
   const [trackingSnapshot, setTrackingSnapshot] = useState(null);
   const [isLiveTrackingActive, setIsLiveTrackingActive] = useState(false);
+  const [routeMeta, setRouteMeta] = useState(null);
+  const nearbyAlertRef = useRef("");
   const [saveCustomerLiveLocation, { isLoading: isSavingCustomerLocation }] =
     useSaveCustomerLiveLocationMutation();
 
@@ -637,6 +732,8 @@ const OrderDetailsPage = () => {
         : order.shippingAddress?.location || null
     );
     setIsLiveTrackingActive(Boolean(order.deliveryTracking?.isLive));
+    setRouteMeta(null);
+    nearbyAlertRef.current = "";
   }, [
     order?._id,
     order?.customerLiveLocation?.latitude,
@@ -654,10 +751,11 @@ const OrderDetailsPage = () => {
     if (!order?._id) return undefined;
 
     const socket = connectUserSocket();
+    socket.emit("join:user:order", order._id);
 
     const handleLocationUpdate = (payload) => {
       if (payload?.orderId !== order._id) return;
-      setLiveLocation(payload.location || null);
+      setLiveLocation(payload.location || payload?.tracking?.currentLocation || null);
       setTrackingSnapshot(payload?.tracking || null);
       setIsLiveTrackingActive(Boolean(payload?.tracking?.isLive));
     };
@@ -678,11 +776,66 @@ const OrderDetailsPage = () => {
     socket.on("order:destination:update", handleDestinationUpdate);
 
     return () => {
+      socket.emit("leave:user:order", order._id);
       socket.off("order:location:update", handleLocationUpdate);
       socket.off("order:location:stopped", handleLocationStop);
       socket.off("order:destination:update", handleDestinationUpdate);
     };
   }, [order?._id]);
+
+  useEffect(() => {
+    if (!order?._id) return;
+    const isIndiaOrder = String(order.shippingAddress?.country || "")
+      .trim()
+      .toLowerCase()
+      .includes("india");
+    const trackingInfoLocal = trackingSnapshot || order.deliveryTracking || {};
+    const recentTrailPointsLocal = sanitizeTrackingPoints(
+      trackingInfoLocal?.recentPoints,
+      isIndiaOrder
+    );
+    const trackingLocationLocal = getResolvedTrackingLocation({
+      liveLocation,
+      trailPoints: recentTrailPointsLocal,
+      currentLocation: trackingInfoLocal.currentLocation,
+      restrictToIndia: isIndiaOrder,
+    });
+    const rawDestinationLocationLocal =
+      liveDestination ||
+      order.customerLiveLocation ||
+      order.shippingAddress?.location;
+    const destinationLocationLocal =
+      isIndiaOrder &&
+      rawDestinationLocationLocal &&
+      !isWithinIndiaBounds(rawDestinationLocationLocal)
+        ? order.shippingAddress?.location || null
+        : rawDestinationLocationLocal;
+    const fallbackDistanceKm =
+      hasCoordinate(trackingLocationLocal?.latitude, trackingLocationLocal?.longitude) &&
+      hasCoordinate(destinationLocationLocal?.latitude, destinationLocationLocal?.longitude)
+        ? calculateDistanceKm(trackingLocationLocal, destinationLocationLocal)
+        : null;
+    const effectiveDistanceKm =
+      routeMeta?.distanceKm !== null && routeMeta?.distanceKm !== undefined
+        ? routeMeta.distanceKm
+        : fallbackDistanceKm;
+    const localNearbyState = getNearbyState(effectiveDistanceKm, isLiveTrackingActive);
+
+    if (!localNearbyState.priority) return;
+    if (nearbyAlertRef.current === localNearbyState.label) return;
+
+    toast.success(localNearbyState.alertMessage || "Delivery partner is nearby.", {
+      id: `delivery-nearby-${order._id}-${localNearbyState.label}`,
+    });
+    nearbyAlertRef.current = localNearbyState.label;
+  }, [
+    isLiveTrackingActive,
+    liveDestination,
+    liveLocation,
+    order,
+    routeMeta?.distanceKm,
+    trackingSnapshot,
+  ]);
 
   const getVariantDisplay = (productType, variant) => {
     if (!variant || variant === "default") return null;
@@ -758,13 +911,16 @@ const OrderDetailsPage = () => {
     "return_completed",
   ].includes(order.orderStatus);
   const trackingInfo = trackingSnapshot || order.deliveryTracking || {};
-  const rawTrackingLocation = liveLocation || trackingInfo.currentLocation;
-  const trackingLocation =
-    isIndiaOrder &&
-    rawTrackingLocation &&
-    !isWithinIndiaBounds(rawTrackingLocation)
-      ? null
-      : rawTrackingLocation;
+  const recentTrailPoints = sanitizeTrackingPoints(
+    trackingInfo?.recentPoints,
+    isIndiaOrder
+  );
+  const trackingLocation = getResolvedTrackingLocation({
+    liveLocation,
+    trailPoints: recentTrailPoints,
+    currentLocation: trackingInfo.currentLocation,
+    restrictToIndia: isIndiaOrder,
+  });
   const rawDestinationLocation =
     liveDestination ||
     order.customerLiveLocation ||
@@ -791,6 +947,7 @@ const OrderDetailsPage = () => {
   const hasDestinationLocation = Boolean(
     hasCoordinate(destinationLocation?.latitude, destinationLocation?.longitude)
   );
+  const shouldRenderRouteMap = Boolean(hasTrackingLocation || hasDestinationLocation);
   const showTrackingCard =
     hasTrackingLocation ||
     isLiveTrackingActive ||
@@ -802,20 +959,36 @@ const OrderDetailsPage = () => {
   const directionsUrl = buildDirectionsUrl(trackingLocation, destinationLocation);
   const fallbackMapUrl = buildDirectionsUrl(null, destinationLocation);
   const primaryMapUrl = mapUrl || fallbackMapUrl;
-  const distanceKm =
+  const fallbackDistanceKm =
     hasTrackingLocation && hasDestinationLocation
       ? calculateDistanceKm(trackingLocation, destinationLocation)
       : null;
-  const etaMinutes = estimateEtaMinutes(distanceKm, trackingLocation?.speed);
-  const recentTrailPoints = sanitizeTrackingPoints(
-    trackingInfo?.recentPoints,
-    isIndiaOrder
+  const distanceKm =
+    routeMeta?.distanceKm !== null && routeMeta?.distanceKm !== undefined
+      ? routeMeta.distanceKm
+      : fallbackDistanceKm;
+  const fallbackEtaMinutes = estimateEtaMinutes(
+    fallbackDistanceKm,
+    trackingLocation?.speed
   );
+  const etaMinutes =
+    routeMeta?.durationMinutes !== null && routeMeta?.durationMinutes !== undefined
+      ? routeMeta.durationMinutes
+      : fallbackEtaMinutes;
   const movementTrend = getDistanceTrend({
     trailPoints: recentTrailPoints,
     currentLocation: trackingLocation,
     destination: destinationLocation,
   });
+  const nearbyState = getNearbyState(distanceKm, isLiveTrackingActive);
+  const activeMovementState = nearbyState.priority ? nearbyState : movementTrend;
+  const lastPingAt =
+    trackingLocation?.updatedAt ||
+    trackingLocation?.at ||
+    trackingInfo?.lastSharedAt ||
+    trackingInfo?.updatedAt ||
+    null;
+  const relativePingLabel = formatRelativePingTime(lastPingAt);
   const trackingMilestones = getTrackingMilestones(
     order.orderStatus,
     isLiveTrackingActive
@@ -999,9 +1172,7 @@ const OrderDetailsPage = () => {
               {isLiveTrackingActive ? "Live now" : "Last shared"}
             </span>
             <span className={`text-sm ${mutedText}`}>
-              {formatTimelineTime(
-                trackingLocation?.updatedAt || trackingInfo?.lastSharedAt
-              )}
+              {relativePingLabel}
             </span>
           </div>
         </div>
@@ -1029,28 +1200,32 @@ const OrderDetailsPage = () => {
             </p>
             <p
               className={`mt-2 text-sm font-semibold ${
-                movementTrend.tone === "approaching"
+                activeMovementState.tone === "approaching"
                   ? "text-emerald-500"
-                  : movementTrend.tone === "away"
+                  : activeMovementState.tone === "away"
                   ? "text-rose-500"
+                  : activeMovementState.tone === "nearby" ||
+                    activeMovementState.tone === "arrived" ||
+                    activeMovementState.tone === "steady"
+                  ? "text-cyan-500"
                   : headingText
               }`}
             >
-              {movementTrend.label}
+              {activeMovementState.label}
             </p>
             <p className={`mt-1 text-xs ${mutedText}`}>
-              {movementTrend.detail}
+              {activeMovementState.detail}
             </p>
           </div>
           <div className={`${isDark ? "bg-slate-950/70 border-slate-800" : "bg-white border-cyan-100"} rounded-2xl border p-4`}>
             <p className={`text-xs uppercase tracking-[0.22em] ${mutedText}`}>
-              Destination
+              Nearby state
             </p>
             <p className={`mt-2 text-sm font-semibold ${headingText}`}>
-              {order.shippingAddress?.city || "Customer address"}
+              {nearbyState.label}
             </p>
             <p className={`mt-1 text-xs ${mutedText}`}>
-              {hasDestinationLocation ? "Route mapped" : "Address pin syncing"}
+              {nearbyState.detail}
             </p>
           </div>
         </div>
@@ -1078,13 +1253,81 @@ const OrderDetailsPage = () => {
         </div>
       </div>
 
-      {hasDestinationLocation ? (
+      {shouldRenderRouteMap ? (
         <div className="mt-5">
+          <div
+            className={`mb-4 rounded-[24px] border p-4 ${
+              isDark ? "border-slate-700 bg-slate-950/70" : "border-slate-200 bg-slate-50/90"
+            }`}
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className={`text-xs uppercase tracking-[0.22em] ${mutedText}`}>
+                  Live delivery map
+                </p>
+                <h3 className={`mt-2 text-2xl font-black ${headingText}`}>
+                  {etaMinutes
+                    ? `Arriving in ${formatEta(etaMinutes)}`
+                    : hasDestinationLocation
+                    ? "Delivery partner is on the way"
+                    : "Waiting for destination pin"}
+                </h3>
+                <p className={`mt-2 text-sm ${mutedText}`}>
+                  {hasDestinationLocation
+                    ? "Map ab live route, rider movement aur zoom controls ke saath update hota rahega."
+                    : "Destination pin sync hote hi full route line automatically draw hogi."}
+                </p>
+              </div>
+
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div
+                  className={`rounded-2xl border px-4 py-3 ${
+                    isDark ? "border-slate-800 bg-slate-900/80" : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${mutedText}`}>
+                    Tracking
+                  </p>
+                  <p className={`mt-2 text-sm font-bold ${headingText}`}>
+                    {isLiveTrackingActive ? "Live now" : "Waiting for ping"}
+                  </p>
+                  <p className={`mt-1 text-xs ${mutedText}`}>{relativePingLabel}</p>
+                </div>
+                <div
+                  className={`rounded-2xl border px-4 py-3 ${
+                    isDark ? "border-slate-800 bg-slate-900/80" : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${mutedText}`}>
+                    Distance
+                  </p>
+                  <p className={`mt-2 text-sm font-bold ${headingText}`}>
+                    {formatDistance(distanceKm)}
+                  </p>
+                </div>
+                <div
+                  className={`rounded-2xl border px-4 py-3 ${
+                    isDark ? "border-slate-800 bg-slate-900/80" : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <p className={`text-[11px] uppercase tracking-[0.18em] ${mutedText}`}>
+                    Nearby
+                  </p>
+                  <p className={`mt-2 text-sm font-bold ${headingText}`}>
+                    {nearbyState.label}
+                  </p>
+                  <p className={`mt-1 text-xs ${mutedText}`}>{nearbyState.detail}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <LiveRouteMap
             origin={trackingLocation}
-            destination={destinationLocation}
+            destination={hasDestinationLocation ? destinationLocation : null}
             trailPoints={recentTrailPoints}
-            heightClass="h-72"
+            heightClass="h-[24rem] md:h-[30rem]"
+            reverseRouteDirection
             restrictToIndia={isIndiaOrder}
             riderLabel={order.assignedDeliveryPartner?.name || "Delivery partner"}
             destinationLabel={
@@ -1092,7 +1335,40 @@ const OrderDetailsPage = () => {
                 ? "Your live location"
                 : order.shippingAddress?.fullName || "Customer"
             }
+            statusLabel={
+              isLiveTrackingActive ? "Tracking your order" : "Waiting for live ping"
+            }
+            headline={
+              etaMinutes
+                ? `Arriving in ${etaMinutes < 60 ? `${etaMinutes} mins` : `${Math.floor(etaMinutes / 60)}h ${etaMinutes % 60 ? `${etaMinutes % 60}m` : ""}`.trim()}`
+                : hasDestinationLocation
+                ? "Delivery partner is on the way"
+                : "Waiting for destination pin"
+            }
+            subheadline={
+              routeMeta?.isFallback
+                ? "Road route sync ho raha hai. Filhaal fallback connector active hai."
+                : hasDestinationLocation
+                ? "Blue route rider ke live position ke hisaab se update hoti rahegi."
+                : "Customer destination pin sync hote hi full route draw ho jayega."
+            }
+            etaLabel={formatEta(etaMinutes)}
+            distanceLabel={formatDistance(distanceKm)}
+            movementLabel={activeMovementState.label}
+            heading={trackingLocation?.heading || trackingInfo?.currentLocation?.heading}
+            onRouteMetaChange={setRouteMeta}
           />
+        </div>
+      ) : null}
+
+      {!hasDestinationLocation ? (
+        <div
+          className={`mt-4 rounded-2xl border border-dashed p-4 text-sm ${mutedText} ${
+            isDark ? "border-slate-700 bg-slate-950/60" : "border-gray-200 bg-gray-50"
+          }`}
+        >
+          Customer destination pin sync hote hi solid blue route line bhi show hone lagegi.
+          Abhi rider ki live location map par visible rahegi.
         </div>
       ) : null}
 
@@ -1114,22 +1390,6 @@ const OrderDetailsPage = () => {
           }`}
         >
           <p className={`text-xs uppercase tracking-[0.22em] ${mutedText}`}>
-            Rider position
-          </p>
-          <p className={`mt-2 text-sm font-semibold ${headingText}`}>
-            {hasTrackingLocation
-              ? `${Number(trackingLocation.latitude).toFixed(5)}, ${Number(
-                  trackingLocation.longitude
-                ).toFixed(5)}`
-              : "Waiting for live rider ping"}
-          </p>
-        </div>
-        <div
-          className={`rounded-2xl border p-4 ${
-            isDark ? "border-slate-700 bg-slate-950/60" : "border-gray-200 bg-gray-50"
-          }`}
-        >
-          <p className={`text-xs uppercase tracking-[0.22em] ${mutedText}`}>
             Delivery destination
           </p>
           <p className={`mt-2 text-sm font-semibold ${headingText}`}>
@@ -1143,6 +1403,22 @@ const OrderDetailsPage = () => {
                   destinationLocation?.longitude || 0
                 ).toFixed(5)}`
               : `${order.shippingAddress?.city}, ${order.shippingAddress?.state}`}
+          </p>
+        </div>
+        <div
+          className={`rounded-2xl border p-4 ${
+            isDark ? "border-slate-700 bg-slate-950/60" : "border-gray-200 bg-gray-50"
+          }`}
+        >
+          <p className={`text-xs uppercase tracking-[0.22em] ${mutedText}`}>
+            Rider position
+          </p>
+          <p className={`mt-2 text-sm font-semibold ${headingText}`}>
+            {hasTrackingLocation
+              ? `${Number(trackingLocation.latitude).toFixed(5)}, ${Number(
+                  trackingLocation.longitude
+                ).toFixed(5)}`
+              : "Waiting for live rider ping"}
           </p>
         </div>
       </div>
@@ -1159,7 +1435,7 @@ const OrderDetailsPage = () => {
           Dashed cyan trail rider ke recent movement ko dikhata hai.
         </p>
         <p className={`mt-1 text-xs ${mutedText}`}>
-          Blue line current route hai. Rider aage ya piche move karega to trend aur map dono live update honge.
+          Blue line current route hai. Rider aage ya piche move karega to trend, nearby state aur map sab live update honge.
         </p>
       </div>
 

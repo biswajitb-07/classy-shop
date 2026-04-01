@@ -56,6 +56,17 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
+const ensureOrdersHaveShippingLocations = async (orders = []) => {
+  await Promise.all(
+    orders.map(async (order) => {
+      const didUpdateLocation = await ensureOrderShippingLocation(order);
+      if (didUpdateLocation) {
+        await order.save();
+      }
+    })
+  );
+};
+
 const RETURN_POLICY_DAYS = 10;
 const RETURN_POLICY_WINDOW_MS =
   RETURN_POLICY_DAYS * 24 * 60 * 60 * 1000;
@@ -998,6 +1009,9 @@ export const getUserOrders = async (req, res) => {
         "name email phone vehicleType isAvailable isOnline lastSeenAt"
       )
       .sort({ createdAt: -1 });
+
+    await ensureOrdersHaveShippingLocations(orders);
+
     const detailedOrders = await Promise.all(
       orders.map(async (order) => {
         const detailedItems = await Promise.all(
@@ -1034,8 +1048,10 @@ export const getVendorOrders = async (req, res) => {
         "assignedDeliveryPartner",
         "name email phone vehicleType isAvailable isOnline lastSeenAt"
       )
-      .sort({ createdAt: -1 })
-      .lean();
+      .sort({ createdAt: -1 });
+
+    await ensureOrdersHaveShippingLocations(orders);
+
     const detailedOrders = await Promise.all(
       orders.map(async (order) => {
         const detailedItems = await Promise.all(
@@ -1045,13 +1061,13 @@ export const getVendorOrders = async (req, res) => {
             const product = await Model.findById(item.productId).lean();
             if (!product) return null;
             return {
-              ...item,
+              ...item.toObject(),
               product,
             };
           })
         );
         return {
-          ...order,
+          ...order.toObject(),
           items: detailedItems.filter(Boolean),
         };
       })

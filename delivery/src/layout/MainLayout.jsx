@@ -24,6 +24,7 @@ import {
 import { orderApi } from "../features/api/orderApi";
 import { setSidebarOpen, toggleSidebar } from "../features/authSlice";
 import AuthButtonLoader from "../component/Loader/AuthButtonLoader";
+import RouteTransitionLoader from "../component/router/RouteTransitionLoader.jsx";
 import { disconnectDeliverySocket, getDeliverySocket } from "../lib/socket";
 
 const navigationItems = [
@@ -275,6 +276,7 @@ const MainLayout = () => {
 
   return (
     <div className="relative h-screen w-full overflow-hidden bg-slate-950 text-slate-100">
+      <RouteTransitionLoader />
       <aside
         className={`vendor-sidebar-scrollbar fixed top-0 left-0 z-50 flex h-screen w-[19rem] flex-col overflow-y-auto border-r border-slate-800 bg-[linear-gradient(180deg,#050816_0%,#0f172a_48%,#111827_100%)] px-4 py-4 shadow-[0_24px_60px_rgba(0,0,0,0.45)] transition-transform duration-300 ease-out sm:w-[20rem] sm:px-5 sm:py-5 ${
           isOpen ? "translate-x-0" : "-translate-x-full"
@@ -436,7 +438,7 @@ const MainLayout = () => {
                 </button>
 
                 {isNotificationOpen ? (
-                  <div className="absolute right-0 mt-3 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+                  <div className="fixed left-3 right-3 top-[5.6rem] z-[65] overflow-hidden rounded-[1.75rem] border border-slate-800 bg-slate-950 shadow-[0_24px_60px_rgba(0,0,0,0.45)] sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-3 sm:w-[24rem] sm:max-w-[calc(100vw-2rem)]">
                     <div className="flex items-center justify-between gap-3 border-b border-slate-800 px-4 py-4">
                       <div>
                         <p className="text-sm font-bold text-white">Notifications</p>
@@ -468,7 +470,7 @@ const MainLayout = () => {
                       </button>
                     </div>
 
-                    <div className="max-h-[24rem] overflow-y-auto">
+                    <div className="vendor-sidebar-scrollbar max-h-[min(65vh,24rem)] overflow-y-auto">
                       {notifications.length ? (
                         notifications.map((notification) => (
                           <div
