@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   PRODUCT_MAX_PRICE,
@@ -52,7 +52,13 @@ const areSameNormalizedLists = (left = [], right = []) => {
   );
 };
 
-const buildSearchParams = ({ filters, page, defaultCategories }) => {
+const buildSearchParams = ({
+  filters,
+  page,
+  defaultCategories,
+  subcategory,
+  thirdcategory,
+}) => {
   const params = new URLSearchParams();
   const nextFilters = filters || createDefaultProductFilters();
   const categories = uniqueValues(nextFilters.categories || []);
@@ -86,6 +92,8 @@ const buildSearchParams = ({ filters, page, defaultCategories }) => {
   if (nextFilters.stockOnly) params.set("stock", "1");
   if (minDiscount > 0) params.set("discount", String(minDiscount));
   if (currentPage > 1) params.set("page", String(currentPage));
+  if (subcategory) params.set("subcategory", subcategory);
+  if (thirdcategory) params.set("thirdcategory", thirdcategory);
 
   return params;
 };
@@ -139,6 +147,39 @@ export const useProductListingQueryState = ({ subcategory, thirdcategory }) => {
     return Number.isFinite(pageValue) && pageValue > 0 ? Math.floor(pageValue) : 1;
   }, [searchParams]);
 
+  useEffect(() => {
+    const querySubcategory = searchParams.get("subcategory") || "";
+    const queryThirdcategory = searchParams.get("thirdcategory") || "";
+    const nextSubcategory = subcategory || "";
+    const nextThirdcategory = thirdcategory || "";
+
+    if (
+      querySubcategory === nextSubcategory &&
+      queryThirdcategory === nextThirdcategory
+    ) {
+      return;
+    }
+
+    setSearchParams(
+      buildSearchParams({
+        filters: appliedFilters,
+        page: currentPage,
+        defaultCategories,
+        subcategory: nextSubcategory,
+        thirdcategory: nextThirdcategory,
+      }),
+      { replace: true },
+    );
+  }, [
+    appliedFilters,
+    currentPage,
+    defaultCategories,
+    searchParams,
+    setSearchParams,
+    subcategory,
+    thirdcategory,
+  ]);
+
   const updateListingState = useCallback(
     (filters, page = 1) => {
       setSearchParams(
@@ -146,10 +187,12 @@ export const useProductListingQueryState = ({ subcategory, thirdcategory }) => {
           filters,
           page,
           defaultCategories,
+          subcategory,
+          thirdcategory,
         }),
       );
     },
-    [defaultCategories, setSearchParams],
+    [defaultCategories, setSearchParams, subcategory, thirdcategory],
   );
 
   const setListingFilters = useCallback(

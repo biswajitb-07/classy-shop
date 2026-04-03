@@ -92,6 +92,364 @@ const sanitizeUserForClient = (userDoc) => {
 const normalizeReferralValue = (value) =>
   String(value || "").trim().toUpperCase();
 
+const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
+
+const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const resolvePortalAccountType = (role) => (role === "admin" ? "admin" : "user");
+
+const buildPortalAuthPayload = (user, role = "user") => {
+  const sanitizedUser = sanitizeUserForClient(user);
+
+  if (role === "admin") {
+    return {
+      user: sanitizedUser,
+      vendor: sanitizedUser,
+    };
+  }
+
+  return {
+    user: sanitizedUser,
+  };
+};
+
+const findPortalUserByEmail = async (email, expectedRole = "user") => {
+  const normalizedEmail = normalizeEmail(email);
+  const user = await User.findOne({
+    email: new RegExp(`^${escapeRegex(normalizedEmail)}$`, "i"),
+  });
+
+  if (!user) return null;
+
+  if (expectedRole && user.role !== expectedRole) {
+    return "wrong-role";
+  }
+
+  return user;
+};
+
+const loginPortal = async (req, res, expectedRole = "user") => {
+  const validatedData = loginSchema.safeParse(req.body);
+  if (!validatedData.success) {
+    const fieldErrors = validatedData.error.issues.reduce((acc, issue) => {
+      acc[issue.path[0]] = issue.message;
+      return acc;
+    }, {});
+
+    return res.status(400).json({
+      success: false,
+      message: "Invalid input",
+      errors: fieldErrors,
+    });
+  }
+
+  const { email, password } = validatedData.data;
+  const user = await findPortalUserByEmail(email, expectedRole);
+
+  if (!user) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid credentials",
+    });
+  }
+
+  if (user === "wrong-role") {
+    return res.status(403).json({
+      success: false,
+      message:
+        expectedRole === "admin"
+          ? "This account can login only in the user app"
+          : "This account can login only in the admin app",
+    });
+  }
+
+  await ensureUserBenefits(user);
+  await user.save();
+
+  if (user.isBlocked) {
+    return res.status(403).json({
+      success: false,
+      message: "Your account has been blocked plz contact customer care",
+    });
+  }
+
+  const isPasswordMatch = await bcrypt.compare(password, user.password);
+  if (!isPasswordMatch) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid credentials",
+    });
+  }
+
+  setUserAuthCookies(res, user._id);
+  await ensureAiUserMemory(user._id);
+
+  return res.status(200).json({
+    success: true,
+    message: `Welcome back ${user.name}`,
+    ...buildPortalAuthPayload(user, expectedRole),
+  });
+};
+
+const getPortalProfile = async (req, res, expectedRole = "user") => {
+  const user = await User.findById(req.id);
+  if (!user) {
+    return res.status(404).json({
+      message: "Profile not found",
+      success: false,
+    });
+  }
+
+  if (user.role !== expectedRole) {
+    return res.status(403).json({
+      success: false,
+      message:
+        expectedRole === "admin" ? "Admin access only" : "User access only",
+    });
+  }
+
+  await ensureUserBenefits(user);
+  await user.save();
+
+  return res.status(200).json({
+    success: true,
+    ...buildPortalAuthPayload(user, expectedRole),
+  });
+};
+
+const updatePortalProfile = async (req, res, expectedRole = "user") => {
+  const userId = req.id;
+  const { name, phone, bio, dob, addresses } = req.body;
+  const profilePhoto = req.file;
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found",
+    });
+  }
+
+  if (user.role !== expectedRole) {
+    return res.status(403).json({
+      success: false,
+      message:
+        expectedRole === "admin" ? "Admin access only" : "User access only",
+    });
+  }
+
+  let photoUrl = user.photoUrl;
+  if (profilePhoto) {
+    if (user.photoUrl) {
+      const urlParts = user.photoUrl.split("/");
+      const filename = urlParts[urlParts.length - 1];
+      const publicId = filename.split(".")[0];
+      await deleteMediaFromCloudinary(`falcon/image/${publicId}`);
+    }
+
+    if (req.file.size > 10 * 1024 * 1024) {
+      return res.status(400).json({
+        success: false,
+        message: "File size exceeds the 10MB limit.",
+      });
+    }
+
+    const cloudResponse = await uploadMedia(req.file);
+    if (!cloudResponse || !cloudResponse.secure_url) {
+      return res.status(500).json({
+        success: false,
+        message: "Failed to upload profile photo.",
+      });
+    }
+
+    photoUrl = cloudResponse.secure_url;
+  }
+
+  const parsedAddresses = normalizeAddresses(
+    typeof addresses === "string" ? JSON.parse(addresses) : addresses
+  );
+
+  const updatedUser = await User.findByIdAndUpdate(
+    userId,
+    { name, phone, bio, dob, addresses: parsedAddresses, photoUrl },
+    { new: true }
+  );
+
+  return res.status(200).json({
+    success: true,
+    message: "Profile updated successfully.",
+    ...buildPortalAuthPayload(updatedUser, expectedRole),
+  });
+};
+
+const changePortalPassword = async (req, res, expectedRole = "user") => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: "Current and new password are required",
+    });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: "Password must be at least 6 characters",
+    });
+  }
+
+  const user = await User.findById(req.id);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: "User not found",
+    });
+  }
+
+  if (user.role !== expectedRole) {
+    return res.status(403).json({
+      success: false,
+      message:
+        expectedRole === "admin" ? "Admin access only" : "User access only",
+    });
+  }
+
+  const isMatch = await bcrypt.compare(currentPassword, user.password);
+  if (!isMatch) {
+    return res.status(401).json({
+      success: false,
+      message: "Current password is incorrect",
+    });
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(newPassword, salt);
+  await user.save();
+
+  try {
+    await sendPasswordChangedEmail({
+      to: user.email,
+      name: user.name,
+      accountType: resolvePortalAccountType(expectedRole),
+    });
+  } catch (mailErr) {
+    console.error("Confirmation mail error:", mailErr);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Password updated successfully",
+  });
+};
+
+const sendPortalResetOtp = async (req, res, expectedRole = "user") => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.json({ success: false, message: "Email is required" });
+  }
+
+  const user = await findPortalUserByEmail(email, expectedRole);
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: `${expectedRole === "admin" ? "Admin" : "User"} not found`,
+    });
+  }
+
+  if (user === "wrong-role") {
+    return res.status(403).json({
+      success: false,
+      message:
+        expectedRole === "admin"
+          ? "This account can login only in the user app"
+          : "This account can login only in the admin app",
+    });
+  }
+
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+  user.resetOtp = createOtpHash(otp);
+  user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+  await user.save();
+
+  await sendResetOtpEmail({
+    to: user.email,
+    name: user.name,
+    otp,
+    accountType: resolvePortalAccountType(expectedRole),
+  });
+
+  return res.json({ success: true, message: "OTP sent your email" });
+};
+
+const resetPortalPassword = async (req, res, expectedRole = "user") => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: "Email, OTP, and new password are required",
+    });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: "Password must be at least 6 characters",
+    });
+  }
+
+  const user = await findPortalUserByEmail(email, expectedRole);
+
+  if (!user) {
+    return res.status(404).json({
+      success: false,
+      message: `${expectedRole === "admin" ? "Admin" : "User"} not found`,
+    });
+  }
+
+  if (user === "wrong-role") {
+    return res.status(403).json({
+      success: false,
+      message:
+        expectedRole === "admin"
+          ? "This account can login only in the user app"
+          : "This account can login only in the admin app",
+    });
+  }
+
+  if (!user.resetOtp || user.resetOtp !== createOtpHash(otp)) {
+    return res.status(400).json({ success: false, message: "Invalid OTP" });
+  }
+
+  if (user.resetOtpExpireAt < Date.now()) {
+    return res.status(400).json({ success: false, message: "OTP Expired" });
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(newPassword, salt);
+  user.resetOtp = "";
+  user.resetOtpExpireAt = 0;
+  await user.save();
+
+  try {
+    await sendPasswordChangedEmail({
+      to: user.email,
+      name: user.name,
+      accountType: resolvePortalAccountType(expectedRole),
+    });
+  } catch (mailErr) {
+    console.error("Confirmation mail error:", mailErr);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Password has been reset successfully",
+  });
+};
+
 const validateReferralLinkContext = (referralCode, referralLinkCode) => {
   if (!referralCode) return null;
 
@@ -234,56 +592,15 @@ export const register = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const validatedData = loginSchema.safeParse(req.body);
-    if (!validatedData.success) {
-      const fieldErrors = validatedData.error.issues.reduce((acc, issue) => {
-        acc[issue.path[0]] = issue.message;
-        return acc;
-      }, {});
-      return res.status(400).json({
-        success: false,
-        message: "Invalid input",
-        errors: fieldErrors,
-      });
-    }
+    return await loginPortal(req, res, "user");
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    const { email, password } = validatedData.data;
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    await ensureUserBenefits(user);
-    await user.save();
-
-    if (user.isBlocked) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been blocked plz contact customer care",
-      });
-    }
-
-    const isPasswordMatch = await bcrypt.compare(password, user.password);
-    if (!isPasswordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    // The frontend uses cookie-based auth, so successful login mainly means
-    // issuing signed cookies rather than returning a token to localStorage.
-    setUserAuthCookies(res, user._id);
-    await ensureAiUserMemory(user._id);
-    return res.status(200).json({
-      success: true,
-      message: `Welcome back ${user.name}`,
-      user: sanitizeUserForClient(user),
-    });
+export const adminLogin = async (req, res) => {
+  try {
+    return await loginPortal(req, res, "admin");
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -473,24 +790,26 @@ export const getUserSocketAuth = async (req, res) => {
   }
 };
 
-export const getUserProfile = async (req, res) => {
+export const getAdminSocketAuth = async (req, res) => {
   try {
-    const userId = req.id;
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        message: "Profile not found",
-        success: false,
-      });
-    }
-
-    await ensureUserBenefits(user);
-    await user.save();
-
     return res.status(200).json({
       success: true,
-      user: sanitizeUserForClient(user),
+      socketToken: signSocketToken({
+        userId: req.id,
+        role: "admin",
+      }),
     });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create socket auth token",
+    });
+  }
+};
+
+export const getUserProfile = async (req, res) => {
+  try {
+    return await getPortalProfile(req, res, "user");
   } catch (error) {
     console.log(error);
     return res.status(500).json({
@@ -500,66 +819,33 @@ export const getUserProfile = async (req, res) => {
   }
 };
 
+export const getAdminProfile = async (req, res) => {
+  try {
+    return await getPortalProfile(req, res, "admin");
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load admin",
+    });
+  }
+};
+
 export const updateUserProfile = async (req, res) => {
   try {
-    const userId = req.id;
-    const { name, phone, bio, dob, addresses } = req.body;
-    const profilePhoto = req.file;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    let photoUrl = user.photoUrl;
-    if (profilePhoto) {
-      if (user.photoUrl) {
-        // Replace the old Cloudinary asset so repeated profile updates do not
-        // keep orphaned images around in the cloud account.
-        const urlParts = user.photoUrl.split("/");
-        const filename = urlParts[urlParts.length - 1];
-        const publicId = filename.split(".")[0];
-        await deleteMediaFromCloudinary(`falcon/image/${publicId}`);
-      }
-
-      if (req.file.size > 10 * 1024 * 1024) {
-        return res.status(400).json({
-          success: false,
-          message: "File size exceeds the 10MB limit.",
-        });
-      }
-
-      const cloudResponse = await uploadMedia(req.file);
-      if (!cloudResponse || !cloudResponse.secure_url) {
-        return res.status(500).json({
-          success: false,
-          message: "Failed to upload profile photo.",
-        });
-      }
-
-      photoUrl = cloudResponse.secure_url;
-    }
-
-    const parsedAddresses = normalizeAddresses(
-      typeof addresses === "string" ? JSON.parse(addresses) : addresses
-    );
-
-    // The profile page sends a single default address block, but the schema
-    // still supports an address array for future expansion.
-    const updatedUser = await User.findByIdAndUpdate(
-      userId,
-      { name, phone, bio, dob, addresses: parsedAddresses, photoUrl },
-      { new: true }
-    ).select("-password");
-
-    return res.status(200).json({
-      success: true,
-      user: updatedUser,
-      message: "Profile updated successfully.",
+    return await updatePortalProfile(req, res, "user");
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update profile.",
     });
+  }
+};
+
+export const updateAdminProfile = async (req, res) => {
+  try {
+    return await updatePortalProfile(req, res, "admin");
   } catch (error) {
     console.error(error);
     return res.status(500).json({
@@ -607,56 +893,18 @@ export const updateUserAddresses = async (req, res) => {
 
 export const changePassword = async (req, res) => {
   try {
-    const { currentPassword, newPassword } = req.body;
-
-    if (!currentPassword || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Current and new password are required",
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters",
-      });
-    }
-
-    const user = await User.findById(req.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    const isMatch = await bcrypt.compare(currentPassword, user.password);
-    if (!isMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Current password is incorrect",
-      });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    user.password = await bcrypt.hash(newPassword, salt);
-    await user.save();
-
-    try {
-      await sendPasswordChangedEmail({
-        to: user.email,
-        name: user.name,
-        accountType: "user",
-      });
-    } catch (mailErr) {
-      console.error("Confirmation mail error:", mailErr);
-    }
-
-    return res.status(200).json({
-      success: true,
-      message: "Password updated successfully",
+    return await changePortalPassword(req, res, "user");
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
     });
+  }
+};
+
+export const adminChangePassword = async (req, res) => {
+  try {
+    return await changePortalPassword(req, res, "admin");
   } catch (error) {
     return res.status(500).json({
       success: false,
@@ -667,34 +915,18 @@ export const changePassword = async (req, res) => {
 
 export const sendResetOtp = async (req, res) => {
   try {
-    const { email } = req.body;
+    return await sendPortalResetOtp(req, res, "user");
+  } catch (error) {
+    console.log(error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to send otp" });
+  }
+};
 
-    if (!email) {
-      return res.json({ success: false, message: "Email is required" });
-    }
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    }
-
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-
-    user.resetOtp = createOtpHash(otp);
-    user.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
-
-    await user.save();
-
-    await sendResetOtpEmail({
-      to: user.email,
-      name: user.name,
-      otp,
-      accountType: "user",
-    });
-
-    return res.json({ success: true, message: "OTP sent your email" });
+export const sendAdminResetOtp = async (req, res) => {
+  try {
+    return await sendPortalResetOtp(req, res, "admin");
   } catch (error) {
     console.log(error);
     return res
@@ -705,62 +937,20 @@ export const sendResetOtp = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
-
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Email, OTP, and new password are required",
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters",
-      });
-    }
-
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res
-        .status(404)
-        .json({ success: false, message: "User not found" });
-    }
-
-    if (!user.resetOtp || user.resetOtp !== createOtpHash(otp)) {
-      return res.status(400).json({ success: false, message: "Invalid OTP" });
-    }
-
-    if (user.resetOtpExpireAt < Date.now()) {
-      return res.status(400).json({ success: false, message: "OTP Expired" });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(newPassword, salt);
-
-    user.password = hashPassword;
-    user.resetOtp = "";
-    user.resetOtpExpireAt = 0;
-
-    await user.save();
-
-    try {
-      await sendPasswordChangedEmail({
-        to: user.email,
-        name: user.name,
-        accountType: "user",
-      });
-    } catch (mailErr) {
-      console.error("Confirmation mail error:", mailErr);
-    }
-
-    return res
-      .status(200)
-      .json({ success: true, message: "Password has been reset successfully" });
+    return await resetPortalPassword(req, res, "user");
   } catch (error) {
     console.error("Reset Password Error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error during password reset" });
+  }
+};
+
+export const adminResetPassword = async (req, res) => {
+  try {
+    return await resetPortalPassword(req, res, "admin");
+  } catch (error) {
+    console.error("Admin Reset Password Error:", error);
     res
       .status(500)
       .json({ success: false, message: "Server error during password reset" });

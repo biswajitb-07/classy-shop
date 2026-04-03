@@ -29,6 +29,30 @@ export const orderApi = createApi({
             ]
           : ["UserNotification"],
     }),
+    markUserNotificationsRead: builder.mutation({
+      query: () => ({
+        url: `/notifications/read`,
+        method: "PATCH",
+      }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          orderApi.util.updateQueryData("getUserNotifications", undefined, (draft) => {
+            if (!draft?.notifications) return;
+            draft.notifications.forEach((notification) => {
+              notification.isRead = true;
+              notification.readAt = notification.readAt || new Date().toISOString();
+            });
+          })
+        );
+
+        try {
+          await queryFulfilled;
+        } catch (_error) {
+          patchResult.undo();
+        }
+      },
+      invalidatesTags: ["UserNotification"],
+    }),
     createOrder: builder.mutation({
       query: (body) => ({
         url: `/create`,
@@ -182,6 +206,7 @@ export const orderApi = createApi({
 export const {
   useGetUserOrdersQuery,
   useGetUserNotificationsQuery,
+  useMarkUserNotificationsReadMutation,
   useCreateOrderMutation,
   useValidateCouponMutation,
   useConfirmPaymentMutation,

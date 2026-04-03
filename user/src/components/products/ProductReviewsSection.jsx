@@ -18,6 +18,12 @@ const defaultFormState = {
   comment: "",
 };
 
+const reviewSortOptions = [
+  { value: "newest", label: "Newest first" },
+  { value: "highest", label: "Highest rating" },
+  { value: "lowest", label: "Lowest rating" },
+];
+
 const formatReviewDate = (value) =>
   new Intl.DateTimeFormat("en-IN", {
     day: "2-digit",
@@ -54,6 +60,7 @@ const ProductReviewsSection = ({
   const reviewSliderRef = useRef(null);
   const [activeReviewIndex, setActiveReviewIndex] = useState(0);
   const [failedReviewAvatars, setFailedReviewAvatars] = useState({});
+  const [reviewSort, setReviewSort] = useState("newest");
 
   const { data: reviewsData, isLoading: isReviewsLoading } =
     useGetProductReviewsQuery(
@@ -78,6 +85,28 @@ const ProductReviewsSection = ({
 
   const userReview = metaData?.userReview || null;
   const reviews = reviewsData?.reviews || [];
+  const sortedReviews = useMemo(() => {
+    const nextReviews = [...reviews];
+
+    if (reviewSort === "highest") {
+      return nextReviews.sort(
+        (left, right) => Number(right.rating || 0) - Number(left.rating || 0)
+      );
+    }
+
+    if (reviewSort === "lowest") {
+      return nextReviews.sort(
+        (left, right) => Number(left.rating || 0) - Number(right.rating || 0)
+      );
+    }
+
+    return nextReviews.sort(
+      (left, right) =>
+        new Date(right.updatedAt || right.createdAt || 0) -
+        new Date(left.updatedAt || left.createdAt || 0)
+    );
+  }, [reviewSort, reviews]);
+
   const summary = useMemo(
     () => ({
       averageRating:
@@ -121,7 +150,7 @@ const ProductReviewsSection = ({
 
   useEffect(() => {
     setActiveReviewIndex(0);
-  }, [reviews.length, productId, productType]);
+  }, [sortedReviews.length, productId, productType]);
 
   const handleStarSelect = (value) => {
     setForm((prev) => ({ ...prev, rating: value }));
@@ -140,7 +169,7 @@ const ProductReviewsSection = ({
   const scrollToReview = (index) => {
     if (!reviewSliderRef.current) return;
 
-    const boundedIndex = Math.max(0, Math.min(index, reviews.length - 1));
+    const boundedIndex = Math.max(0, Math.min(index, sortedReviews.length - 1));
     const container = reviewSliderRef.current;
     const nextCard = container.children[boundedIndex];
 
@@ -164,7 +193,9 @@ const ProductReviewsSection = ({
 
     const nextIndex = Math.round(container.scrollLeft / cardWidth);
     if (nextIndex !== activeReviewIndex) {
-      setActiveReviewIndex(Math.max(0, Math.min(nextIndex, reviews.length - 1)));
+      setActiveReviewIndex(
+        Math.max(0, Math.min(nextIndex, sortedReviews.length - 1))
+      );
     }
   };
 
@@ -425,7 +456,19 @@ const ProductReviewsSection = ({
           <div>
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900">Customer reviews</h3>
-              {reviews.length > 1 ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={reviewSort}
+                  onChange={(event) => setReviewSort(event.target.value)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 outline-none focus:border-slate-400"
+                >
+                  {reviewSortOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              {sortedReviews.length > 1 ? (
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -438,27 +481,28 @@ const ProductReviewsSection = ({
                   <button
                     type="button"
                     onClick={() => scrollToReview(activeReviewIndex + 1)}
-                    disabled={activeReviewIndex >= reviews.length - 1}
+                    disabled={activeReviewIndex >= sortedReviews.length - 1}
                     className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-red-200 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <FaChevronRight />
                   </button>
                 </div>
               ) : null}
+              </div>
             </div>
             <div className="mt-4 space-y-4">
               {isReviewsLoading ? (
                 <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
                   Reviews load ho rahe hain...
                 </div>
-              ) : reviews.length ? (
+              ) : sortedReviews.length ? (
                 <>
                   <div
                     ref={reviewSliderRef}
                     onScroll={handleReviewScroll}
                     className="flex snap-x snap-mandatory gap-4 overflow-x-auto scroll-smooth pb-2 scrollbar-hide"
                   >
-                    {reviews.map((review) => (
+                    {sortedReviews.map((review) => (
                       <article
                         key={review._id}
                         className="min-w-full snap-start rounded-[1.9rem] border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md"
@@ -512,9 +556,9 @@ const ProductReviewsSection = ({
                     ))}
                   </div>
 
-                  {reviews.length > 1 ? (
+                  {sortedReviews.length > 1 ? (
                     <div className="flex items-center justify-center gap-2 pt-1">
-                      {reviews.map((review, index) => (
+                      {sortedReviews.map((review, index) => (
                         <button
                           key={review._id}
                           type="button"

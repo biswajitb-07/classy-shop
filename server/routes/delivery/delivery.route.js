@@ -5,9 +5,11 @@ import {
   getAssignedOrders,
   getDeliveryDashboardSummary,
   getDeliveryNotifications,
+  getDeliveryPayouts,
   getDeliveryProfile,
   getDeliverySocketAuth,
   loginDeliveryPartner,
+  markDeliveryNotificationsAsRead,
   logoutDeliveryPartner,
   toggleDeliveryAvailability,
 } from "../../controllers/delivery/delivery.controller.js";
@@ -44,6 +46,7 @@ deliveryRouter.get(
   isAuthenticatedDelivery,
   getDeliveryDashboardSummary
 );
+deliveryRouter.get("/payouts", isAuthenticatedDelivery, getDeliveryPayouts);
 deliveryRouter.patch(
   "/availability",
   isAuthenticatedDelivery,
@@ -53,6 +56,11 @@ deliveryRouter.get(
   "/notifications",
   isAuthenticatedDelivery,
   getDeliveryNotifications
+);
+deliveryRouter.patch(
+  "/notifications/read",
+  isAuthenticatedDelivery,
+  markDeliveryNotificationsAsRead
 );
 deliveryRouter.delete(
   "/notifications/:id",

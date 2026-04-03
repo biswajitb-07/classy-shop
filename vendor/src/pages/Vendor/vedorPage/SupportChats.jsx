@@ -1,28 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Headset,
-  ImagePlus,
-  Send,
-  Sparkles,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Headset, ImagePlus, Send, ShieldCheck, Trash2, X } from "lucide-react";
 import { toast } from "react-hot-toast";
-import { connectVendorSocket, getVendorSocket } from "../../../lib/socket";
 import {
   useDeleteSupportConversationMutation,
   useGetSupportConversationDetailsQuery,
   useGetSupportConversationsQuery,
   useSendSupportReplyMutation,
 } from "../../../features/api/supportApi";
-import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
+import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader.jsx";
 import { useTheme } from "../../../context/ThemeContext";
-import {
-  playChatReceiveSound,
-  playChatSendSound,
-  primeUiFeedbackSounds,
-  waitForNextPaint,
-} from "../../../utils/uiFeedbackSounds";
 
 const formatTime = (value) =>
   value
@@ -38,15 +24,10 @@ const SupportChats = () => {
   const { isDark } = useTheme();
   const [selectedId, setSelectedId] = useState(null);
   const [reply, setReply] = useState("");
-  const [userTyping, setUserTyping] = useState(false);
-  const [onlineMap, setOnlineMap] = useState({});
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState("");
-  const [joinedChatId, setJoinedChatId] = useState(null);
   const scrollRef = useRef(null);
-  const typingTimeoutRef = useRef(null);
   const fileInputRef = useRef(null);
-  const selectedIdRef = useRef(null);
 
   const { data: listData, isLoading, refetch: refetchList } =
     useGetSupportConversationsQuery();
@@ -54,206 +35,33 @@ const SupportChats = () => {
 
   useEffect(() => {
     if (!conversations.length) {
-      if (selectedId !== null) {
-        setSelectedId(null);
-      }
+      setSelectedId(null);
       return;
     }
 
-    // Keep a usable selection after refetches: prefer the current chat if it
-    // still exists, otherwise fall back to the first available conversation.
-    const hasSelectedConversation = conversations.some(
-      (item) => item._id === selectedId,
-    );
-
-    if (!selectedId || !hasSelectedConversation) {
+    const exists = conversations.some((item) => String(item._id) === String(selectedId));
+    if (!selectedId || !exists) {
       setSelectedId(conversations[0]._id);
     }
   }, [conversations, selectedId]);
-
-  useEffect(() => {
-    selectedIdRef.current = selectedId;
-  }, [selectedId]);
 
   const { data: detailsData, refetch: refetchDetails } =
     useGetSupportConversationDetailsQuery(selectedId, {
       skip: !selectedId,
     });
-  const [sendSupportReply, { isLoading: isSending }] =
-    useSendSupportReplyMutation();
+
+  const [sendSupportReply, { isLoading: isSending }] = useSendSupportReplyMutation();
   const [deleteSupportConversation, { isLoading: isDeleting }] =
     useDeleteSupportConversationMutation();
 
+  const conversation = detailsData?.conversation || null;
   const messages = useMemo(() => detailsData?.messages || [], [detailsData?.messages]);
-  const conversation = detailsData?.conversation;
-
-  useEffect(() => {
-    primeUiFeedbackSounds();
-  }, []);
-
-  useEffect(() => {
-    const socket = getVendorSocket();
-    const syncChatList = () => {
-      return refetchList();
-    };
-
-    const syncSelectedConversation = (conversationId) => {
-      if (
-        conversationId &&
-        String(conversationId) === String(selectedIdRef.current)
-      ) {
-        return refetchDetails();
-      }
-
-      return Promise.resolve();
-    };
-
-    const handleConnect = () => {
-      syncChatList();
-      socket.emit("support_presence_active", { active: true });
-      socket.emit("sync_presence");
-      if (selectedIdRef.current) {
-        // Rejoin the active room on reconnect so presence and typing indicators
-        // start working again after refresh or temporary network loss.
-        socket.emit(
-          "join_support_chat",
-          { chatId: selectedIdRef.current },
-          (response) => {
-            if (response?.ok) {
-              setJoinedChatId(response.chatId || null);
-            }
-          },
-        );
-        refetchDetails();
-      }
-    };
-
-    const handleTyping = (payload) => {
-      if (
-        payload?.senderRole === "user" &&
-        String(payload?.chatId) === String(selectedIdRef.current) &&
-        String(payload?.senderId) ===
-          String(
-            detailsData?.conversation?.user?._id ||
-              detailsData?.conversation?.user ||
-              "",
-          )
-      ) {
-        // Typing dots are intentionally limited to the selected conversation;
-        // messages from other users should not light up this open chat.
-        setUserTyping(true);
-      }
-    };
-
-    const handleStopTyping = (payload) => {
-      if (
-        payload?.senderRole === "user" &&
-        String(payload?.chatId) === String(selectedIdRef.current)
-      ) {
-        setUserTyping(false);
-      }
-    };
-
-    const handlePresence = (payload) => {
-      setOnlineMap((current) => ({
-        ...current,
-        [payload.userId]: payload.online,
-      }));
-    };
-
-    const handlePresenceSnapshot = (payload) => {
-      const onlineUsers = Object.fromEntries(
-        (payload?.users || []).map((userId) => [userId, true]),
-      );
-      setOnlineMap(onlineUsers);
-    };
-
-    socket.on("connect", handleConnect);
-    socket.on("support:message", async (payload) => {
-      await Promise.all([
-        syncChatList(),
-        syncSelectedConversation(payload?.conversationId),
-      ]);
-
-      if (
-        payload?.message?.senderRole === "user" &&
-        String(payload?.conversationId) === String(selectedIdRef.current)
-      ) {
-        await waitForNextPaint();
-        playChatReceiveSound();
-      }
-    });
-    socket.on("support:conversation:update", (payload) => {
-      syncChatList();
-      syncSelectedConversation(payload?.conversationId);
-    });
-    socket.on("typing", handleTyping);
-    socket.on("stop_typing", handleStopTyping);
-    socket.on("user_online", handlePresence);
-    socket.on("user_offline", handlePresence);
-    socket.on("user_presence_snapshot", handlePresenceSnapshot);
-    connectVendorSocket();
-    socket.emit("support_presence_active", { active: true });
-    socket.emit("sync_presence");
-    if (selectedIdRef.current) {
-      socket.emit("join_support_chat", { chatId: selectedIdRef.current }, (response) => {
-        if (response?.ok) {
-          setJoinedChatId(response.chatId || null);
-        }
-      });
-    }
-
-    return () => {
-      socket.emit("support_presence_active", { active: false });
-      socket.off("connect", handleConnect);
-      socket.off("support:message");
-      socket.off("support:conversation:update");
-      socket.off("typing", handleTyping);
-      socket.off("stop_typing", handleStopTyping);
-      socket.off("user_online", handlePresence);
-      socket.off("user_offline", handlePresence);
-      socket.off("user_presence_snapshot", handlePresenceSnapshot);
-    };
-  }, [detailsData?.conversation?.user, refetchList, refetchDetails]);
-
-  useEffect(() => {
-    const socket = connectVendorSocket();
-
-    if (!selectedId) {
-      setJoinedChatId(null);
-      socket.emit("leave_support_chat");
-      return undefined;
-    }
-
-    socket.emit("join_support_chat", { chatId: selectedId }, (response) => {
-      setJoinedChatId(response?.ok ? response.chatId || selectedId : null);
-    });
-
-    return () => {
-      setJoinedChatId((current) =>
-        String(current) === String(selectedId) ? null : current,
-      );
-      socket.emit("leave_support_chat", { chatId: selectedId });
-    };
-  }, [selectedId]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, userTyping]);
-
-  useEffect(() => {
-    setUserTyping(false);
-  }, [selectedId]);
-
-  useEffect(() => {
-    return () => {
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-    };
-  }, []);
+  }, [messages]);
 
   useEffect(() => {
     if (!attachmentFile) {
@@ -264,95 +72,11 @@ const SupportChats = () => {
     const previewUrl = URL.createObjectURL(attachmentFile);
     setAttachmentPreview(previewUrl);
 
-    return () => {
-      URL.revokeObjectURL(previewUrl);
-    };
+    return () => URL.revokeObjectURL(previewUrl);
   }, [attachmentFile]);
-
-  const emitTyping = (isTyping) => {
-    if (
-      !selectedId ||
-      !conversation?.user?._id ||
-      String(joinedChatId) !== String(selectedId)
-    ) {
-      return;
-    }
-    // The backend only forwards typing to the joined chat room, which prevents
-    // a vendor typing in one thread from leaking indicators into others.
-    const socket = connectVendorSocket();
-    socket.emit(isTyping ? "typing" : "stop_typing", {
-      chatId: selectedId,
-      senderId: conversation.assignedVendor?._id,
-      senderRole: "vendor",
-    });
-  };
-
-  const handleReplyChange = (value) => {
-    setReply(value);
-    emitTyping(Boolean(value.trim()));
-
-    if (typingTimeoutRef.current) {
-      clearTimeout(typingTimeoutRef.current);
-    }
-
-    typingTimeoutRef.current = setTimeout(() => {
-      emitTyping(false);
-    }, 1200);
-  };
-
-  const handleReply = async () => {
-    if (!selectedId) return;
-    if (!reply.trim() && !attachmentFile) {
-      toast.error("Write a reply or choose an image");
-      return;
-    }
-
-    const formData = new FormData();
-    if (reply.trim()) {
-      formData.append("text", reply.trim());
-    }
-    if (attachmentFile) {
-      formData.append("attachments", attachmentFile);
-    }
-
-    try {
-      await sendSupportReply({ conversationId: selectedId, formData }).unwrap();
-      setReply("");
-      setAttachmentFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      emitTyping(false);
-      await Promise.all([refetchList(), refetchDetails()]);
-      await waitForNextPaint();
-      playChatSendSound();
-    } catch (error) {
-      toast.error(error?.data?.message || "Failed to send reply");
-    }
-  };
-
-  const handleDeleteConversation = async () => {
-    if (!selectedId) return;
-
-    try {
-      await deleteSupportConversation(selectedId).unwrap();
-      toast.success("Conversation deleted");
-      setSelectedId(null);
-      setReply("");
-      setUserTyping(false);
-      setAttachmentFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-      refetchList();
-    } catch (error) {
-      toast.error(error?.data?.message || "Failed to delete support conversation");
-    }
-  };
 
   const handleSelectAttachment = (event) => {
     const file = event.target.files?.[0];
-
     if (!file) return;
 
     if (!file.type.startsWith("image/")) {
@@ -371,135 +95,128 @@ const SupportChats = () => {
     }
   };
 
-  const selectedUserId = conversation?.user?._id;
-  const isSelectedUserOnline = selectedUserId
-    ? onlineMap[selectedUserId] ?? conversation?.userOnline ?? false
-    : false;
+  const handleReply = async () => {
+    if (!selectedId) return;
+    if (!reply.trim() && !attachmentFile) {
+      toast.error("Write a message or choose an image");
+      return;
+    }
+
+    const formData = new FormData();
+    if (reply.trim()) formData.append("text", reply.trim());
+    if (attachmentFile) formData.append("attachments", attachmentFile);
+
+    try {
+      await sendSupportReply({ conversationId: selectedId, formData }).unwrap();
+      setReply("");
+      setAttachmentFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      await refetchList();
+      await refetchDetails();
+      toast.success("Message sent to admin");
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to send message");
+    }
+  };
+
+  const handleDeleteConversation = async () => {
+    if (!selectedId) return;
+
+    try {
+      await deleteSupportConversation(selectedId).unwrap();
+      setSelectedId(null);
+      setReply("");
+      setAttachmentFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      await refetchList();
+      toast.success("Conversation deleted");
+    } catch (error) {
+      toast.error(error?.data?.message || "Failed to delete conversation");
+    }
+  };
+
   const shellClass = isDark
-    ? "border-violet-400/25 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.18),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.18),transparent_26%),radial-gradient(circle_at_bottom_left,rgba(244,114,182,0.12),transparent_24%),linear-gradient(180deg,#090b1e_0%,#0f1130_45%,#121538_100%)] shadow-[0_28px_90px_rgba(2,6,23,0.58)]"
-    : "border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(139,92,246,0.12),transparent_18%),radial-gradient(circle_at_bottom_right,rgba(96,165,250,0.12),transparent_24%),linear-gradient(180deg,#f8fbff_0%,#eef2ff_45%,#fdf2f8_100%)] shadow-[0_24px_80px_rgba(148,163,184,0.22)]";
-  const shellOverlayClass = isDark
-    ? "bg-[linear-gradient(180deg,rgba(255,255,255,0.03),transparent_22%,transparent_76%,rgba(56,189,248,0.04))]"
-    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.45),transparent_22%,transparent_76%,rgba(255,255,255,0.18))]";
-  const headerClass = isDark
-    ? "border-violet-400/20 bg-[linear-gradient(135deg,rgba(35,41,91,0.92),rgba(25,22,60,0.9)_55%,rgba(41,18,63,0.88))] shadow-[inset_0_1px_0_rgba(255,255,255,0.08),0_14px_40px_rgba(0,0,0,0.22)]"
-    : "border-slate-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(238,242,255,0.94)_55%,rgba(253,242,248,0.94))] shadow-[0_14px_30px_rgba(148,163,184,0.16)]";
+    ? "border-violet-400/25 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_20%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.18),transparent_24%),linear-gradient(180deg,#090d1f_0%,#101530_52%,#111938_100%)]"
+    : "border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.1),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.1),transparent_22%),linear-gradient(180deg,#f8fbff_0%,#eef2ff_50%,#fdf2f8_100%)]";
   const panelClass = isDark
-    ? "border-violet-400/25 bg-[linear-gradient(180deg,rgba(16,18,48,0.96),rgba(19,16,54,0.92))] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]"
-    : "border-slate-200 bg-white/90 shadow-[0_16px_40px_rgba(148,163,184,0.16)]";
-  const panelBorderClass = isDark ? "border-violet-400/16" : "border-slate-200";
+    ? "border-violet-400/20 bg-slate-950/45"
+    : "border-slate-200 bg-white/90";
   const headingClass = isDark ? "text-white" : "text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-500";
-  const listCardBaseClass = isDark
-    ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(16,18,44,0.86),rgba(17,15,47,0.84))] hover:border-violet-300/30"
-    : "border-slate-200 bg-white hover:border-slate-300";
-  const listCardSelectedClass = isDark
-    ? "border-sky-400 bg-[linear-gradient(135deg,rgba(17,34,90,0.96),rgba(26,42,96,0.92)_48%,rgba(76,29,149,0.42))] shadow-[0_0_0_1px_rgba(56,189,248,0.18),0_0_24px_rgba(56,189,248,0.38)]"
-    : "border-sky-300 bg-[linear-gradient(135deg,#eff6ff,#eef2ff_55%,#fdf2f8)] shadow-[0_0_0_1px_rgba(125,211,252,0.6),0_18px_35px_rgba(186,230,253,0.35)]";
-  const incomingBubbleClass = isDark
-    ? "border border-violet-400/14 bg-[linear-gradient(180deg,rgba(25,29,66,0.96),rgba(22,25,58,0.92))] text-slate-100"
-    : "border border-slate-200 bg-white text-slate-800";
-  const typingBubbleClass = isDark
-    ? "border border-violet-400/18 bg-[linear-gradient(180deg,rgba(25,29,66,0.96),rgba(22,25,58,0.92))]"
-    : "border border-slate-200 bg-white";
-  const composerWrapClass = isDark ? "bg-slate-950/35" : "bg-slate-50/70";
-  const composerShellClass = isDark
-    ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(22,25,58,0.95),rgba(25,21,62,0.9))]"
-    : "border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fafc)]";
-  const profileStripClass = isDark
-    ? "border-violet-400/14 bg-white/4"
-    : "border-slate-200 bg-slate-50";
-  const replyBoxClass = isDark
-    ? "border-violet-400/18 bg-slate-950/35"
-    : "border-slate-200 bg-white";
-  const replyPlaceholderClass = isDark
-    ? "min-h-[6rem] w-full resize-none bg-transparent text-sm text-white outline-none placeholder:text-slate-500"
-    : "min-h-[6rem] w-full resize-none bg-transparent text-sm text-slate-800 outline-none placeholder:text-slate-400";
-  const addImageButtonClass = isDark
-    ? "inline-flex items-center gap-2 rounded-full border border-violet-400/24 bg-white/6 px-3 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/10"
-    : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-100";
 
   return (
     <section className="pb-8">
-      <div className={`relative overflow-hidden rounded-[34px] border p-4 md:p-5 ${shellClass}`}>
-        <div className={`pointer-events-none absolute inset-0 ${shellOverlayClass}`} />
-
-        <div className={`relative mb-5 flex flex-col gap-3 rounded-[28px] border px-5 py-5 md:flex-row md:items-center md:justify-between ${headerClass}`}>
+      <div className={`rounded-[34px] border p-4 shadow-[0_28px_90px_rgba(2,6,23,0.18)] md:p-5 ${shellClass}`}>
+        <div className="mb-5 flex flex-col gap-3 rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.22em] text-sky-300">
-              Support center
+            <p className="text-xs font-bold uppercase tracking-[0.24em] text-sky-300">
+              Vendor support
             </p>
-            <h1 className={`mt-3 text-3xl font-black md:text-[2.55rem] ${headingClass}`}>
-              Realtime customer conversations
+            <h1 className={`mt-2 text-[1.9rem] font-black md:text-[2.2rem] ${headingClass}`}>
+              Admin conversation desk
             </h1>
+            <p className={`mt-2 max-w-2xl text-sm ${mutedClass}`}>
+              Yahan se sirf admin team ke saath baat hogi. Customer chats ab vendor panel me
+              nahi aayengi.
+            </p>
           </div>
-          <div className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold ${isDark ? "border-white/10 bg-white/8 text-slate-100" : "border-slate-200 bg-white text-slate-700"}`}>
-            <Sparkles size={16} />
-            {conversations.length} active conversations
+          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200">
+            <ShieldCheck size={16} />
+            Admin-only channel
           </div>
         </div>
 
-        <div className="relative grid gap-4 lg:grid-cols-[minmax(22rem,0.92fr)_minmax(0,1.08fr)] lg:items-stretch">
-          <div className={`flex min-h-[28rem] max-h-[34rem] flex-col rounded-[28px] border p-4 sm:max-h-[38rem] lg:min-h-[42rem] lg:max-h-[calc(100vh-13.5rem)] ${panelClass}`}>
+        <div className="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
+          <aside className={`flex min-h-[34rem] flex-col rounded-[28px] border p-4 ${panelClass}`}>
             <div className="mb-4 flex items-center gap-3">
               <Headset className="text-sky-300" size={18} />
               <div>
-                <p className={`text-sm font-bold ${headingClass}`}>User conversations</p>
-                <p className={`text-xs ${mutedClass}`}>
-                  Open any chat to review full history
-                </p>
+                <p className={`text-sm font-bold ${headingClass}`}>Conversations</p>
+                <p className={`text-xs ${mutedClass}`}>Your admin support thread</p>
               </div>
             </div>
 
             <div className="min-h-0 flex-1 overflow-hidden">
               <div className="themed-scrollbar h-full space-y-3 overflow-y-auto pr-1">
                 {isLoading ? (
-                    <div className={`rounded-2xl border px-4 py-6 text-center ${isDark ? "border-violet-400/20 bg-slate-950/70 text-slate-400" : "border-slate-200 bg-white text-slate-500"}`}>
-                    Loading support chats...
+                  <div className={`rounded-[22px] border px-4 py-6 text-center text-sm ${mutedClass}`}>
+                    Loading conversation...
                   </div>
                 ) : conversations.length ? (
                   conversations.map((item) => {
-                    const userId = item.user?._id;
-                    const isOnline = userId
-                      ? onlineMap[userId] ?? item.userOnline ?? false
-                      : false;
-
+                    const unread = Number(item.unreadForVendor || 0);
                     return (
                       <button
                         key={item._id}
                         type="button"
                         onClick={() => setSelectedId(item._id)}
-                        className={`w-full rounded-[24px] border px-4 py-4 text-left shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition ${
-                          selectedId === item._id
-                            ? listCardSelectedClass
-                            : listCardBaseClass
+                        className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
+                          String(selectedId) === String(item._id)
+                            ? "border-sky-400 bg-sky-500/10"
+                            : isDark
+                              ? "border-violet-400/14 bg-white/5 hover:bg-white/10"
+                              : "border-slate-200 bg-white hover:bg-slate-50"
                         }`}
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <p className={`truncate text-base font-bold ${headingClass}`}>
-                                {item.user?.name}
-                              </p>
-                              <span
-                                className={`h-2.5 w-2.5 rounded-full ${
-                                  isOnline ? "bg-emerald-400" : "bg-slate-500"
-                                }`}
-                              />
-                            </div>
-                            <p className={`truncate text-xs ${mutedClass}`}>
-                              {isOnline ? "Online" : "Offline"}
+                            <p className={`truncate text-base font-bold ${headingClass}`}>
+                              Admin Support
+                            </p>
+                            <p className={`mt-1 truncate text-xs ${mutedClass}`}>
+                              {item.lastMessage || "Start your first message"}
                             </p>
                           </div>
-                          {item.unreadForVendor ? (
+                          {unread ? (
                             <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">
-                              {item.unreadForVendor}
+                              {unread}
                             </span>
                           ) : null}
                         </div>
-                        <p className={`mt-3 line-clamp-2 text-sm ${isDark ? "text-slate-200" : "text-slate-600"}`}>
-                          {item.lastMessage || "No messages yet"}
-                        </p>
                         <p className={`mt-3 text-xs ${mutedClass}`}>
                           {formatTime(item.lastMessageAt)}
                         </p>
@@ -507,40 +224,25 @@ const SupportChats = () => {
                     );
                   })
                 ) : (
-                    <div className={`rounded-2xl border border-dashed px-4 py-8 text-center ${isDark ? "border-violet-400/20 text-slate-400" : "border-slate-300 text-slate-500"}`}>
-                    No support conversations yet.
+                  <div className={`rounded-[22px] border border-dashed px-4 py-8 text-center text-sm ${mutedClass}`}>
+                    Support channel ready hai. First message bhejte hi thread active ho jayega.
                   </div>
                 )}
               </div>
             </div>
+          </aside>
 
-            <div className={`mt-4 flex shrink-0 items-center justify-between rounded-[22px] border px-4 py-3 text-sm ${isDark ? "border-violet-400/18 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(236,72,153,0.08))]" : "border-slate-200 bg-white/80"}`}>
-              <div className={`flex items-center gap-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-                Online Support
-              </div>
-              <span className={mutedClass}>{conversations.length} chats</span>
-            </div>
-          </div>
-
-          <div className={`flex min-h-[38rem] min-w-0 flex-col rounded-[28px] border sm:min-h-[42rem] lg:max-h-[calc(100vh-13.5rem)] ${panelClass}`}>
-            <div className={`border-b px-5 py-4 ${panelBorderClass}`}>
+          <div className={`flex min-h-[34rem] min-w-0 flex-col rounded-[28px] border ${panelClass}`}>
+            <div className="border-b border-white/10 px-5 py-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose-300">
-                    Selected chat
+                    Active desk
                   </p>
-                  <h2 className={`mt-2 text-2xl font-black ${headingClass}`}>
-                    {conversation?.user?.name || "Choose a conversation"}
-                  </h2>
-                  <div className={`mt-1 flex items-center gap-2 text-sm ${mutedClass}`}>
-                    <span
-                      className={`h-2.5 w-2.5 rounded-full ${
-                        isSelectedUserOnline ? "bg-emerald-400" : "bg-slate-500"
-                      }`}
-                    />
-                    {isSelectedUserOnline ? "Online" : "Offline"}
-                  </div>
+                  <h2 className={`mt-2 text-2xl font-black ${headingClass}`}>Admin Support Team</h2>
+                  <p className={`mt-1 text-sm ${mutedClass}`}>
+                    Business, payout, policy, ya dashboard support yahin handle hoga.
+                  </p>
                 </div>
                 {selectedId ? (
                   <button
@@ -549,162 +251,114 @@ const SupportChats = () => {
                     disabled={isDeleting}
                     className="inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-60"
                   >
-                    {isDeleting ? (
-                      <AuthButtonLoader color="#ffffff" size={16} />
-                    ) : (
-                      <>
-                        <Trash2 size={16} />
-                        Delete chat
-                      </>
-                    )}
+                    {isDeleting ? <AuthButtonLoader color="#ffffff" size={16} /> : <><Trash2 size={16} />Delete</>}
                   </button>
                 ) : null}
               </div>
             </div>
 
-            <div
-              ref={scrollRef}
-              className="themed-scrollbar min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-5 md:px-5"
-            >
-              {selectedId && messages.length ? (
-                <>
-                  {messages.map((message) => (
-                    <div
-                      key={message._id}
-                      className={`max-w-[88%] rounded-[24px] px-5 py-4 shadow-[0_14px_34px_rgba(2,6,23,0.24)] ${
-                        message.senderRole === "vendor"
-                          ? "ml-auto bg-[linear-gradient(135deg,#1d4ed8_0%,#2563eb_58%,#7c3aed_100%)] text-white"
-                          : incomingBubbleClass
+            <div ref={scrollRef} className="themed-scrollbar min-h-[18rem] flex-1 space-y-4 overflow-y-auto px-4 py-5 md:px-5">
+              {selectedId ? (
+                messages.length ? (
+                  messages.map((message) => {
+                    const isVendorMessage = message.senderRole === "vendor";
+                    return (
+                      <div
+                        key={message._id}
+                        className={`max-w-[88%] rounded-[24px] px-5 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.16)] ${
+                          isVendorMessage
+                            ? "ml-auto bg-[linear-gradient(135deg,#2563eb,#3b82f6_55%,#7c3aed)] text-white"
+                            : isDark
+                              ? "border border-violet-400/14 bg-slate-900/80 text-slate-100"
+                              : "border border-slate-200 bg-white text-slate-800"
                         }`}
-                    >
-                      {message.text ? (
-                        <p className="text-sm leading-7">{message.text}</p>
-                      ) : null}
-                      {message.attachments?.length ? (
-                        <div className={message.text ? "mt-3" : ""}>
-                          {message.attachments.map((attachment, index) => (
-                            <a
-                              key={`${message._id}-${attachment.url}-${index}`}
-                              href={attachment.url}
+                      >
+                        {message.text ? <p className="text-sm leading-7">{message.text}</p> : null}
+                        {message.attachments?.length ? (
+                          <div className={message.text ? "mt-3" : ""}>
+                            {message.attachments.map((attachment, index) => (
+                              <a
+                                key={`${message._id}-${attachment.url}-${index}`}
+                                href={attachment.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className={`block overflow-hidden rounded-[18px] border ${
-                                  message.senderRole === "vendor"
-                                    ? "border-white/20 bg-white/10"
-                                    : isDark
-                                      ? "border-violet-400/16 bg-slate-950/50"
-                                      : "border-slate-200 bg-slate-50"
-                                }`}
+                                className="block overflow-hidden rounded-[18px] border border-white/10"
                               >
                                 <img
                                   src={attachment.url}
-                                  alt={attachment.fileName || "Support attachment"}
-                                className="max-h-72 w-full object-cover"
-                              />
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-                      <p
-                        className={`mt-3 text-xs ${
-                          message.senderRole === "vendor"
-                            ? "text-white/80"
-                            : mutedClass
-                        }`}
-                      >
-                        {formatTime(message.createdAt)}
-                      </p>
-                    </div>
-                  ))}
-                  {userTyping ? (
-                      <div className={`max-w-[12rem] rounded-[24px] px-4 py-4 shadow-sm ${typingBubbleClass}`}>
-                      <div className="flex items-center gap-1.5">
-                        {[0, 1, 2].map((dot) => (
-                          <span
-                            key={dot}
-                            className="h-2.5 w-2.5 animate-bounce rounded-full bg-slate-400"
-                            style={{ animationDelay: `${dot * 0.15}s` }}
-                          />
-                        ))}
+                                  alt={attachment.fileName || "Attachment"}
+                                  className="max-h-72 w-full object-cover"
+                                />
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
+                        <p className={`mt-3 text-xs ${isVendorMessage ? "text-white/80" : mutedClass}`}>
+                          {formatTime(message.createdAt)}
+                        </p>
                       </div>
-                    </div>
-                  ) : null}
-                  </>
+                    );
+                  })
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <div className={`rounded-[28px] border border-dashed px-6 py-10 text-center ${isDark ? "border-violet-400/20 bg-slate-950/60 text-slate-400" : "border-slate-300 bg-white text-slate-500"}`}>
-                      {selectedId
-                        ? "No messages yet in this conversation."
-                        : "Choose a conversation to read and reply."}
+                    <div className={`rounded-[24px] border border-dashed px-6 py-10 text-center text-sm ${mutedClass}`}>
+                      No messages yet. Send your first note to admin.
                     </div>
                   </div>
-                )}
-              </div>
-
-            <div className={`border-t px-4 py-4 md:px-5 ${panelBorderClass} ${composerWrapClass}`}>
-              <div className={`rounded-[28px] border p-3 ${composerShellClass}`}>
-                <div className={`mb-3 flex items-center gap-3 rounded-[22px] border px-3 py-3 ${profileStripClass}`}>
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[linear-gradient(135deg,#38bdf8,#8b5cf6)] text-base font-black text-white">
-                    {conversation?.user?.name?.charAt(0)?.toUpperCase() || "U"}
-                  </div>
-                  <div>
-                    <p className={`text-lg font-bold ${headingClass}`}>
-                      {conversation?.user?.name || "Customer"}
-                    </p>
-                    <div className={`mt-1 flex items-center gap-2 text-sm ${mutedClass}`}>
-                      <span
-                        className={`h-2.5 w-2.5 rounded-full ${
-                          isSelectedUserOnline ? "bg-emerald-400" : "bg-slate-500"
-                        }`}
-                      />
-                      {isSelectedUserOnline ? "Online" : "Offline"}
-                    </div>
+                )
+              ) : (
+                <div className="flex h-full items-center justify-center">
+                  <div className={`rounded-[24px] border border-dashed px-6 py-10 text-center text-sm ${mutedClass}`}>
+                    Conversation loading...
                   </div>
                 </div>
+              )}
+            </div>
 
-                <div className="flex flex-col gap-3 md:flex-row">
-                  <div className="flex-1">
-                    <div className={`rounded-[24px] border px-4 py-4 focus-within:border-sky-400 ${replyBoxClass}`}>
-                      <textarea
-                        value={reply}
-                        onChange={(event) => handleReplyChange(event.target.value)}
-                        onBlur={() => emitTyping(false)}
-                        placeholder="Write a professional reply for the customer..."
-                        className={replyPlaceholderClass}
-                      />
-                      {attachmentPreview ? (
-                        <div className="relative mt-3 inline-flex overflow-hidden rounded-[18px] border border-violet-400/18 bg-slate-950">
-                          <img
-                            src={attachmentPreview}
-                            alt="Selected attachment preview"
-                            className="h-20 w-20 object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleRemoveAttachment}
-                            className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/80 text-white"
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                      ) : null}
-                      <div className="mt-3 flex items-center gap-3">
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSelectAttachment}
-                          className="hidden"
-                        />
+            <div className="border-t border-white/10 px-4 py-4 md:px-5">
+              <div className={`rounded-[24px] border p-3 ${isDark ? "border-violet-400/16 bg-slate-950/35" : "border-slate-200 bg-white"}`}>
+                <div className="flex flex-col gap-3 md:flex-row md:items-end">
+                  <div className="flex-1 rounded-[20px] border border-white/10 px-4 py-3">
+                    <textarea
+                      value={reply}
+                      onChange={(event) => setReply(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" && !event.shiftKey) {
+                          event.preventDefault();
+                          if (!isSending) handleReply();
+                        }
+                      }}
+                      placeholder="Write your message for admin..."
+                      className={`min-h-[6rem] w-full resize-none bg-transparent text-sm outline-none ${isDark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`}
+                    />
+                    {attachmentPreview ? (
+                      <div className="relative mt-3 inline-flex overflow-hidden rounded-[18px] border border-white/10">
+                        <img src={attachmentPreview} alt="Preview" className="h-20 w-20 object-cover" />
                         <button
                           type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className={addImageButtonClass}
+                          onClick={handleRemoveAttachment}
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/80 text-white"
                         >
-                          <ImagePlus size={16} />
-                          Add image
+                          <X size={14} />
                         </button>
                       </div>
+                    ) : null}
+                    <div className="mt-3">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleSelectAttachment}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold ${isDark ? "border-violet-400/20 bg-white/6 text-slate-100" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                      >
+                        <ImagePlus size={16} />
+                        Add image
+                      </button>
                     </div>
                   </div>
 
@@ -712,16 +366,9 @@ const SupportChats = () => {
                     type="button"
                     onClick={handleReply}
                     disabled={!selectedId || isSending}
-                    className="flex w-full items-center justify-center gap-2 rounded-[22px] bg-[linear-gradient(135deg,#2563eb,#3b82f6_55%,#7c3aed)] px-4 py-3 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(59,130,246,0.28)] transition hover:brightness-110 disabled:bg-slate-600 disabled:shadow-none md:w-[12rem]"
+                    className="flex h-[3.5rem] w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(135deg,#2563eb,#3b82f6_55%,#7c3aed)] px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(59,130,246,0.28)] transition hover:brightness-110 disabled:bg-slate-600 disabled:shadow-none md:w-[10rem]"
                   >
-                    {isSending ? (
-                      <AuthButtonLoader color="#ffffff" size={18} />
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        Reply
-                      </>
-                    )}
+                    {isSending ? <AuthButtonLoader color="#ffffff" size={18} /> : <><Send size={16} />Send</>}
                   </button>
                 </div>
               </div>

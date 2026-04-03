@@ -8,8 +8,10 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "react-hot-toast";
+import { useDispatch } from "react-redux";
 import { useSelector } from "react-redux";
 import {
+  supportApi,
   useCreateSupportConversationMutation,
   useDeleteSupportConversationMutation,
   useGetSupportConversationDetailsQuery,
@@ -39,12 +41,14 @@ const formatTime = (value) =>
     : "No activity yet";
 
 const messageStatusClass = {
+  sending: "bg-slate-100 text-slate-600",
   sent: "bg-amber-100 text-amber-700",
   delivered: "bg-sky-100 text-sky-700",
   read: "bg-emerald-100 text-emerald-700",
 };
 
 const SupportChatPage = () => {
+  const dispatch = useDispatch();
   const { user } = useSelector((state) => state.auth);
   const { isDark } = useTheme();
   const [draft, setDraft] = useState("");
@@ -154,6 +158,110 @@ const SupportChatPage = () => {
 
   const messages = useMemo(() => detailsData?.messages || [], [detailsData?.messages]);
 
+  const patchConversationList = (updater) => {
+    dispatch(
+      supportApi.util.updateQueryData(
+        "getSupportConversations",
+        undefined,
+        (draft) => {
+          if (!draft?.conversations) return;
+          updater(draft.conversations);
+        },
+      ),
+    );
+  };
+
+  const patchConversationDetails = (conversationId, updater) => {
+    if (!conversationId) return;
+
+    dispatch(
+      supportApi.util.updateQueryData(
+        "getSupportConversationDetails",
+        conversationId,
+        (draft) => {
+          if (!draft) return;
+          updater(draft);
+        },
+      ),
+    );
+  };
+
+  const syncConversationPreview = ({
+    conversationId,
+    text,
+    createdAt,
+    senderRole,
+    unreadForUser,
+  }) => {
+    patchConversationList((conversationsDraft) => {
+      const index = conversationsDraft.findIndex(
+        (item) => String(item._id) === String(conversationId),
+      );
+
+      if (index === -1) return;
+
+      const nextConversation = {
+        ...conversationsDraft[index],
+        lastMessage: text || "Image attachment",
+        lastMessageAt: createdAt,
+        lastMessageSenderRole: senderRole,
+        unreadForUser:
+          typeof unreadForUser === "number"
+            ? unreadForUser
+            : conversationsDraft[index].unreadForUser,
+      };
+
+      conversationsDraft.splice(index, 1);
+      conversationsDraft.unshift(nextConversation);
+    });
+  };
+
+  const upsertConversationMessage = ({
+    conversationId,
+    message,
+    tempMessageId = null,
+  }) => {
+    patchConversationDetails(conversationId, (draft) => {
+      draft.messages = draft.messages || [];
+
+      const existingIndex = draft.messages.findIndex(
+        (item) => String(item._id) === String(message._id),
+      );
+      const tempIndex = tempMessageId
+        ? draft.messages.findIndex((item) => item._id === tempMessageId)
+        : -1;
+
+      if (existingIndex >= 0) {
+        draft.messages[existingIndex] = {
+          ...draft.messages[existingIndex],
+          ...message,
+        };
+      } else if (tempIndex >= 0) {
+        draft.messages[tempIndex] = {
+          ...draft.messages[tempIndex],
+          ...message,
+        };
+      } else {
+        draft.messages.push(message);
+      }
+
+      draft.conversation = {
+        ...draft.conversation,
+        lastMessage: message.text || "Image attachment",
+        lastMessageAt: message.createdAt,
+        lastMessageSenderRole: message.senderRole,
+      };
+    });
+  };
+
+  const removeOptimisticMessage = (conversationId, tempMessageId) => {
+    patchConversationDetails(conversationId, (draft) => {
+      draft.messages = (draft.messages || []).filter(
+        (message) => message._id !== tempMessageId,
+      );
+    });
+  };
+
   const cleanupEmptyChats = async ({ keepalive = false } = {}) => {
     try {
       await fetch(`${API_BASE_URL}/support/conversations/empty`, {
@@ -246,13 +354,29 @@ const SupportChatPage = () => {
 
     socket.on("connect", handleConnect);
     socket.on("support:message", async (payload) => {
-      await Promise.all([
-        syncChatList(),
-        syncSelectedConversation(payload?.conversationId),
-      ]);
+      if (payload?.conversationId && payload?.message) {
+        upsertConversationMessage({
+          conversationId: payload.conversationId,
+          message: payload.message,
+        });
+        syncConversationPreview({
+          conversationId: payload.conversationId,
+          text: payload.message.text,
+          createdAt: payload.message.createdAt,
+          senderRole: payload.message.senderRole,
+          unreadForUser:
+            payload.message.senderRole !== "user" &&
+            String(payload.conversationId) !== String(selectedIdRef.current)
+              ? undefined
+              : 0,
+        });
+      }
+
+      syncChatList();
+      syncSelectedConversation(payload?.conversationId);
 
       if (
-        payload?.message?.senderRole === "vendor" &&
+        payload?.message?.senderRole !== "user" &&
         String(payload?.conversationId) === String(selectedIdRef.current)
       ) {
         await waitForNextPaint();
@@ -397,6 +521,13 @@ const SupportChatPage = () => {
     }, 1200);
   };
 
+  const handleComposerKeyDown = (event) => {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    if (isSending || isCreatingChat) return;
+    handleSubmit();
+  };
+
   const handleSubmit = async () => {
     if (!draft.trim() && !attachmentFile) {
       toast.error("Write a message or choose an image");
@@ -422,21 +553,81 @@ const SupportChatPage = () => {
       formData.append("conversationId", conversationId);
     }
 
+    const trimmedDraft = draft.trim();
+    const now = new Date().toISOString();
+    const tempMessageId = `temp-user-${Date.now()}`;
+
     try {
-      await sendSupportMessage(formData).unwrap();
+      const optimisticMessage = {
+        _id: tempMessageId,
+        conversation: conversationId,
+        senderId: String(user?._id || ""),
+        senderRole: "user",
+        text: trimmedDraft,
+        attachments: attachmentPreview
+          ? [
+              {
+                url: attachmentPreview,
+                fileName: attachmentFile?.name || "attachment",
+              },
+            ]
+          : [],
+        status: "sending",
+        createdAt: now,
+        updatedAt: now,
+      };
+
+      upsertConversationMessage({
+        conversationId,
+        message: optimisticMessage,
+      });
+      syncConversationPreview({
+        conversationId,
+        text: trimmedDraft,
+        createdAt: now,
+        senderRole: "user",
+        unreadForUser: 0,
+      });
+
+      const response = await sendSupportMessage(formData).unwrap();
+      if (response?.message) {
+        upsertConversationMessage({
+          conversationId,
+          message: response.message,
+          tempMessageId,
+        });
+        syncConversationPreview({
+          conversationId,
+          text: response.message.text,
+          createdAt: response.message.createdAt,
+          senderRole: response.message.senderRole,
+          unreadForUser: 0,
+        });
+      }
       setDraft("");
       setAttachmentFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
       emitTyping(false);
-      await Promise.all([
-        isCleanupReady ? refetchList() : Promise.resolve(),
-        conversationId && selectedIdRef.current ? refetchDetails() : Promise.resolve(),
-      ]);
+      if (isCleanupReady) {
+        refetchList();
+      }
+      if (conversationId && selectedIdRef.current) {
+        refetchDetails();
+      }
       await waitForNextPaint();
       playChatSendSound();
     } catch (error) {
+      if (conversationId) {
+        removeOptimisticMessage(conversationId, tempMessageId);
+        if (isCleanupReady) {
+          refetchList();
+        }
+        if (selectedIdRef.current) {
+          refetchDetails();
+        }
+      }
       toast.error(error?.data?.message || "Failed to send support message");
     }
   };
@@ -557,15 +748,15 @@ const SupportChatPage = () => {
       <div className={`relative overflow-hidden rounded-[38px] border backdrop-blur-xl ${shellClass}`}>
         <div className={`pointer-events-none absolute inset-0 ${shellGlowClass}`} />
 
-        <div className="relative grid gap-4 lg:grid-cols-[19rem_minmax(0,1fr)] lg:items-stretch">
-          <aside className="relative flex min-h-[28rem] max-h-[40rem] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(66,153,225,0.34),transparent_18%),radial-gradient(circle_at_bottom_center,rgba(255,72,145,0.16),transparent_28%),linear-gradient(180deg,#121936_0%,#171d40_55%,#1d1736_100%)] p-5 text-white sm:max-h-[44rem] lg:min-h-[48rem] lg:max-h-[calc(100vh-13.5rem)] lg:rounded-none lg:border-0 lg:border-r lg:border-r-white/10 lg:p-7">
+        <div className="relative grid gap-4 lg:grid-cols-[20rem_minmax(0,1fr)] lg:items-stretch">
+          <aside className="relative flex min-h-[30rem] flex-col overflow-hidden rounded-[30px] border border-white/10 bg-[radial-gradient(circle_at_top_right,rgba(66,153,225,0.34),transparent_18%),radial-gradient(circle_at_bottom_center,rgba(255,72,145,0.16),transparent_28%),linear-gradient(180deg,#121936_0%,#171d40_55%,#1d1736_100%)] p-5 text-white lg:min-h-[48rem] lg:rounded-none lg:border-0 lg:border-r lg:border-r-white/10 lg:p-7">
             <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.04),transparent_22%,transparent_78%,rgba(255,111,171,0.08))]" />
 
             <div className="relative">
               <p className="text-xs font-bold uppercase tracking-[0.28em] text-slate-300/90">
                 Chat list
               </p>
-              <h1 className="mt-5 max-w-[9rem] text-[2.2rem] font-black leading-[1.04] text-white">
+              <h1 className="mt-4 max-w-[10rem] text-[2rem] font-black leading-[1.02] text-white md:text-[2.2rem]">
                 Support Chats
               </h1>
             </div>
@@ -681,17 +872,17 @@ const SupportChatPage = () => {
 
           <div
             ref={chatPanelRef}
-            className={`relative flex min-h-[38rem] min-w-0 flex-col overflow-hidden rounded-[30px] border ${borderSoftClass} ${contentPanelClass} sm:min-h-[42rem] lg:min-h-[48rem] lg:max-h-[calc(100vh-13.5rem)] lg:rounded-none lg:border-0`}
+            className={`relative flex min-h-[36rem] min-w-0 flex-col overflow-hidden rounded-[30px] border ${borderSoftClass} ${contentPanelClass} lg:min-h-[48rem] lg:rounded-none lg:border-0`}
           >
-            <div className={`border-b px-5 py-6 md:px-8 ${borderSoftClass}`}>
+            <div className={`border-b px-5 py-4 md:px-8 ${borderSoftClass}`}>
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
                 <div>
-                  <p className="text-xs font-extrabold uppercase tracking-[0.28em] text-rose-500">
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-rose-500 md:text-xs">
                     {user?.name
                       ? `${user.name.toUpperCase()}'S SUPPORT CHAT`
                       : "SUPPORT CHAT"}
                   </p>
-                  <h2 className={`mt-3 text-3xl font-black tracking-[-0.03em] md:text-[2.6rem] ${headingClass}`}>
+                  <h2 className={`mt-2 text-[1.75rem] font-black tracking-[-0.03em] md:text-[2.05rem] ${headingClass}`}>
                     {selectedId
                       ? "Your full chat history"
                       : "Start a support conversation"}
@@ -708,12 +899,12 @@ const SupportChatPage = () => {
                   ) : null}
                 </div>
               </div>
-              <div className={`mt-5 inline-flex items-center gap-3 rounded-[22px] border px-4 py-3 ${supportProfileClass}`}>
-                <div className={`flex h-12 w-12 items-center justify-center rounded-full text-base font-black ${supportAvatarClass}`}>
+              <div className={`mt-3 inline-flex items-center gap-3 rounded-[20px] border px-4 py-2.5 ${supportProfileClass}`}>
+                <div className={`flex h-11 w-11 items-center justify-center rounded-full text-base font-black ${supportAvatarClass}`}>
                   ST
                 </div>
                 <div>
-                  <p className={`text-lg font-bold ${headingClass}`}>
+                  <p className={`text-base font-bold ${headingClass}`}>
                     Support Team
                   </p>
                   <div className={`mt-1 flex items-center gap-2 text-sm ${mutedClass}`}>
@@ -730,7 +921,7 @@ const SupportChatPage = () => {
 
             <div
               ref={scrollRef}
-              className="themed-scrollbar relative min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-6 md:px-8 md:py-7"
+              className="themed-scrollbar relative min-h-[18rem] flex-1 space-y-5 overflow-y-auto px-4 py-5 md:min-h-[22rem] md:px-8 md:py-6 lg:max-h-[42rem]"
             >
               {selectedId ? (
                 isDetailsLoading ? (
@@ -842,13 +1033,14 @@ const SupportChatPage = () => {
               )}
             </div>
 
-            <div className={`border-t px-4 py-4 backdrop-blur-xl md:px-6 md:py-5 ${borderSoftClass} ${composerWrapClass}`}>
-              <div className={`rounded-[34px] border p-3 ${composerShellClass}`}>
+            <div className={`border-t px-4 py-3 backdrop-blur-xl md:px-6 md:py-4 ${borderSoftClass} ${composerWrapClass}`}>
+              <div className={`rounded-[30px] border p-3 ${composerShellClass}`}>
                 <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                  <div className={`flex-1 rounded-[28px] border px-5 py-4 ${inputCardClass}`}>
+                  <div className={`flex-1 rounded-[24px] border px-5 py-3 ${inputCardClass}`}>
                     <textarea
                       value={draft}
                       onChange={(event) => handleDraftChange(event.target.value)}
+                      onKeyDown={handleComposerKeyDown}
                       onBlur={() => emitTyping(false)}
                       placeholder="Describe your issue, ask for product help, or share order concerns..."
                       className={textareaClass}
@@ -892,7 +1084,7 @@ const SupportChatPage = () => {
                     type="button"
                     onClick={handleSubmit}
                     disabled={isSending || isCreatingChat}
-                    className="flex h-[3.9rem] w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2d3f93,#4338ca_52%,#7c3aed)] px-6 text-lg font-bold text-white shadow-[0_16px_32px_rgba(76,29,149,0.25)] transition hover:scale-[1.01] disabled:scale-100 disabled:opacity-60 md:w-[10rem]"
+                    className="flex h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2d3f93,#4338ca_52%,#7c3aed)] px-6 text-base font-bold text-white shadow-[0_16px_32px_rgba(76,29,149,0.25)] transition hover:scale-[1.01] disabled:scale-100 disabled:opacity-60 md:w-[9.5rem]"
                   >
                     {isSending || isCreatingChat ? (
                       <AuthButtonLoader color="#ffffff" size={18} />

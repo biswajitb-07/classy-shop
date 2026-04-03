@@ -12,14 +12,14 @@ export const supportApi = createApi({
   endpoints: (builder) => ({
     getSupportConversations: builder.query({
       query: () => ({
-        url: "support/conversations",
+        url: "admin-support/conversations",
         method: "GET",
       }),
       providesTags: [{ type: "SupportChats", id: "LIST" }],
     }),
     getSupportConversationDetails: builder.query({
       query: (conversationId) => ({
-        url: `support/conversations/${conversationId}`,
+        url: `admin-support/conversations/${conversationId}`,
         method: "GET",
       }),
       providesTags: (_result, _error, conversationId) => [
@@ -28,7 +28,7 @@ export const supportApi = createApi({
     }),
     sendSupportReply: builder.mutation({
       query: ({ conversationId, formData }) => ({
-        url: `support/conversations/${conversationId}/reply`,
+        url: `admin-support/conversations/${conversationId}/reply`,
         method: "POST",
         body: formData,
       }),
@@ -39,7 +39,7 @@ export const supportApi = createApi({
     }),
     deleteSupportConversation: builder.mutation({
       query: (conversationId) => ({
-        url: `support/conversations/${conversationId}`,
+        url: `admin-support/conversations/${conversationId}`,
         method: "DELETE",
       }),
       invalidatesTags: (_result, _error, conversationId) => [

@@ -126,8 +126,8 @@ const Login = () => {
                 className="w-20 h-20 object-contain"
               />
             </div>
-            <h1 className="text-3xl font-bold text-[#1f2937] mb-2">Sign In</h1>
-            <p className="text-[#6b7280]">Enter your credentials to continue</p>
+            <h1 className="text-3xl font-bold text-[#1f2937] mb-2">Vendor Workspace</h1>
+            <p className="text-[#6b7280]">Sign in to manage your products, orders, support and payouts</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -208,7 +208,7 @@ const Login = () => {
                 isLoading ? "opacity-50 cursor-not-allowed" : ""
               }`}
             >
-              {isLoading ? <AuthButtonLoader /> : "Sign In"}
+              {isLoading ? <AuthButtonLoader /> : "Enter Vendor Panel"}
             </button>
           </form>
 

@@ -12,6 +12,11 @@ const supportConversationSchema = new mongoose.Schema(
       ref: "Vendor",
       default: null,
     },
+    assignedAdmin: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Admin",
+      default: null,
+    },
     lastMessage: {
       type: String,
       default: "",
@@ -22,7 +27,7 @@ const supportConversationSchema = new mongoose.Schema(
     },
     lastMessageSenderRole: {
       type: String,
-      enum: ["user", "vendor", ""],
+      enum: ["user", "vendor", "admin", ""],
       default: "",
     },
     unreadForUser: {
@@ -30,6 +35,10 @@ const supportConversationSchema = new mongoose.Schema(
       default: 0,
     },
     unreadForVendor: {
+      type: Number,
+      default: 0,
+    },
+    unreadForAdmin: {
       type: Number,
       default: 0,
     },

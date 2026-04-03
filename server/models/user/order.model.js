@@ -352,10 +352,12 @@ const orderSchema = new mongoose.Schema({
   razorpayOrderId: {
     type: String,
     default: "",
+    index: true,
   },
   razorpayPaymentId: {
     type: String,
     default: "",
+    index: true,
   },
   razorpayRefundId: {
     type: String,
@@ -395,5 +397,25 @@ orderSchema.pre("save", function (next) {
   this.updatedAt = Date.now();
   next();
 });
+
+orderSchema.index(
+  { razorpayOrderId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      razorpayOrderId: { $type: "string", $ne: "" },
+    },
+  },
+);
+
+orderSchema.index(
+  { razorpayPaymentId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      razorpayPaymentId: { $type: "string", $ne: "" },
+    },
+  },
+);
 
 export default mongoose.model("Order", orderSchema);

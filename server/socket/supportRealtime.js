@@ -62,6 +62,10 @@ const areVendorsOnline = () => activeSupportVendors.size > 0;
 
 const getOnlineUserIds = () => Array.from(activeUsers.keys());
 const getOnlineVendorIds = () => Array.from(activeSupportVendors.keys());
+const isSupportAgent = (socket) =>
+  (socket.data.role === "vendor" && socket.data.vendorId) ||
+  (socket.data.role === "admin" && socket.data.adminId);
+const getSupportAgentId = (socket) => socket.data.vendorId || socket.data.adminId;
 
 const leaveSupportChatRoom = (socket) => {
   if (socket.data.supportChatId) {
@@ -79,7 +83,7 @@ const canJoinSupportChat = async (socket, chatId) => {
 
   if (!conversation) return false;
 
-  if (socket.data.role === "vendor" && socket.data.vendorId) {
+  if (isSupportAgent(socket)) {
     // Vendors can inspect support threads broadly; user access is restricted
     // to only their own conversation below.
     return true;
@@ -143,7 +147,7 @@ export const registerSupportRealtime = (io, socket) => {
   const emitPresenceSnapshot = () => {
     // Newly connected clients need an initial presence snapshot because they
     // may have joined after the last online/offline broadcast was emitted.
-    if (socket.data.role === "vendor" && socket.data.vendorId) {
+    if (isSupportAgent(socket)) {
       socket.emit("user_presence_snapshot", {
         users: getOnlineUserIds(),
         at: Date.now(),
@@ -206,19 +210,19 @@ export const registerSupportRealtime = (io, socket) => {
   socket.on("stop_typing", onStopTyping);
   socket.on("sync_presence", emitPresenceSnapshot);
   socket.on("support_presence_active", ({ active } = {}) => {
-    if (socket.data.role !== "vendor" || !socket.data.vendorId) return;
+    if (!isSupportAgent(socket)) return;
 
     socket.data.supportPresenceActive = Boolean(active);
     syncSupportVendorAvailability(
       io,
-      socket.data.vendorId,
+      getSupportAgentId(socket),
       socket.id,
       socket.data.supportPresenceActive,
     );
   });
 
-  if (socket.data.role === "vendor" && socket.data.vendorId) {
-    const vendorId = String(socket.data.vendorId);
+  if (isSupportAgent(socket)) {
+    const vendorId = String(getSupportAgentId(socket));
     addActiveSocket(activeVendors, vendorId, socket.id);
     socket.join(roomNames.vendor(vendorId));
     socket.join(SUPPORT_VENDORS_ROOM);
@@ -243,9 +247,10 @@ export const registerSupportRealtime = (io, socket) => {
     emitStopTypingForActiveRoom(socket);
     leaveSupportChatRoom(socket);
 
-    if (socket.data.role === "vendor" && socket.data.vendorId) {
-      removeActiveSocket(activeVendors, socket.data.vendorId, socket.id);
-      syncSupportVendorAvailability(io, socket.data.vendorId, socket.id, false);
+    if (isSupportAgent(socket)) {
+      const agentId = getSupportAgentId(socket);
+      removeActiveSocket(activeVendors, agentId, socket.id);
+      syncSupportVendorAvailability(io, agentId, socket.id, false);
     }
 
     if (socket.data.role === "user" && socket.data.userId) {

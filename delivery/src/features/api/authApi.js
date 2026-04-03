@@ -98,6 +98,41 @@ export const authApi = createApi({
             ]
           : [{ type: "DeliveryNotifications", id: "LIST" }],
     }),
+    markDeliveryNotificationsRead: builder.mutation({
+      query: () => ({
+        url: "notifications/read",
+        method: "PATCH",
+      }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          authApi.util.updateQueryData(
+            "getDeliveryNotifications",
+            undefined,
+            (draft) => {
+              if (!draft?.notifications) return;
+              draft.notifications.forEach((notification) => {
+                notification.isRead = true;
+                notification.readAt = notification.readAt || new Date().toISOString();
+              });
+            }
+          )
+        );
+
+        try {
+          await queryFulfilled;
+        } catch (_error) {
+          patchResult.undo();
+        }
+      },
+      invalidatesTags: [{ type: "DeliveryNotifications", id: "LIST" }],
+    }),
+    getDeliveryPayouts: builder.query({
+      query: () => ({
+        url: "payouts",
+        method: "GET",
+      }),
+      providesTags: [{ type: "DeliverySummary", id: "PAYOUTS" }],
+    }),
     deleteDeliveryNotification: builder.mutation({
       query: (id) => ({
         url: `notifications/${id}`,
@@ -125,6 +160,8 @@ export const {
   useGetDashboardSummaryQuery,
   useToggleAvailabilityMutation,
   useGetDeliveryNotificationsQuery,
+  useMarkDeliveryNotificationsReadMutation,
+  useGetDeliveryPayoutsQuery,
   useDeleteDeliveryNotificationMutation,
   useClearDeliveryNotificationsMutation,
 } = authApi;

@@ -6,6 +6,7 @@ const defaultDevOrigins = [
   "http://localhost:3000",
   "http://localhost:3001",
   "http://localhost:3002",
+  "http://localhost:3003"
 ];
 
 export const getAllowedOrigins = ({ isProduction = false } = {}) =>
@@ -13,6 +14,7 @@ export const getAllowedOrigins = ({ isProduction = false } = {}) =>
     process.env.USER_URL,
     process.env.VENDOR_URL,
     process.env.DELIVERY_URL,
+    process.env.ADMIN_URL,
     ...(isProduction ? [] : defaultDevOrigins),
   ].filter(Boolean);
 

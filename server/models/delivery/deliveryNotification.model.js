@@ -28,6 +28,15 @@ const deliveryNotificationSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    isRead: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    readAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

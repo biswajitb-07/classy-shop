@@ -359,10 +359,14 @@ const Home = () => {
 
   const dashboard = useMemo(() => {
     const summary = summaryData?.summary ?? {
-      totalUsers: 0,
-      totalVendors: 0,
-      recentUsers: 0,
-      recentVendors: 0,
+      totalProducts: 0,
+      recentProducts: 0,
+      totalInventory: 0,
+      lowStockItems: 0,
+      totalOrders: 0,
+      recentOrders: 0,
+      deliveredOrders: 0,
+      totalRevenue: 0,
     };
     const categories = categoryStats.map((category) => ({
       ...category,
@@ -476,18 +480,18 @@ const Home = () => {
     const topCategory = [...categories].sort((a, b) => b.count - a.count)[0];
     const audienceSeries = [
       {
-        label: "Users",
-        value: summary.totalUsers,
-        recent: summary.recentUsers,
+        label: "Products",
+        value: summary.totalProducts,
+        recent: summary.recentProducts,
         color: "#0ea5e9",
-        href: "/community/users",
+        href: "/products",
       },
       {
-        label: "Vendors",
-        value: summary.totalVendors,
-        recent: summary.recentVendors,
+        label: "Orders",
+        value: summary.totalOrders,
+        recent: summary.recentOrders,
         color: "#fb7185",
-        href: "/community/vendors",
+        href: "/orders",
       },
     ];
 
@@ -1264,8 +1268,8 @@ const Home = () => {
         </div>
         <SectionCard
           dark={isDark}
-          title="User Vs Vendor Analytics"
-          subtitle="Platform audience comparison with hover-friendly distribution."
+          title="Vendor Workspace Analytics"
+          subtitle="Your own product and order activity with vendor-scoped distribution."
           style={{ animationDelay: "0.18s" }}
         >
           <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
@@ -1277,14 +1281,14 @@ const Home = () => {
                   <p
                     className={`text-sm font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}
                   >
-                    Audience totals
+                    Workspace totals
                   </p>
                   <h3
                     className={`mt-2 text-3xl font-black ${isDark ? "text-white" : "text-slate-950"}`}
                   >
                     {formatCompact(
-                      dashboard.summary.totalUsers +
-                        dashboard.summary.totalVendors,
+                      dashboard.summary.totalProducts +
+                        dashboard.summary.totalOrders,
                     )}
                   </h3>
                 </div>
@@ -1297,8 +1301,8 @@ const Home = () => {
               <div className="space-y-4">
                 {dashboard.audienceSeries.map((item) => {
                   const totalAudience = Math.max(
-                    dashboard.summary.totalUsers +
-                      dashboard.summary.totalVendors,
+                    dashboard.summary.totalProducts +
+                      dashboard.summary.totalOrders,
                     1,
                   );
                   return (

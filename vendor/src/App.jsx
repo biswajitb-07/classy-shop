@@ -1,5 +1,5 @@
 import { lazy } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import { createBrowserRouter, Navigate, RouterProvider, useLocation, useParams } from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import { WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -12,30 +12,29 @@ import {
   PublicRoute,
 } from "./component/protectRoute/ProtectedRoutes";
 const MainLayout = lazy(() => import("./layout/MainLayout"));
-const Category = lazy(() => import("./pages/Vendor/category/Category"));
 const Profile = lazy(() => import("./pages/Vendor/profile/Profile"));
-const CategoryList = lazy(() => import("./pages/Vendor/category/CategoryList"));
-const BrandsHub = lazy(() => import("./pages/Vendor/vedorPage/BrandsHub"));
 const ProductsHub = lazy(() => import("./pages/Vendor/vedorPage/ProductsHub"));
 const Error = lazy(() => import("./component/error/Error"));
 const Orders = lazy(() => import("./pages/Vendor/vedorPage/Orders"));
 const OrderDetailsPage = lazy(
   () => import("./pages/Vendor/vedorPage/OrderDetailsPage"),
 );
-const Users = lazy(() => import("./pages/Vendor/vedorPage/community/Users"));
-const Vendors = lazy(() => import("./pages/Vendor/vedorPage/community/Vendors"));
-const NewsletterSubscribers = lazy(
-  () => import("./pages/Vendor/vedorPage/community/NewsletterSubscribers")
-);
 const Settings = lazy(() => import("./pages/Vendor/Settings"));
 const SupportChats = lazy(() => import("./pages/Vendor/vedorPage/SupportChats"));
-const SiteContentManager = lazy(
-  () => import("./pages/Vendor/vedorPage/SiteContentManager"),
-);
-const Coupons = lazy(() => import("./pages/Vendor/vedorPage/Coupons"));
-const DeliveryPartners = lazy(
-  () => import("./pages/Vendor/vedorPage/DeliveryPartners"),
-);
+const Payouts = lazy(() => import("./pages/Vendor/vedorPage/Payouts"));
+import { getVendorOrderPath } from "./utils/orderRouting";
+
+const LegacyVendorOrderRedirect = () => {
+  const { orderId } = useParams();
+  const location = useLocation();
+
+  return (
+    <Navigate
+      replace
+      to={getVendorOrderPath({ _id: orderId }, { mode: "query", search: location.search })}
+    />
+  );
+};
 
 const appRouter = createBrowserRouter([
   {
@@ -77,6 +76,42 @@ const appRouter = createBrowserRouter([
         element: <Profile />,
       },
       {
+        path: "/products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/fashion-products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/electronic-products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/bag-products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/grocery-products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/footwear-products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/beauty-products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/wellness-products",
+        element: <ProductsHub />,
+      },
+      {
+        path: "/jewellery-products",
+        element: <ProductsHub />,
+      },
+      {
         path: "/orders",
         element: <Orders />,
       },
@@ -90,119 +125,19 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/order/:orderId",
-        element: <OrderDetailsPage />,
-      },
-      {
-        path: "/category",
-        element: <Category />,
-      },
-      {
-        path: "/category-list",
-        element: <CategoryList />,
-      },
-      {
-        path: "/brands",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/fashion-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/fashion-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/electronic-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/electronic-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/bag-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/bag-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/grocery-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/grocery-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/footwear-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/footwear-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/beauty-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/beauty-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/wellness-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/wellness-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/jewellery-brand-list",
-        element: <BrandsHub />,
-      },
-      {
-        path: "/jewellery-products",
-        element: <ProductsHub />,
-      },
-      {
-        path: "/community/users",
-        element: <Users />,
-      },
-      {
-        path: "/community/vendors",
-        element: <Vendors />,
-      },
-      {
-        path: "/community/newsletter",
-        element: <NewsletterSubscribers />,
-      },
-      {
-        path: "/settings",
-        element: <Settings />,
+        element: <LegacyVendorOrderRedirect />,
       },
       {
         path: "/support-chats",
         element: <SupportChats />,
       },
       {
-        path: "/site-content",
-        element: <SiteContentManager />,
+        path: "/payouts",
+        element: <Payouts />,
       },
       {
-        path: "/coupons",
-        element: <Coupons />,
-      },
-      {
-        path: "/delivery-partners",
-        element: <DeliveryPartners />,
+        path: "/settings",
+        element: <Settings />,
       },
     ],
   },

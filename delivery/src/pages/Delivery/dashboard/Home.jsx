@@ -95,6 +95,12 @@ const summaryCards = [
     accent: "from-emerald-500/20 to-emerald-500/5",
     icon: CheckCircle2,
   },
+  {
+    key: "approvedPayoutAmount",
+    label: "Approved Payout",
+    accent: "from-fuchsia-500/20 to-fuchsia-500/5",
+    icon: Route,
+  },
 ];
 
 const statusColors = {
@@ -139,6 +145,7 @@ const Home = () => {
   }
 
   const summary = summaryData?.summary || {};
+  const payoutSummary = summary.payoutSummary || {};
   const orders = ordersData?.orders || [];
   const recentOrders = orders.slice(0, 5);
   const totalValue = orders.reduce(
@@ -281,10 +288,104 @@ const Home = () => {
               </div>
             </div>
             <p className="mt-5 text-4xl font-black text-white">
-              {summary[key] || 0}
+              {key === "approvedPayoutAmount"
+                ? formatCurrency(payoutSummary.approvedAmount || 0)
+                : summary[key] || 0}
             </p>
           </div>
         ))}
+      </section>
+
+      <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+        <div className={chartCardClass}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Payout snapshot</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Admin approved aur paid payout amounts yahan reflect hote rahenge.
+              </p>
+            </div>
+            <div className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
+              Finance sync
+            </div>
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {[
+              {
+                label: "Approved",
+                value: formatCurrency(payoutSummary.approvedAmount || 0),
+                tone: "text-fuchsia-300",
+              },
+              {
+                label: "Paid",
+                value: formatCurrency(payoutSummary.paidAmount || 0),
+                tone: "text-emerald-300",
+              },
+              {
+                label: "Rejected",
+                value: formatCurrency(payoutSummary.rejectedAmount || 0),
+                tone: "text-rose-300",
+              },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-[1.5rem] border border-slate-800 bg-slate-950/70 p-5"
+              >
+                <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
+                  {item.label}
+                </p>
+                <p className={`mt-3 text-2xl font-black ${item.tone}`}>{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className={chartCardClass}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Recent payout updates</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Latest approved, paid, ya rejected payout entries.
+              </p>
+            </div>
+            <div className="rounded-full border border-slate-700 px-3 py-1 text-xs font-semibold text-slate-300">
+              {payoutSummary.totalPayouts || 0} records
+            </div>
+          </div>
+          <div className="mt-6 space-y-3">
+            {(payoutSummary.recentPayouts || []).length ? (
+              payoutSummary.recentPayouts.map((entry) => (
+                <div
+                  key={entry._id}
+                  className="rounded-[1.5rem] border border-slate-800 bg-slate-950/70 p-4"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-lg font-bold text-white">
+                        {formatCurrency(entry.payoutAmount)}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {new Date(entry.createdAt).toLocaleString("en-IN")}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-slate-300">
+                      {formatStatus(entry.status)}
+                    </span>
+                  </div>
+                  {entry.processedNotes ? (
+                    <p className="mt-3 text-sm leading-6 text-slate-400">
+                      {entry.processedNotes}
+                    </p>
+                  ) : null}
+                </div>
+              ))
+            ) : (
+              <div className="rounded-[1.5rem] border border-dashed border-slate-700 px-5 py-10 text-center text-sm text-slate-500">
+                Abhi tak koi payout update nahi aaya hai.
+              </div>
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">

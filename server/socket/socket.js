@@ -359,6 +359,12 @@ export const initSocket = (httpServer) => {
           return next();
         }
 
+        if (decoded?.role === "admin" && decoded?.adminId) {
+          socket.data.adminId = decoded.adminId;
+          socket.data.role = "admin";
+          return next();
+        }
+
         if (decoded?.role === "delivery" && decoded?.deliveryPartnerId) {
           socket.data.deliveryPartnerId = decoded.deliveryPartnerId;
           socket.data.role = "delivery";
@@ -372,8 +378,9 @@ export const initSocket = (httpServer) => {
       const vendorToken = cookies.vendorAccessToken || cookies.token1;
       const userToken = cookies.accessToken;
       const deliveryToken = cookies.deliveryAccessToken;
+      const adminToken = cookies.adminAccessToken;
 
-      if (!vendorToken && !userToken && !deliveryToken) {
+      if (!vendorToken && !userToken && !deliveryToken && !adminToken) {
         return next(new Error("Unauthorized"));
       }
 
@@ -402,6 +409,13 @@ export const initSocket = (httpServer) => {
         return next();
       }
 
+      if (adminToken) {
+        const adminDecoded = jwt.verify(adminToken, process.env.SECRET_KEY);
+        socket.data.adminId = adminDecoded.adminId;
+        socket.data.role = "admin";
+        return next();
+      }
+
       return next(new Error("Unauthorized"));
     } catch (error) {
       return next(new Error("Unauthorized"));
@@ -412,6 +426,7 @@ export const initSocket = (httpServer) => {
     if (
       (socket.data.role === "vendor" && socket.data.vendorId) ||
       (socket.data.role === "user" && socket.data.userId) ||
+      (socket.data.role === "admin" && socket.data.adminId) ||
       (socket.data.role === "delivery" && socket.data.deliveryPartnerId)
     ) {
       if (socket.data.role === "vendor" && socket.data.vendorId) {
@@ -420,6 +435,11 @@ export const initSocket = (httpServer) => {
 
       if (socket.data.role === "user" && socket.data.userId) {
         socket.join(`user:${socket.data.userId}`);
+      }
+
+      if (socket.data.role === "admin" && socket.data.adminId) {
+        socket.join(`admin:${socket.data.adminId}`);
+        socket.join("vendors:all");
       }
 
       if (socket.data.role === "delivery" && socket.data.deliveryPartnerId) {

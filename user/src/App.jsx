@@ -1,11 +1,18 @@
 import React, { lazy, useState, useEffect } from "react";
-import { createBrowserRouter, RouterProvider } from "react-router-dom";
+import {
+  createBrowserRouter,
+  Navigate,
+  RouterProvider,
+  useLocation,
+  useParams,
+} from "react-router-dom";
 import { Toaster, toast } from "react-hot-toast";
 import { WifiOff } from "lucide-react";
 import {
   PublicRoute,
   UserRoute,
 } from "./components/protectRoute/ProtectedRoutes.jsx";
+import { getProductDetailPath } from "./utils/productCatalog.js";
 
 const MainLayout = lazy(() => import("./layout/MainLayout.jsx"));
 const Home = lazy(() => import("./pages/Home.jsx"));
@@ -81,6 +88,29 @@ const SupportChatPage = lazy(
   () => import("./pages/User/support/SupportChatPage.jsx"),
 );
 const BlogPage = lazy(() => import("./pages/User/BlogPage.jsx"));
+
+const LegacyProductDetailRedirect = ({ productType, routeSegment }) => {
+  const { productId } = useParams();
+  const location = useLocation();
+
+  return (
+    <Navigate
+      replace
+      to={getProductDetailPath(
+        {
+          _id: productId,
+          productType,
+          routePrefix: routeSegment,
+        },
+        {
+          mode: "query",
+          search: location.search,
+          routeSegment,
+        },
+      )}
+    />
+  );
+};
 
 // The app router keeps public auth pages outside the shared storefront layout,
 // while category/product/order pages live under MainLayout.
@@ -305,31 +335,39 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/bag/bag-product-details/:productId",
-        element: <BagProductDetails />,
+        element: <LegacyProductDetailRedirect productType="Bag" routeSegment="bag" />,
       },
       {
         path: "/grocery/grocery-product-details/:productId",
-        element: <GroceryProductDetails />,
+        element: (
+          <LegacyProductDetailRedirect productType="Grocery" routeSegment="grocery" />
+        ),
       },
       {
         path: "/groceries/grocery-product-details/:productId",
-        element: <GroceryProductDetails />,
+        element: (
+          <LegacyProductDetailRedirect productType="Grocery" routeSegment="groceries" />
+        ),
       },
       {
         path: "/beauty/beauty-product-details/:productId",
-        element: <BeautyProductDetails />,
+        element: <LegacyProductDetailRedirect productType="Beauty" routeSegment="beauty" />,
       },
       {
         path: "/jewellery/jewellery-product-details/:productId",
-        element: <JewelleryProductDetails />,
+        element: (
+          <LegacyProductDetailRedirect productType="Jewellery" routeSegment="jewellery" />
+        ),
       },
       {
         path: "/bags/bag-product-details/:productId",
-        element: <BagProductDetails />,
+        element: <LegacyProductDetailRedirect productType="Bag" routeSegment="bags" />,
       },
       {
         path: "/wellness/wellness-product-details/:productId",
-        element: <WellnessProductDetails />,
+        element: (
+          <LegacyProductDetailRedirect productType="Wellness" routeSegment="wellness" />
+        ),
       },
       {
         path: "/fashion",
@@ -373,11 +411,15 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/fashion/fashion-product-details/:productId",
-        element: <FashionProductDetails />,
+        element: (
+          <LegacyProductDetailRedirect productType="Fashion" routeSegment="fashion" />
+        ),
       },
       {
         path: "/footwear/footwear-product-details/:productId",
-        element: <FootwearProductDetails />,
+        element: (
+          <LegacyProductDetailRedirect productType="Footwear" routeSegment="footwear" />
+        ),
       },
       {
         path: "/electronics",
@@ -401,7 +443,12 @@ const appRouter = createBrowserRouter([
       },
       {
         path: "/electronics/electronics-product-details/:productId",
-        element: <ElectronicsProductDetails />,
+        element: (
+          <LegacyProductDetailRedirect
+            productType="Electronics"
+            routeSegment="electronics"
+          />
+        ),
       },
       {
         path: "/cart",

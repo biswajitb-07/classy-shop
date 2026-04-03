@@ -10,6 +10,7 @@ import Wellness from "../../models/vendor/wellness/wellness.model.js";
 import Jewellery from "../../models/vendor/jewellery/jewellery.model.js";
 import { DeliveryPartner } from "../../models/delivery/deliveryPartner.model.js";
 import { DeliveryNotification } from "../../models/delivery/deliveryNotification.model.js";
+import { DeliveryPayout } from "../../models/delivery/deliveryPayout.model.js";
 import {
   clearDeliveryAuthCookies,
   signSocketToken,
@@ -21,6 +22,7 @@ import {
   emitDeliveryNotificationUpdate,
 } from "../../socket/socket.js";
 import { ensureOrderShippingLocation } from "../../utils/geocoding.js";
+import { sendPayoutStatusEmail } from "../../utils/emailService.js";
 import {
   createDeliveryPartnerSchema,
   deliveryLoginSchema,
@@ -39,6 +41,7 @@ const productModels = {
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const DELIVERY_PAYOUT_PER_COMPLETED_ORDER = Number(process.env.DELIVERY_PAYOUT_PER_ORDER || 60);
 
 const enrichOrders = async (orders = []) =>
   Promise.all(
@@ -471,6 +474,7 @@ export const getDeliveryDashboardSummary = async (req, res) => {
       returnPickupOrders,
       liveTrackingOrders,
       cancelledOrders,
+      payoutHistory,
     ] =
       await Promise.all([
         Order.countDocuments({ assignedDeliveryPartner: req.id }),
@@ -494,7 +498,22 @@ export const getDeliveryDashboardSummary = async (req, res) => {
           assignedDeliveryPartner: req.id,
           orderStatus: "cancelled",
         }),
+        DeliveryPayout.find({ deliveryPartnerId: req.id }).sort({ createdAt: -1 }).lean(),
       ]);
+
+    const payoutSummary = {
+      approvedAmount: payoutHistory
+        .filter((entry) => ["approved", "paid"].includes(entry.status))
+        .reduce((sum, entry) => sum + Number(entry.payoutAmount || 0), 0),
+      paidAmount: payoutHistory
+        .filter((entry) => entry.status === "paid")
+        .reduce((sum, entry) => sum + Number(entry.payoutAmount || 0), 0),
+      rejectedAmount: payoutHistory
+        .filter((entry) => entry.status === "rejected")
+        .reduce((sum, entry) => sum + Number(entry.payoutAmount || 0), 0),
+      totalPayouts: payoutHistory.length,
+      recentPayouts: payoutHistory.slice(0, 5),
+    };
 
     return res.status(200).json({
       success: true,
@@ -505,6 +524,7 @@ export const getDeliveryDashboardSummary = async (req, res) => {
         returnPickupOrders,
         liveTrackingOrders,
         cancelledOrders,
+        payoutSummary,
       },
     });
   } catch (error) {
@@ -558,6 +578,33 @@ export const getDeliveryNotifications = async (req, res) => {
   }
 };
 
+export const markDeliveryNotificationsAsRead = async (req, res) => {
+  try {
+    await DeliveryNotification.updateMany(
+      {
+        deliveryPartnerId: req.id,
+        isRead: { $ne: true },
+      },
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Notifications marked as read",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to mark notifications as read",
+    });
+  }
+};
+
 export const deleteDeliveryNotification = async (req, res) => {
   try {
     const notification = await DeliveryNotification.findOneAndDelete({
@@ -596,6 +643,245 @@ export const clearDeliveryNotifications = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to clear notifications",
+    });
+  }
+};
+
+const buildDeliveryPayoutDesk = async () => {
+  const [partners, orders, payoutHistory] = await Promise.all([
+    DeliveryPartner.find({}).select("name email phone vehicleType isAvailable isOnline").lean(),
+    Order.find({
+      assignedDeliveryPartner: { $ne: null },
+      orderStatus: { $in: ["delivered", "return_completed"] },
+    })
+      .select("assignedDeliveryPartner orderStatus updatedAt")
+      .lean(),
+    DeliveryPayout.find({})
+      .populate("deliveryPartnerId", "name email phone vehicleType")
+      .sort({ createdAt: -1 })
+      .lean(),
+  ]);
+
+  const lockedStatuses = new Set(["approved", "paid"]);
+  const lockedOrderIds = new Set(
+    payoutHistory
+      .filter((entry) => lockedStatuses.has(entry.status))
+      .flatMap((entry) => (entry.orderIds || []).map((orderId) => String(orderId)))
+  );
+
+  const queue = partners
+    .map((partner) => {
+      const availableOrders = orders.filter(
+        (order) =>
+          String(order.assignedDeliveryPartner || "") === String(partner._id) &&
+          !lockedOrderIds.has(String(order._id))
+      );
+      const completedOrdersCount = availableOrders.length;
+      const payoutAmount = completedOrdersCount * DELIVERY_PAYOUT_PER_COMPLETED_ORDER;
+
+      return {
+        deliveryPartner: partner,
+        orderIds: availableOrders.map((order) => order._id),
+        completedOrdersCount,
+        payoutAmount,
+        perOrderAmount: DELIVERY_PAYOUT_PER_COMPLETED_ORDER,
+      };
+    })
+    .filter((entry) => entry.completedOrdersCount > 0)
+    .sort((a, b) => b.payoutAmount - a.payoutAmount);
+
+  const summary = {
+    totalDeliveryPartners: partners.length,
+    partnersWithPendingPayouts: queue.length,
+    totalPayableAmount: queue.reduce((sum, entry) => sum + Number(entry.payoutAmount || 0), 0),
+    totalPaidAmount: payoutHistory
+      .filter((entry) => entry.status === "paid")
+      .reduce((sum, entry) => sum + Number(entry.payoutAmount || 0), 0),
+  };
+
+  return {
+    queue,
+    payoutHistory,
+    summary,
+  };
+};
+
+export const getAdminDeliveryPayoutDesk = async (_req, res) => {
+  try {
+    const desk = await buildDeliveryPayoutDesk();
+    return res.status(200).json({
+      success: true,
+      ...desk,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load delivery payout desk",
+    });
+  }
+};
+
+export const getDeliveryPayouts = async (req, res) => {
+  try {
+    const payoutHistory = await DeliveryPayout.find({
+      deliveryPartnerId: req.id,
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      payouts: payoutHistory,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load delivery payouts",
+    });
+  }
+};
+
+export const approveDeliveryPayout = async (req, res) => {
+  try {
+    const { deliveryPartnerId, processedNotes = "" } = req.body || {};
+
+    if (!deliveryPartnerId) {
+      return res.status(400).json({
+        success: false,
+        message: "Delivery partner id is required",
+      });
+    }
+
+    const desk = await buildDeliveryPayoutDesk();
+    const queueEntry = desk.queue.find(
+      (entry) => String(entry.deliveryPartner?._id || "") === String(deliveryPartnerId)
+    );
+
+    if (!queueEntry) {
+      return res.status(404).json({
+        success: false,
+        message: "No payable delivery balance found for this partner",
+      });
+    }
+
+    const payout = await DeliveryPayout.create({
+      deliveryPartnerId,
+      orderIds: queueEntry.orderIds,
+      completedOrdersCount: queueEntry.completedOrdersCount,
+      perOrderAmount: queueEntry.perOrderAmount,
+      payoutAmount: queueEntry.payoutAmount,
+      status: "approved",
+      processedNotes,
+      processedAt: new Date(),
+    });
+
+    await DeliveryNotification.create({
+      deliveryPartnerId,
+      type: "system",
+      title: "Payout approved",
+      message: `Rs ${Number(queueEntry.payoutAmount || 0).toLocaleString("en-IN")} payout approved for ${queueEntry.completedOrdersCount} completed deliveries.`,
+    });
+
+    emitDeliveryNotificationUpdate(deliveryPartnerId);
+    emitDeliveryDashboardUpdate(deliveryPartnerId);
+
+    const partner = await DeliveryPartner.findById(deliveryPartnerId).select("name email");
+    if (partner?.email) {
+      try {
+        await sendPayoutStatusEmail({
+          to: partner.email,
+          name: partner.name,
+          accountType: "delivery",
+          amount: queueEntry.payoutAmount,
+          status: "approved",
+          note: processedNotes,
+        });
+      } catch (mailErr) {
+        console.error("Delivery payout approval email error:", mailErr);
+      }
+    }
+
+    return res.status(201).json({
+      success: true,
+      message: "Delivery payout approved successfully",
+      payout,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to approve delivery payout",
+    });
+  }
+};
+
+export const updateDeliveryPayoutStatus = async (req, res) => {
+  try {
+    const { payoutId } = req.params;
+    const { status, processedNotes = "" } = req.body || {};
+
+    if (!["approved", "paid", "rejected"].includes(String(status || ""))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payout status",
+      });
+    }
+
+    const payout = await DeliveryPayout.findById(payoutId);
+    if (!payout) {
+      return res.status(404).json({
+        success: false,
+        message: "Delivery payout not found",
+      });
+    }
+
+    if (payout.status === "paid" && status !== "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Paid delivery payouts cannot be changed",
+      });
+    }
+
+    payout.status = status;
+    payout.processedNotes = processedNotes;
+    payout.processedAt = new Date();
+    payout.paidAt = status === "paid" ? new Date() : payout.paidAt;
+    await payout.save();
+
+    await DeliveryNotification.create({
+      deliveryPartnerId: payout.deliveryPartnerId,
+      type: "system",
+      title: `Payout ${status}`,
+      message: `Your payout of Rs ${Number(payout.payoutAmount || 0).toLocaleString("en-IN")} is now ${status}.${processedNotes ? ` Note: ${processedNotes}` : ""}`,
+    });
+
+    emitDeliveryNotificationUpdate(payout.deliveryPartnerId);
+    emitDeliveryDashboardUpdate(payout.deliveryPartnerId);
+
+    const partner = await DeliveryPartner.findById(payout.deliveryPartnerId).select("name email");
+    if (partner?.email) {
+      try {
+        await sendPayoutStatusEmail({
+          to: partner.email,
+          name: partner.name,
+          accountType: "delivery",
+          amount: payout.payoutAmount,
+          status,
+          note: processedNotes,
+        });
+      } catch (mailErr) {
+        console.error("Delivery payout status email error:", mailErr);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Delivery payout ${status} successfully`,
+      payout,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update delivery payout status",
     });
   }
 };

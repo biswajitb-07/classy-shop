@@ -1109,108 +1109,27 @@ const OrderDetailsPage = () => {
         : "bg-green-500";
 
   const handleDownloadInvoice = () => {
-    const invoiceWindow = window.open("", "_blank", "width=960,height=800");
-    if (!invoiceWindow) {
-      toast.error("Invoice window open nahi hua. Browser popup allow karo.");
-      return;
-    }
+    fetch(`${import.meta.env.VITE_API_URL}/api/v1/product/order/invoice/${order._id}`, {
+      credentials: "include",
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          throw new Error("Invoice download failed");
+        }
 
-    const itemsMarkup = order.items
-      .map(
-        (item) => `
-          <tr>
-            <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${item.productName}</td>
-            <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${item.variant || "Default"}</td>
-            <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">${item.quantity}</td>
-            <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">Rs ${Number(item.price || 0).toLocaleString()}</td>
-            <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">Rs ${Number(item.subtotal || 0).toLocaleString()}</td>
-          </tr>
-        `,
-      )
-      .join("");
-
-    invoiceWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Invoice ${order.orderId}</title>
-          <meta charset="utf-8" />
-        </head>
-        <body style="font-family: Arial, sans-serif; padding: 32px; color: #0f172a;">
-          <div style="max-width: 900px; margin: 0 auto;">
-            <div style="display:flex;justify-content:space-between;gap:24px;align-items:flex-start;">
-              <div>
-                <p style="letter-spacing:0.3em;font-size:12px;color:#64748b;margin:0;">CLASSYSHOP</p>
-                <h1 style="margin:12px 0 0;font-size:32px;">Tax Invoice</h1>
-                <p style="margin:8px 0 0;color:#475569;">Order #${order.orderId}</p>
-              </div>
-              <div style="text-align:right;">
-                <p style="margin:0;color:#475569;">Date</p>
-                <p style="margin:8px 0 0;font-weight:700;">${new Date(order.createdAt).toLocaleString("en-IN")}</p>
-                <p style="margin:16px 0 0;color:#475569;">Payment</p>
-                <p style="margin:8px 0 0;font-weight:700;">${getStatusLabel(order.paymentStatus)}</p>
-              </div>
-            </div>
-
-            <div style="margin-top:28px;padding:20px;border:1px solid #e2e8f0;border-radius:20px;">
-              <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.2em;color:#64748b;">BILL TO</p>
-              <p style="margin:0;font-weight:700;">${order.shippingAddress.fullName}</p>
-              <p style="margin:8px 0 0;color:#475569;">
-                ${[
-                  order.shippingAddress.addressLine1,
-                  order.shippingAddress.village,
-                  order.shippingAddress.city,
-                  order.shippingAddress.district,
-                  order.shippingAddress.state,
-                  order.shippingAddress.postalCode,
-                  order.shippingAddress.country,
-                ]
-                  .filter(Boolean)
-                  .join(", ")}
-              </p>
-              <p style="margin:8px 0 0;color:#475569;">Phone: ${order.shippingAddress.phone}</p>
-            </div>
-
-            <table style="width:100%;margin-top:28px;border-collapse:collapse;">
-              <thead>
-                <tr style="background:#f8fafc;">
-                  <th style="padding:12px;text-align:left;">Item</th>
-                  <th style="padding:12px;text-align:left;">Variant</th>
-                  <th style="padding:12px;text-align:center;">Qty</th>
-                  <th style="padding:12px;text-align:right;">Price</th>
-                  <th style="padding:12px;text-align:right;">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>${itemsMarkup}</tbody>
-            </table>
-
-            <div style="margin-top:28px;display:flex;justify-content:flex-end;">
-              <div style="width:320px;">
-                <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
-                  <span>Subtotal</span>
-                  <strong>Rs ${Number(order.subtotalAmount || order.totalAmount).toLocaleString()}</strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
-                  <span>Coupon Discount</span>
-                  <strong>- Rs ${couponDiscountAmount.toLocaleString()}</strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
-                  <span>Wallet Applied</span>
-                  <strong>- Rs ${walletAppliedAmount.toLocaleString()}</strong>
-                </div>
-                <div style="display:flex;justify-content:space-between;padding:14px 0;font-size:20px;">
-                  <span>Total</span>
-                  <strong>Rs ${Number(order.totalAmount || 0).toLocaleString()}</strong>
-                </div>
-              </div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `);
-    invoiceWindow.document.close();
-    invoiceWindow.focus();
-    invoiceWindow.print();
+        const blob = await response.blob();
+        const downloadUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = `invoice-${order.orderId}.html`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        window.URL.revokeObjectURL(downloadUrl);
+      })
+      .catch(() => {
+        toast.error("Invoice download nahi ho paya");
+      });
   };
 
   const renderLiveTrackingCard = () => (

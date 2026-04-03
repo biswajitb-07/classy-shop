@@ -1,18 +1,11 @@
 import { useEffect, useState } from "react";
 import { MdOutlineDashboard } from "react-icons/md";
-import { TbBrandSnapchat, TbCategoryPlus } from "react-icons/tb";
 import { RiProductHuntLine } from "react-icons/ri";
 import { AiOutlineLogout, AiOutlineClose } from "react-icons/ai";
-import { IoIosArrowDown, IoIosArrowUp } from "react-icons/io";
 import { IoBagCheckOutline } from "react-icons/io5";
-import { FiUsers } from "react-icons/fi";
-import { FiMail } from "react-icons/fi";
 import { FiSettings } from "react-icons/fi";
-import { HiOutlineBuildingStorefront } from "react-icons/hi2";
+import { FiCreditCard } from "react-icons/fi";
 import { Headphones } from "lucide-react";
-import { Image as ImageIcon } from "lucide-react";
-import { TicketPercent } from "lucide-react";
-import { Bike } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { setSidebarOpen, toggleSidebar } from "../../features/authSlice";
 import { useLocation, useNavigate } from "react-router-dom";
@@ -27,7 +20,6 @@ import { connectVendorSocket } from "../../lib/socket";
 
 const Sidebar = () => {
   const { isOpen } = useSelector((store) => store.auth);
-  const [openAccordion, setOpenAccordion] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
   const navigate = useNavigate();
@@ -36,8 +28,7 @@ const Sidebar = () => {
   const { isDark, resetTheme } = useTheme();
 
   const [logoutUser, { isLoading: logoutIsLoading }] = useLogoutUserMutation();
-  const { data: summaryData, refetch: refetchSummary } = useGetDashboardSummaryQuery();
-  const summary = summaryData?.summary;
+  const { refetch: refetchSummary } = useGetDashboardSummaryQuery();
 
   useEffect(() => {
     const socket = connectVendorSocket();
@@ -53,10 +44,6 @@ const Sidebar = () => {
       socket.off("vendor:summary:update", handleSummaryUpdate);
     };
   }, [refetchSummary]);
-
-  const toggleAccordion = (key) => {
-    setOpenAccordion(openAccordion === key ? null : key);
-  };
 
   const closeSidebar = () => {
     dispatch(setSidebarOpen(false));
@@ -74,31 +61,6 @@ const Sidebar = () => {
       : isDark
         ? "bg-transparent text-slate-200 hover:bg-slate-800 hover:text-white"
         : "text-gray-700 hover:text-gray-900 hover:bg-gray-200";
-  const activeSubItemClass = (active) =>
-    active
-      ? "bg-black text-white border border-black shadow-sm"
-      : isDark
-        ? "border border-slate-800 bg-slate-900/70 text-slate-300 hover:bg-slate-800 hover:border-slate-700 hover:text-white"
-        : "border-sky-100 bg-sky-50 hover:bg-sky-100";
-  const communityCardClass = (active, kind) => {
-    if (active) return "bg-black text-white border-black";
-    if (isDark) {
-      return kind === "users"
-        ? "border-slate-700 bg-slate-900/80 hover:bg-slate-800"
-        : "border-slate-700 bg-slate-900/80 hover:bg-slate-800";
-    }
-    return kind === "users"
-      ? "border-sky-100 bg-sky-50 hover:bg-sky-100"
-      : "border-rose-100 bg-rose-50 hover:bg-rose-100";
-  };
-  const communityCardTextClass = (active, kind) => {
-    if (active) return "text-white/80";
-    if (isDark) return kind === "users" ? "text-sky-300" : "text-rose-300";
-    return kind === "users" ? "text-sky-600" : "text-rose-600";
-  };
-  const communityValueClass = (active) =>
-    active ? "text-white" : isDark ? "text-slate-100" : "text-slate-900";
-
   const handleLogout = async () => {
     try {
       await logoutUser().unwrap();
@@ -127,11 +89,16 @@ const Sidebar = () => {
           }`}
         >
           <div className="flex items-center justify-between">
-            <img
-              src={isDark ? "/logo-dark.png" : "/logo-light.png"}
-              alt="logo"
-              className="w-28 md:w-40"
-            />
+            <div>
+              <img
+                src={isDark ? "/logo-dark.png" : "/logo-light.png"}
+                alt="logo"
+                className="w-28 md:w-40"
+              />
+              <p className={`mt-2 text-[11px] font-bold uppercase tracking-[0.26em] ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                Vendor Workspace
+              </p>
+            </div>
             <AiOutlineClose
               onClick={closeSidebar}
               size={23}
@@ -148,74 +115,6 @@ const Sidebar = () => {
             >
               <MdOutlineDashboard size={20} />
               Dashboard
-            </li>
-
-            {/* Category */}
-            <li className="flex flex-col">
-              <button
-                onClick={() => toggleAccordion("category")}
-                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
-                  isActivePath("/category", "/category-list")
-                )}`}
-              >
-                <div className="flex items-center gap-4 text-sm font-bold">
-                  <TbCategoryPlus size={20} />
-                  Category
-                </div>
-                {openAccordion === "category" ? (
-                  <IoIosArrowUp />
-                ) : (
-                  <IoIosArrowDown />
-                )}
-              </button>
-              <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openAccordion === "category"
-                    ? "grid-rows-[1fr]"
-                    : "grid-rows-[0fr]"
-                }`}
-              >
-                <div className="overflow-hidden">
-                  <ul className={`ml-16 mt-2 mb-2 flex flex-col gap-4 text-sm font-semibold list-disc ${isDark ? "text-slate-200" : "text-gray-600"}`}>
-                    <li
-                      onClick={() => navigateTo("/category-list")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/category-list"
-                      )}`}
-                    >
-                      Category List
-                    </li>
-                    <li
-                      onClick={() => navigateTo("/category")}
-                      className={`cursor-pointer rounded px-2 py-1 transition ${activeSubItemClass(
-                        location.pathname === "/category"
-                      )}`}
-                    >
-                      Add Category
-                    </li>
-                  </ul>
-                </div>
-              </div>
-            </li>
-
-            <li
-              onClick={() => navigateTo("/brands")}
-              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
-                isActivePath(
-                  "/brands",
-                  "/fashion-brand-list",
-                  "/electronic-brand-list",
-                  "/bag-brand-list",
-                  "/grocery-brand-list",
-                  "/footwear-brand-list",
-                  "/beauty-brand-list",
-                  "/wellness-brand-list",
-                  "/jewellery-brand-list"
-                )
-              )}`}
-            >
-              <TbBrandSnapchat size={20} />
-              Brands Hub
             </li>
 
             <li
@@ -255,37 +154,17 @@ const Sidebar = () => {
               )}`}
             >
               <Headphones size={18} />
-              Support Chats
+              Admin Support
             </li>
 
             <li
-              onClick={() => navigateTo("/site-content")}
+              onClick={() => navigateTo("/payouts")}
               className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
-                location.pathname === "/site-content"
+                location.pathname === "/payouts"
               )}`}
             >
-              <ImageIcon size={18} />
-              Site Content
-            </li>
-
-            <li
-              onClick={() => navigateTo("/coupons")}
-              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
-                location.pathname === "/coupons"
-              )}`}
-            >
-              <TicketPercent size={18} />
-              Coupons
-            </li>
-
-            <li
-              onClick={() => navigateTo("/delivery-partners")}
-              className={`flex items-center gap-4 rounded px-2 py-2 text-sm font-bold transition cursor-pointer ${activeItemClass(
-                location.pathname === "/delivery-partners"
-              )}`}
-            >
-              <Bike size={18} />
-              Delivery Partners
+              <FiCreditCard size={18} />
+              Payouts
             </li>
 
             <li
@@ -296,104 +175,6 @@ const Sidebar = () => {
             >
               <FiSettings size={20} />
               Settings
-            </li>
-
-            <li className="flex flex-col">
-              <button
-                onClick={() => toggleAccordion("community")}
-                className={`flex w-full items-center justify-between gap-2 rounded px-2 py-2 transition cursor-pointer ${activeItemClass(
-                  isActivePath(
-                    "/community/users",
-                    "/community/vendors",
-                    "/community/newsletter"
-                  )
-                )}`}
-              >
-                <div className="flex items-center gap-4 text-sm font-bold">
-                  <FiUsers size={20} />
-                  Community
-                </div>
-                {openAccordion === "community" ? (
-                  <IoIosArrowUp />
-                ) : (
-                  <IoIosArrowDown />
-                )}
-              </button>
-              <div
-                className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-                  openAccordion === "community"
-                    ? "grid-rows-[1fr]"
-                    : "grid-rows-[0fr]"
-                }`}
-              >
-                <div className="overflow-hidden">
-                  <div className="mt-3 grid gap-3">
-                    <div 
-                      onClick={() => navigateTo("/community/users")}
-                      className={`rounded-2xl border px-4 py-3 cursor-pointer transition-colors ${communityCardClass(
-                        location.pathname === "/community/users",
-                        "users"
-                      )}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`rounded-xl p-2 shadow-sm bg-white ${location.pathname === "/community/users" ? "text-black" : isDark ? "text-slate-200" : "text-sky-600"}`}>
-                          <FiUsers size={18} />
-                        </div>
-                        <div>
-                          <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${communityCardTextClass(location.pathname === "/community/users", "users")}`}>
-                            Users
-                          </p>
-                          <p className={`text-lg font-black ${communityValueClass(location.pathname === "/community/users")}`}>
-                            {summary?.totalUsers ?? 0}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div 
-                      onClick={() => navigateTo("/community/vendors")}
-                      className={`rounded-2xl border px-4 py-3 cursor-pointer transition-colors ${communityCardClass(
-                        location.pathname === "/community/vendors",
-                        "vendors"
-                      )}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`rounded-xl p-2 shadow-sm bg-white ${location.pathname === "/community/vendors" ? "text-black" : isDark ? "text-slate-200" : "text-rose-600"}`}>
-                          <HiOutlineBuildingStorefront size={18} />
-                        </div>
-                        <div>
-                          <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${communityCardTextClass(location.pathname === "/community/vendors", "vendors")}`}>
-                            Vendors
-                          </p>
-                          <p className={`text-lg font-black ${communityValueClass(location.pathname === "/community/vendors")}`}>
-                            {summary?.totalVendors ?? 0}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <div 
-                      onClick={() => navigateTo("/community/newsletter")}
-                      className={`rounded-2xl border px-4 py-3 cursor-pointer transition-colors ${communityCardClass(
-                        location.pathname === "/community/newsletter",
-                        "users"
-                      )}`}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`rounded-xl p-2 shadow-sm bg-white ${location.pathname === "/community/newsletter" ? "text-black" : isDark ? "text-slate-200" : "text-violet-600"}`}>
-                          <FiMail size={18} />
-                        </div>
-                        <div>
-                          <p className={`text-xs font-semibold uppercase tracking-[0.14em] ${communityCardTextClass(location.pathname === "/community/newsletter", "users")}`}>
-                            Newsletter
-                          </p>
-                          <p className={`text-lg font-black ${communityValueClass(location.pathname === "/community/newsletter")}`}>
-                            List
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </li>
 
             <li

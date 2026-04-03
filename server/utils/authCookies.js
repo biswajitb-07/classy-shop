@@ -28,12 +28,19 @@ export const signDeliveryAccessToken = (deliveryPartnerId) =>
 export const signDeliveryRefreshToken = (deliveryPartnerId) =>
   jwt.sign({ deliveryPartnerId }, process.env.SECRET_KEY, { expiresIn: "30d" });
 
-export const signSocketToken = ({ userId, vendorId, deliveryPartnerId, role }) =>
+export const signAdminAccessToken = (adminId) =>
+  jwt.sign({ adminId }, process.env.SECRET_KEY, { expiresIn: "15m" });
+
+export const signAdminRefreshToken = (adminId) =>
+  jwt.sign({ adminId }, process.env.SECRET_KEY, { expiresIn: "30d" });
+
+export const signSocketToken = ({ userId, vendorId, deliveryPartnerId, adminId, role }) =>
   jwt.sign(
     {
       userId: userId || undefined,
       vendorId: vendorId || undefined,
       deliveryPartnerId: deliveryPartnerId || undefined,
+      adminId: adminId || undefined,
       role,
       scope: "socket",
     },
@@ -85,6 +92,18 @@ export const setDeliveryRefreshCookie = (res, deliveryPartnerId) =>
     }
   );
 
+export const setAdminAccessCookie = (res, adminId) =>
+  res.cookie("adminAccessToken", signAdminAccessToken(adminId), {
+    ...baseCookieOptions,
+    maxAge: ACCESS_TOKEN_AGE,
+  });
+
+export const setAdminRefreshCookie = (res, adminId) =>
+  res.cookie("adminRefreshToken", signAdminRefreshToken(adminId), {
+    ...baseCookieOptions,
+    maxAge: REFRESH_TOKEN_AGE,
+  });
+
 export const setUserAuthCookies = (res, userId) => {
   setUserAccessCookie(res, userId);
   setUserRefreshCookie(res, userId);
@@ -100,6 +119,11 @@ export const setDeliveryAuthCookies = (res, deliveryPartnerId) => {
   setDeliveryRefreshCookie(res, deliveryPartnerId);
 };
 
+export const setAdminAuthCookies = (res, adminId) => {
+  setAdminAccessCookie(res, adminId);
+  setAdminRefreshCookie(res, adminId);
+};
+
 export const clearUserAuthCookies = (res) => {
   res.clearCookie("accessToken", baseCookieOptions);
   res.clearCookie("refreshToken", baseCookieOptions);
@@ -113,4 +137,9 @@ export const clearVendorAuthCookies = (res) => {
 export const clearDeliveryAuthCookies = (res) => {
   res.clearCookie("deliveryAccessToken", baseCookieOptions);
   res.clearCookie("deliveryRefreshToken", baseCookieOptions);
+};
+
+export const clearAdminAuthCookies = (res) => {
+  res.clearCookie("adminAccessToken", baseCookieOptions);
+  res.clearCookie("adminRefreshToken", baseCookieOptions);
 };

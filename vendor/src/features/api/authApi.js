@@ -11,6 +11,7 @@ export const authApi = createApi({
     "NewsletterSubscribers",
     "Coupons",
     "DeliveryPartners",
+    "VendorPayouts",
   ],
   baseQuery: fetchBaseQuery({
     baseUrl: VENDOR_API,
@@ -168,7 +169,7 @@ export const authApi = createApi({
     }),
     getVendorNotifications: builder.query({
       query: () => ({
-        url: "notifications",
+        url: "vendor-notifications",
         method: "GET",
       }),
       providesTags: (result) =>
@@ -182,9 +183,33 @@ export const authApi = createApi({
             ]
           : [{ type: "VendorNotifications", id: "LIST" }],
     }),
+    markVendorNotificationsRead: builder.mutation({
+      query: () => ({
+        url: "vendor-notifications/read",
+        method: "PATCH",
+      }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        const patchResult = dispatch(
+          authApi.util.updateQueryData("getVendorNotifications", undefined, (draft) => {
+            if (!draft?.notifications) return;
+            draft.notifications.forEach((notification) => {
+              notification.isRead = true;
+              notification.readAt = notification.readAt || new Date().toISOString();
+            });
+          })
+        );
+
+        try {
+          await queryFulfilled;
+        } catch (_error) {
+          patchResult.undo();
+        }
+      },
+      invalidatesTags: [{ type: "VendorNotifications", id: "LIST" }],
+    }),
     deleteVendorNotification: builder.mutation({
       query: (id) => ({
-        url: `notifications/${id}`,
+        url: `vendor-notifications/${id}`,
         method: "DELETE",
       }),
       invalidatesTags: (_result, _error, id) => [
@@ -194,7 +219,7 @@ export const authApi = createApi({
     }),
     clearVendorNotifications: builder.mutation({
       query: () => ({
-        url: "notifications",
+        url: "vendor-notifications",
         method: "DELETE",
       }),
       invalidatesTags: [{ type: "VendorNotifications", id: "LIST" }],
@@ -296,6 +321,70 @@ export const authApi = createApi({
       }),
       invalidatesTags: [{ type: "DeliveryPartners", id: "LIST" }],
     }),
+    getVendorPayoutSummary: builder.query({
+      query: () => ({
+        url: "payouts/summary",
+        method: "GET",
+      }),
+      providesTags: [{ type: "VendorPayouts", id: "SUMMARY" }],
+    }),
+    getVendorPayoutRequests: builder.query({
+      query: () => ({
+        url: "payouts",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result?.payoutRequests
+          ? [
+              ...result.payoutRequests.map((request) => ({
+                type: "VendorPayouts",
+                id: request._id,
+              })),
+              { type: "VendorPayouts", id: "LIST" },
+            ]
+          : [{ type: "VendorPayouts", id: "LIST" }],
+    }),
+    getAllVendorPayoutRequests: builder.query({
+      query: () => ({
+        url: "payouts/admin/all",
+        method: "GET",
+      }),
+      providesTags: (result) =>
+        result?.payoutRequests
+          ? [
+              ...result.payoutRequests.map((request) => ({
+                type: "VendorPayouts",
+                id: `admin-${request._id}`,
+              })),
+              { type: "VendorPayouts", id: "ADMIN_LIST" },
+            ]
+          : [{ type: "VendorPayouts", id: "ADMIN_LIST" }],
+    }),
+    requestVendorPayout: builder.mutation({
+      query: (body) => ({
+        url: "payouts/request",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: [
+        { type: "VendorPayouts", id: "SUMMARY" },
+        { type: "VendorPayouts", id: "LIST" },
+      ],
+    }),
+    updateVendorPayoutStatus: builder.mutation({
+      query: ({ payoutId, status, processedNotes }) => ({
+        url: `payouts/${payoutId}/status`,
+        method: "PATCH",
+        body: { status, processedNotes },
+      }),
+      invalidatesTags: (_result, _error, { payoutId }) => [
+        { type: "VendorPayouts", id: payoutId },
+        { type: "VendorPayouts", id: `admin-${payoutId}` },
+        { type: "VendorPayouts", id: "SUMMARY" },
+        { type: "VendorPayouts", id: "LIST" },
+        { type: "VendorPayouts", id: "ADMIN_LIST" },
+      ],
+    }),
   }),
 });
 
@@ -320,6 +409,7 @@ export const {
   useDeleteVendorByIdMutation,
   useToggleVendorBlockMutation,
   useGetVendorNotificationsQuery,
+  useMarkVendorNotificationsReadMutation,
   useDeleteVendorNotificationMutation,
   useClearVendorNotificationsMutation,
   useGetCouponsQuery,
@@ -331,4 +421,9 @@ export const {
   useToggleDeliveryPartnerBlockMutation,
   useDeleteDeliveryPartnerMutation,
   useAssignDeliveryPartnerMutation,
+  useGetVendorPayoutSummaryQuery,
+  useGetVendorPayoutRequestsQuery,
+  useGetAllVendorPayoutRequestsQuery,
+  useRequestVendorPayoutMutation,
+  useUpdateVendorPayoutStatusMutation,
 } = authApi;

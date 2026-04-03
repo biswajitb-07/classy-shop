@@ -175,3 +175,43 @@ export const sendOrderDeliveredEmail = async ({
       items,
     }),
   });
+
+export const sendPayoutStatusEmail = async ({
+  to,
+  name,
+  accountType = "vendor",
+  amount = 0,
+  status = "approved",
+  note = "",
+}) =>
+  sendEmail({
+    to,
+    subject: `Payout ${String(status || "").toUpperCase()} • Classy Shop`,
+    html: `
+      <div style="font-family:Arial,sans-serif;background:#f8fafc;padding:24px;color:#0f172a;">
+        <div style="max-width:620px;margin:0 auto;background:#ffffff;border-radius:18px;padding:28px;border:1px solid #e2e8f0;">
+          <p style="margin:0 0 8px;font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#64748b;">${accountType} payout update</p>
+          <h1 style="margin:0 0 14px;font-size:28px;">Hello ${String(name || "Partner")},</h1>
+          <p style="margin:0 0 16px;font-size:15px;line-height:1.7;color:#475569;">
+            Your payout request has been updated.
+          </p>
+          <div style="border:1px solid #e2e8f0;border-radius:16px;padding:18px;background:#f8fafc;">
+            <p style="margin:0 0 10px;font-size:14px;color:#64748b;">Status</p>
+            <p style="margin:0 0 14px;font-size:22px;font-weight:700;text-transform:capitalize;color:#0f172a;">${String(status || "")}</p>
+            <p style="margin:0 0 10px;font-size:14px;color:#64748b;">Amount</p>
+            <p style="margin:0;font-size:24px;font-weight:800;color:#0f172a;">Rs ${Number(amount || 0).toLocaleString("en-IN")}</p>
+          </div>
+          ${
+            note
+              ? `<p style="margin:18px 0 0;font-size:14px;line-height:1.7;color:#475569;"><strong>Admin note:</strong> ${String(
+                  note
+                )}</p>`
+              : ""
+          }
+          <p style="margin:18px 0 0;font-size:14px;line-height:1.7;color:#475569;">
+            You can also check the latest payout status directly from your dashboard.
+          </p>
+        </div>
+      </div>
+    `,
+  });

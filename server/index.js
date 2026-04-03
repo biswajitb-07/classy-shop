@@ -29,6 +29,7 @@ import wellnessRouter from "./routes/vendor/wellness/wellness.route.js";
 import jewelleryBrandRouter from "./routes/vendor/jewellery/jewelleryBrand.route.js";
 import jewelleryRouter from "./routes/vendor/jewellery/jewellery.route.js";
 import deliveryRouter from "./routes/delivery/delivery.route.js";
+import { ensureDefaultAdminAccount } from "./controllers/admin/admin.controller.js";
 import { initSocket } from "./socket/socket.js";
 import { verifyEmailTransport } from "./utils/emailService.js";
 import {
@@ -45,6 +46,9 @@ const isProduction = process.env.NODE_ENV === "production";
 // Connect once during boot so all route handlers and socket events can share
 // the same Mongo connection pool.
 connectDB();
+ensureDefaultAdminAccount().catch((error) => {
+  console.error("Failed to ensure default admin account:", error);
+});
 
 app.disable("x-powered-by");
 app.set("trust proxy", 1);

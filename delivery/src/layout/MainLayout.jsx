@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from "react-redux";
 import {
   Bell,
   Bike,
+  CreditCard,
   Home,
   LogOut,
   Menu,
@@ -19,6 +20,7 @@ import {
   useDeleteDeliveryNotificationMutation,
   useGetDeliveryNotificationsQuery,
   useLogoutUserMutation,
+  useMarkDeliveryNotificationsReadMutation,
   useToggleAvailabilityMutation,
 } from "../features/api/authApi";
 import { orderApi } from "../features/api/orderApi";
@@ -44,6 +46,11 @@ const navigationItems = [
     path: "/profile",
     icon: UserCircle2,
   },
+  {
+    label: "Payouts",
+    path: "/payouts",
+    icon: CreditCard,
+  },
 ];
 
 const formatNotificationTime = (value) =>
@@ -53,31 +60,6 @@ const formatNotificationTime = (value) =>
     hour: "2-digit",
     minute: "2-digit",
   });
-
-const getSeenStorageKey = (deliveryPartnerId) =>
-  `classy_delivery_seen_notifications_${String(deliveryPartnerId || "guest")}`;
-
-const readSeenNotificationIds = (deliveryPartnerId) => {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const rawValue = window.localStorage.getItem(
-      getSeenStorageKey(deliveryPartnerId)
-    );
-    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
-    return Array.isArray(parsedValue) ? parsedValue : [];
-  } catch (_error) {
-    return [];
-  }
-};
-
-const persistSeenNotificationIds = (deliveryPartnerId, ids = []) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    getSeenStorageKey(deliveryPartnerId),
-    JSON.stringify(ids)
-  );
-};
 
 const formatPresenceTime = (value) => {
   if (!value) return "just now";
@@ -102,13 +84,14 @@ const MainLayout = () => {
   const [showOverlay, setShowOverlay] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
-  const [seenNotificationIds, setSeenNotificationIds] = useState([]);
   const [hasAppliedDesktopDefault, setHasAppliedDesktopDefault] = useState(false);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [logoutUser, { isLoading: isLoggingOut }] = useLogoutUserMutation();
   const [toggleAvailability, { isLoading: isUpdatingAvailability }] =
     useToggleAvailabilityMutation();
   const [deleteDeliveryNotification] = useDeleteDeliveryNotificationMutation();
+  const [markDeliveryNotificationsRead, { isLoading: isMarkingNotificationsRead }] =
+    useMarkDeliveryNotificationsReadMutation();
   const [clearDeliveryNotifications, { isLoading: isClearingNotifications }] =
     useClearDeliveryNotificationsMutation();
   const {
@@ -126,22 +109,21 @@ const MainLayout = () => {
     [notificationData?.notifications]
   );
   const unreadNotifications = useMemo(
-    () =>
-      notifications.filter(
-        (notification) => !seenNotificationIds.includes(String(notification._id)),
-      ),
-    [notifications, seenNotificationIds]
+    () => notifications.filter((notification) => !notification?.isRead),
+    [notifications]
   );
   const unreadCount = unreadNotifications.length;
 
   useEffect(() => {
-    setSeenNotificationIds(readSeenNotificationIds(deliveryPartner?._id));
-  }, [deliveryPartner?._id]);
+    if (!isNotificationOpen || !unreadCount || isMarkingNotificationsRead) return;
 
-  useEffect(() => {
-    if (!deliveryPartner?._id) return;
-    persistSeenNotificationIds(deliveryPartner._id, seenNotificationIds);
-  }, [deliveryPartner?._id, seenNotificationIds]);
+    markDeliveryNotificationsRead().catch(() => {});
+  }, [
+    isNotificationOpen,
+    unreadCount,
+    isMarkingNotificationsRead,
+    markDeliveryNotificationsRead,
+  ]);
 
   useEffect(() => {
     if (isOpen) {
@@ -276,9 +258,6 @@ const MainLayout = () => {
 
     try {
       await deleteDeliveryNotification(id).unwrap();
-      setSeenNotificationIds((current) =>
-        current.filter((notificationId) => notificationId !== String(id))
-      );
     } catch (error) {
       toast.error(error?.data?.message || "Notification delete failed");
     } finally {
@@ -299,33 +278,15 @@ const MainLayout = () => {
 
     try {
       await clearDeliveryNotifications().unwrap();
-      setSeenNotificationIds([]);
       setIsNotificationOpen(false);
     } catch (error) {
       toast.error(error?.data?.message || "Notifications clear failed");
     }
   };
 
-  const markNotificationsAsSeen = () => {
-    if (!notifications.length) return;
-
-    setSeenNotificationIds((current) => {
-      const nextIds = new Set(current);
-      notifications.forEach((notification) => {
-        if (notification?._id) {
-          nextIds.add(String(notification._id));
-        }
-      });
-      return Array.from(nextIds);
-    });
-  };
-
-  const handleToggleNotifications = () => {
+  const handleToggleNotifications = async () => {
     setIsNotificationOpen((current) => {
       const nextOpen = !current;
-      if (nextOpen) {
-        markNotificationsAsSeen();
-      }
       return nextOpen;
     });
   };

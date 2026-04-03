@@ -15,6 +15,7 @@ import {
   useClearUserNotificationsMutation,
   useDeleteUserNotificationMutation,
   useGetUserNotificationsQuery,
+  useMarkUserNotificationsReadMutation,
 } from "../../features/api/orderApi";
 import Search from "../Search";
 import Navigation from "./Navigation";
@@ -28,32 +29,11 @@ import {
   waitForNextPaint,
 } from "../../utils/uiFeedbackSounds.js";
 
-const getSeenStorageKey = (userId) =>
-  `classy_user_seen_notifications_${String(userId || "guest")}`;
-
-const readSeenNotificationIds = (userId) => {
-  if (typeof window === "undefined") return [];
-
-  try {
-    const rawValue = window.localStorage.getItem(getSeenStorageKey(userId));
-    const parsedValue = rawValue ? JSON.parse(rawValue) : [];
-    return Array.isArray(parsedValue) ? parsedValue : [];
-  } catch (_error) {
-    return [];
-  }
-};
-
-const persistSeenNotificationIds = (userId, ids = []) => {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(getSeenStorageKey(userId), JSON.stringify(ids));
-};
-
 const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   const [isOpenCartPanel, setIsOpenCartPanel] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
   const [hasProfileAvatarError, setHasProfileAvatarError] = useState(false);
-  const [seenNotificationIds, setSeenNotificationIds] = useState([]);
   const notificationRef = useRef(null);
 
   const navigate = useNavigate();
@@ -72,6 +52,8 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
       refetchOnReconnect: true,
     });
   const [deleteUserNotification] = useDeleteUserNotificationMutation();
+  const [markUserNotificationsRead, { isLoading: isMarkingNotificationsRead }] =
+    useMarkUserNotificationsReadMutation();
   const [clearUserNotifications, { isLoading: isClearingNotifications }] =
     useClearUserNotificationsMutation();
 
@@ -82,13 +64,21 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     [notificationData?.notifications]
   );
   const unreadNotifications = useMemo(
-    () =>
-      notifications.filter(
-        (notification) => !seenNotificationIds.includes(String(notification._id)),
-      ),
-    [notifications, seenNotificationIds],
+    () => notifications.filter((notification) => !notification?.isRead),
+    [notifications],
   );
   const unreadCount = unreadNotifications.length;
+
+  useEffect(() => {
+    if (!isNotificationOpen || !unreadCount || isMarkingNotificationsRead) return;
+
+    markUserNotificationsRead().catch(() => {});
+  }, [
+    isNotificationOpen,
+    unreadCount,
+    isMarkingNotificationsRead,
+    markUserNotificationsRead,
+  ]);
 
   const openCartPanel = () => {
     setIsOpenCartPanel(!isOpenCartPanel);
@@ -111,15 +101,6 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
   useEffect(() => {
     primeUiFeedbackSounds();
   }, []);
-
-  useEffect(() => {
-    setSeenNotificationIds(readSeenNotificationIds(user?._id));
-  }, [user?._id]);
-
-  useEffect(() => {
-    if (!user?._id) return;
-    persistSeenNotificationIds(user._id, seenNotificationIds);
-  }, [seenNotificationIds, user?._id]);
 
   useEffect(() => {
     setHasProfileAvatarError(false);
@@ -158,9 +139,6 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     setDeletingNotificationIds((current) => [...current, notificationId]);
     try {
       await deleteUserNotification(notificationId).unwrap();
-      setSeenNotificationIds((current) =>
-        current.filter((id) => id !== String(notificationId)),
-      );
     } finally {
       setDeletingNotificationIds((current) =>
         current.filter((id) => id !== notificationId)
@@ -177,29 +155,11 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
       return;
     }
     await clearUserNotifications().unwrap();
-    setSeenNotificationIds([]);
   };
 
-  const markNotificationsAsSeen = () => {
-    if (!notifications.length) return;
-
-    setSeenNotificationIds((current) => {
-      const nextIds = new Set(current);
-      notifications.forEach((notification) => {
-        if (notification?._id) {
-          nextIds.add(String(notification._id));
-        }
-      });
-      return Array.from(nextIds);
-    });
-  };
-
-  const handleToggleNotifications = () => {
+  const handleToggleNotifications = async () => {
     setIsNotificationOpen((current) => {
       const nextOpen = !current;
-      if (nextOpen) {
-        markNotificationsAsSeen();
-      }
       return nextOpen;
     });
   };

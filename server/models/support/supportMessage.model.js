@@ -32,7 +32,7 @@ const supportMessageSchema = new mongoose.Schema(
     },
     senderRole: {
       type: String,
-      enum: ["user", "vendor"],
+      enum: ["user", "vendor", "admin"],
       required: true,
     },
     text: {

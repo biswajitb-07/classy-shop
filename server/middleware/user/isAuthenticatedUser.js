@@ -46,13 +46,19 @@ const isAuthenticatedUser = async (req, res, next) => {
     }
 
     req.id = userId;
-    req.role = "user";
 
-    const user = await User.findById(req.id).select("isBlocked");
+    const user = await User.findById(req.id).select("isBlocked role");
     if (!user) {
       return res.status(401).json({
         message: "User not authenticated",
         success: false,
+      });
+    }
+    if (user.role !== "user") {
+      clearUserAuthCookies(res);
+      return res.status(403).json({
+        success: false,
+        message: "User access only",
       });
     }
     if (user.isBlocked) {
@@ -62,6 +68,8 @@ const isAuthenticatedUser = async (req, res, next) => {
         message: "Your account has been blocked plz contact customer care",
       });
     }
+
+    req.role = "user";
 
     next();
   } catch (error) {

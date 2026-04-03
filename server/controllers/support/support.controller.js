@@ -1,7 +1,8 @@
 import mongoose from "mongoose";
 import { SupportConversation } from "../../models/support/supportConversation.model.js";
 import { SupportMessage } from "../../models/support/supportMessage.model.js";
-import { Vendor } from "../../models/vendor/vendor.model.js";
+import { Admin } from "../../models/admin/admin.model.js";
+import { User } from "../../models/user/user.model.js";
 import {
   deleteMediaFromCloudinary,
   uploadMedia,
@@ -29,11 +30,13 @@ const mapConversation = (conversation) => ({
   _id: conversation._id,
   user: conversation.user,
   assignedVendor: conversation.assignedVendor,
+  assignedAdmin: conversation.assignedAdmin,
   lastMessage: conversation.lastMessage,
   lastMessageAt: conversation.lastMessageAt,
   lastMessageSenderRole: conversation.lastMessageSenderRole,
   unreadForUser: conversation.unreadForUser,
   unreadForVendor: conversation.unreadForVendor,
+  unreadForAdmin: conversation.unreadForAdmin,
   status: conversation.status,
   userOnline: isUserOnline(conversation.user?._id || conversation.user),
   createdAt: conversation.createdAt,
@@ -43,7 +46,8 @@ const mapConversation = (conversation) => ({
 const loadConversationWithRelations = (conversationId) =>
   SupportConversation.findById(conversationId)
     .populate("user", "name email phone photoUrl")
-    .populate("assignedVendor", "name email photoUrl");
+    .populate("assignedVendor", "name email photoUrl")
+    .populate("assignedAdmin", "name email photoUrl");
 
 const uploadAttachments = async (files = []) => {
   // Support chat attachments are normalized into a small metadata shape so the
@@ -108,12 +112,12 @@ const createConversationForUser = async (userId) => {
 };
 
 const markConversationReadFor = async (conversationId, readerRole) => {
-  const oppositeRole = readerRole === "user" ? "vendor" : "user";
+  const readerIsUser = readerRole === "user";
 
   await SupportMessage.updateMany(
     {
       conversation: conversationId,
-      senderRole: oppositeRole,
+      senderRole: readerIsUser ? { $in: ["vendor", "admin"] } : "user",
       status: { $in: ["sent", "delivered"] },
     },
     {
@@ -124,10 +128,9 @@ const markConversationReadFor = async (conversationId, readerRole) => {
     },
   );
 
-  const update =
-    readerRole === "user"
-      ? { unreadForUser: 0 }
-      : { unreadForVendor: 0 };
+  const update = readerIsUser
+    ? { unreadForUser: 0 }
+    : { unreadForVendor: 0, unreadForAdmin: 0 };
 
   await SupportConversation.findByIdAndUpdate(conversationId, {
     $set: update,
@@ -227,6 +230,7 @@ export const getUserSupportConversations = async (req, res) => {
     })
       .populate("user", "name email phone photoUrl")
       .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl")
       .sort({ updatedAt: -1 });
 
     return res.status(200).json({
@@ -249,7 +253,8 @@ export const getUserSupportConversation = async (req, res) => {
       (await SupportConversation.findOne({ user: req.id })
         .sort({ updatedAt: -1 })
         .populate("user", "name email phone photoUrl")
-        .populate("assignedVendor", "name email photoUrl")) ||
+        .populate("assignedVendor", "name email photoUrl")
+        .populate("assignedAdmin", "name email photoUrl")) ||
       (await createConversationForUser(req.id));
 
     await markConversationReadFor(conversation._id, "user");
@@ -258,7 +263,8 @@ export const getUserSupportConversation = async (req, res) => {
       conversation._id,
     )
       .populate("user", "name email phone photoUrl")
-      .populate("assignedVendor", "name email photoUrl");
+      .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl");
 
     const messages = await SupportMessage.find({
       conversation: conversation._id,
@@ -409,6 +415,7 @@ export const sendUserSupportMessage = async (req, res) => {
       },
       $inc: {
         unreadForVendor: 1,
+        unreadForAdmin: 1,
       },
     });
 
@@ -416,7 +423,8 @@ export const sendUserSupportMessage = async (req, res) => {
       conversation._id,
     )
       .populate("user", "name email phone photoUrl")
-      .populate("assignedVendor", "name email photoUrl");
+      .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl");
 
     const payload = mapMessage(message.toObject ? message.toObject() : message);
 
@@ -505,6 +513,7 @@ export const getVendorSupportConversations = async (req, res) => {
     })
       .populate("user", "name email phone photoUrl")
       .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl")
       .sort({ lastMessageAt: -1, updatedAt: -1 });
 
     await markConversationDeliveredForVendor(
@@ -538,7 +547,8 @@ export const getVendorSupportConversationDetails = async (req, res) => {
 
     const conversation = await SupportConversation.findById(conversationId)
       .populate("user", "name email phone photoUrl")
-      .populate("assignedVendor", "name email photoUrl");
+      .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl");
 
     if (!conversation) {
       return res.status(404).json({
@@ -547,11 +557,11 @@ export const getVendorSupportConversationDetails = async (req, res) => {
       });
     }
 
-    await markConversationReadFor(conversationId, "vendor");
+    await markConversationReadFor(conversationId, "admin");
 
-    if (!conversation.assignedVendor) {
+    if (!conversation.assignedAdmin) {
       await SupportConversation.findByIdAndUpdate(conversationId, {
-        $set: { assignedVendor: req.id },
+        $set: { assignedAdmin: req.id },
       });
     }
 
@@ -559,7 +569,8 @@ export const getVendorSupportConversationDetails = async (req, res) => {
       conversationId,
     )
       .populate("user", "name email phone photoUrl")
-      .populate("assignedVendor", "name email photoUrl");
+      .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl");
 
     const messages = await SupportMessage.find({
       conversation: conversationId,
@@ -598,7 +609,8 @@ export const sendVendorSupportReply = async (req, res) => {
 
     const conversation = await SupportConversation.findById(conversationId)
       .populate("user", "name email phone photoUrl")
-      .populate("assignedVendor", "name email photoUrl");
+      .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl");
 
     if (!conversation) {
       return res.status(404).json({
@@ -607,18 +619,18 @@ export const sendVendorSupportReply = async (req, res) => {
       });
     }
 
-    const vendor = await Vendor.findById(req.id).select("_id");
-    if (!vendor) {
+    const admin = await Admin.findById(req.id).select("_id");
+    if (!admin) {
       return res.status(401).json({
         success: false,
-        message: "Vendor not authenticated",
+        message: "Admin not authenticated",
       });
     }
 
     const message = await SupportMessage.create({
       conversation: conversationId,
       senderId: req.id,
-      senderRole: "vendor",
+      senderRole: "admin",
       text,
       attachments,
       status: "sent",
@@ -626,10 +638,10 @@ export const sendVendorSupportReply = async (req, res) => {
 
     await SupportConversation.findByIdAndUpdate(conversationId, {
       $set: {
-        assignedVendor: req.id,
+        assignedAdmin: req.id,
         lastMessage: text || "Image attachment",
         lastMessageAt: message.createdAt,
-        lastMessageSenderRole: "vendor",
+        lastMessageSenderRole: "admin",
       },
       $inc: {
         unreadForUser: 1,
@@ -640,7 +652,8 @@ export const sendVendorSupportReply = async (req, res) => {
       conversationId,
     )
       .populate("user", "name email phone photoUrl")
-      .populate("assignedVendor", "name email photoUrl");
+      .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl");
 
     const payload = mapMessage(message.toObject ? message.toObject() : message);
 
@@ -662,7 +675,61 @@ export const sendVendorSupportReply = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       success: false,
-      message: error.message || "Failed to send vendor reply",
+      message: error.message || "Failed to send admin reply",
+    });
+  }
+};
+
+export const ensureAdminUserSupportConversation = async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid user id",
+      });
+    }
+
+    const user = await User.findById(userId).select("_id");
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    let conversation = await SupportConversation.findOne({ user: userId })
+      .sort({ updatedAt: -1 })
+      .populate("user", "name email phone photoUrl")
+      .populate("assignedVendor", "name email photoUrl")
+      .populate("assignedAdmin", "name email photoUrl");
+
+    if (!conversation) {
+      conversation = await createConversationForUser(userId);
+    }
+
+    if (!conversation.assignedAdmin) {
+      conversation = await SupportConversation.findByIdAndUpdate(
+        conversation._id,
+        {
+          $set: { assignedAdmin: req.id },
+        },
+        { new: true }
+      )
+        .populate("user", "name email phone photoUrl")
+        .populate("assignedVendor", "name email photoUrl")
+        .populate("assignedAdmin", "name email photoUrl");
+    }
+
+    return res.status(200).json({
+      success: true,
+      conversation: mapConversation(conversation),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to prepare support conversation",
     });
   }
 };

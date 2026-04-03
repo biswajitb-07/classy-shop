@@ -43,16 +43,26 @@ import WellnessBrand from "../../models/vendor/wellness/wellnessBrand.model.js";
 import JewelleryBrand from "../../models/vendor/jewellery/jewelleryBrand.model.js";
 import { emitVendorSummaryUpdate } from "../../socket/socket.js";
 import { NewsletterSubscriber } from "../../models/newsletter.model.js";
+import { VendorPayout } from "../../models/vendor/vendorPayout.model.js";
+import { DeliveryPartner } from "../../models/delivery/deliveryPartner.model.js";
+import { Admin } from "../../models/admin/admin.model.js";
 import {
   sendPasswordChangedEmail,
+  sendPayoutStatusEmail,
   sendResetOtpEmail,
   sendWelcomeEmail,
 } from "../../utils/emailService.js";
+import { emitVendorNotificationUpdate } from "../../socket/socket.js";
 import mongoose from "mongoose";
 import { createOtpHash } from "../../utils/security.js";
 
 const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
 const escapeRegex = (value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const PAYOUT_LOCKED_STATUSES = ["pending", "approved"];
+const PAYOUT_PAID_STATUSES = ["paid"];
+const DELIVERED_STATUSES = ["delivered"];
+const RETURNED_STATUSES = ["return_completed"];
+const PENDING_REVENUE_STATUSES = ["processing", "shipped", "out_for_delivery"];
 
 const vendorProductModels = [
   Fashion,
@@ -92,6 +102,246 @@ const deleteCloudinaryUrl = async (url) => {
 const deleteCloudinaryUrls = async (urls = []) => {
   const uniqueUrls = [...new Set((urls || []).filter(Boolean))];
   await Promise.all(uniqueUrls.map((url) => deleteCloudinaryUrl(url)));
+};
+
+const formatCsvCell = (value) =>
+  `"${String(value ?? "")
+    .replace(/"/g, '""')
+    .replace(/\r?\n/g, " ")}"`;
+
+const getVendorOrderSnapshots = async (vendorId) => {
+  const normalizedVendorId = String(vendorId || "");
+  const orders = await Order.find({
+    "items.vendorId": vendorId,
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  return orders
+    .map((order) => {
+      const vendorItems = (order.items || []).filter(
+        (item) => String(item?.vendorId || "") === normalizedVendorId,
+      );
+
+      if (!vendorItems.length) return null;
+
+      return {
+        order,
+        vendorItems,
+        itemCount: vendorItems.reduce(
+          (sum, item) => sum + Number(item?.quantity || 0),
+          0,
+        ),
+        vendorSubtotal: vendorItems.reduce(
+          (sum, item) => sum + Number(item?.subtotal || 0),
+          0,
+        ),
+      };
+    })
+    .filter(Boolean);
+};
+
+const buildVendorRevenueSummary = async (vendorId) => {
+  const [snapshots, payoutRequests] = await Promise.all([
+    getVendorOrderSnapshots(vendorId),
+    VendorPayout.find({ vendorId }).sort({ createdAt: -1 }).lean(),
+  ]);
+
+  const grossRevenue = snapshots.reduce(
+    (sum, entry) => sum + Number(entry.vendorSubtotal || 0),
+    0,
+  );
+  const deliveredRevenue = snapshots
+    .filter((entry) => DELIVERED_STATUSES.includes(entry.order.orderStatus))
+    .reduce((sum, entry) => sum + Number(entry.vendorSubtotal || 0), 0);
+  const pendingRevenue = snapshots
+    .filter((entry) => PENDING_REVENUE_STATUSES.includes(entry.order.orderStatus))
+    .reduce((sum, entry) => sum + Number(entry.vendorSubtotal || 0), 0);
+  const returnedRevenue = snapshots
+    .filter((entry) => RETURNED_STATUSES.includes(entry.order.orderStatus))
+    .reduce((sum, entry) => sum + Number(entry.vendorSubtotal || 0), 0);
+  const cancelledRevenue = snapshots
+    .filter((entry) => entry.order.orderStatus === "cancelled")
+    .reduce((sum, entry) => sum + Number(entry.vendorSubtotal || 0), 0);
+  const lockedPayoutAmount = payoutRequests
+    .filter((request) => PAYOUT_LOCKED_STATUSES.includes(request.status))
+    .reduce((sum, request) => sum + Number(request.requestedAmount || 0), 0);
+  const paidOutAmount = payoutRequests
+    .filter((request) => PAYOUT_PAID_STATUSES.includes(request.status))
+    .reduce((sum, request) => sum + Number(request.requestedAmount || 0), 0);
+  const availablePayoutAmount = Math.max(
+    0,
+    deliveredRevenue - lockedPayoutAmount - paidOutAmount,
+  );
+
+  return {
+    snapshots,
+    payoutRequests,
+    summary: {
+      totalOrders: snapshots.length,
+      grossRevenue,
+      deliveredRevenue,
+      pendingRevenue,
+      returnedRevenue,
+      cancelledRevenue,
+      lockedPayoutAmount,
+      paidOutAmount,
+      availablePayoutAmount,
+    },
+  };
+};
+
+const findPortalAccountByEmail = async (email, expectedRole) => {
+  const normalizedEmail = normalizeEmail(email);
+  const account = await Vendor.findOne({
+    email: new RegExp(`^${escapeRegex(normalizedEmail)}$`, "i"),
+  });
+
+  if (!account) return null;
+
+  if (expectedRole && account.role !== expectedRole) {
+    return "wrong-role";
+  }
+
+  return account;
+};
+
+const resolveAccountTypeLabel = (role) => (role === "admin" ? "admin" : "vendor");
+
+const loginPortal = async (req, res, expectedRole = "vendor") => {
+  const validatedData = loginSchema.safeParse(req.body);
+  if (!validatedData.success) {
+    return res.status(400).json({
+      success: false,
+      message: "Validation failed",
+      errors: validatedData.error.flatten(),
+    });
+  }
+
+  const { email, password } = validatedData.data;
+  const account = await findPortalAccountByEmail(email, expectedRole);
+
+  if (!account || account === "wrong-role") {
+    return res.status(401).json({
+      success: false,
+      message:
+        expectedRole === "admin"
+          ? "This account is not authorized for admin access"
+          : "Invalid credentials",
+    });
+  }
+
+  if (account.isBlocked) {
+    return res.status(403).json({
+      success: false,
+      message: "Your account has been blocked plz contact customer care",
+    });
+  }
+
+  const isPasswordMatch = await bcrypt.compare(password, account.password);
+  if (!isPasswordMatch) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid credentials",
+    });
+  }
+
+  setVendorAuthCookies(res, account._id);
+  return res.status(200).json({
+    success: true,
+    message: `Welcom back ${account.name}`,
+    vendor: account,
+  });
+};
+
+const sendPortalResetOtp = async (req, res, expectedRole = "vendor") => {
+  const { email } = req.body;
+
+  if (!email) {
+    return res.json({ success: false, message: "Email is required" });
+  }
+
+  const account = await findPortalAccountByEmail(email, expectedRole);
+
+  if (!account || account === "wrong-role") {
+    return res.status(404).json({
+      success: false,
+      message:
+        expectedRole === "admin" ? "Admin not found" : "Vendor not found",
+    });
+  }
+
+  const otp = String(Math.floor(100000 + Math.random() * 900000));
+
+  account.resetOtp = createOtpHash(otp);
+  account.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
+  await account.save();
+
+  await sendResetOtpEmail({
+    to: account.email,
+    name: account.name,
+    otp,
+    accountType: resolveAccountTypeLabel(expectedRole),
+  });
+
+  return res.json({ success: true, message: "OTP sent your email" });
+};
+
+const resetPortalPassword = async (req, res, expectedRole = "vendor") => {
+  const { email, otp, newPassword } = req.body;
+
+  if (!email || !otp || !newPassword) {
+    return res.status(400).json({
+      success: false,
+      message: "Email, OTP, and new password are required",
+    });
+  }
+
+  if (newPassword.length < 6) {
+    return res.status(400).json({
+      success: false,
+      message: "Password must be at least 6 characters",
+    });
+  }
+
+  const account = await findPortalAccountByEmail(email, expectedRole);
+
+  if (!account || account === "wrong-role") {
+    return res.status(404).json({
+      success: false,
+      message:
+        expectedRole === "admin" ? "Admin not found" : "Vendor not found",
+    });
+  }
+
+  if (!account.resetOtp || account.resetOtp !== createOtpHash(otp)) {
+    return res.status(400).json({ success: false, message: "Invalid OTP" });
+  }
+
+  if (account.resetOtpExpireAt < Date.now()) {
+    return res.status(400).json({ success: false, message: "OTP Expired" });
+  }
+
+  const salt = await bcrypt.genSalt(10);
+  account.password = await bcrypt.hash(newPassword, salt);
+  account.resetOtp = "";
+  account.resetOtpExpireAt = 0;
+  await account.save();
+
+  try {
+    await sendPasswordChangedEmail({
+      to: account.email,
+      name: account.name,
+      accountType: resolveAccountTypeLabel(expectedRole),
+    });
+  } catch (mailErr) {
+    console.error("Confirmation mail error:", mailErr);
+  }
+
+  return res.status(200).json({
+    success: true,
+    message: "Password has been reset successfully",
+  });
 };
 
 const deleteSupportAttachments = async (messages = []) => {
@@ -449,49 +699,15 @@ export const createVendor = async (req, res) => {
 
 export const login = async (req, res) => {
   try {
-    const validatedData = loginSchema.safeParse(req.body);
-    if (!validatedData.success) {
-      return res.status(400).json({
-        success: false,
-        message: "Validation failed",
-        errors: validatedData.error.flatten(),
-      });
-    }
+    return await loginPortal(req, res, "vendor");
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
 
-    const { email, password } = validatedData.data;
-    const normalizedEmail = normalizeEmail(email);
-
-    const vendor = await Vendor.findOne({
-      email: new RegExp(`^${escapeRegex(normalizedEmail)}$`, "i"),
-    });
-    if (!vendor) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    if (vendor.isBlocked) {
-      return res.status(403).json({
-        success: false,
-        message: "Your account has been blocked plz contact customer care",
-      });
-    }
-
-    const isPasswordMatch = await bcrypt.compare(password, vendor.password);
-    if (!isPasswordMatch) {
-      return res.status(401).json({
-        success: false,
-        message: "Invalid credentials",
-      });
-    }
-
-    setVendorAuthCookies(res, vendor._id);
-    return res.status(200).json({
-      success: true,
-      message: `Welcom back ${vendor.name}`,
-      vendor,
-    });
+export const adminLogin = async (req, res) => {
+  try {
+    return await loginPortal(req, res, "admin");
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }
@@ -514,6 +730,23 @@ export const logout = async (req, res) => {
 };
 
 export const getVendorSocketAuth = async (req, res) => {
+  try {
+    return res.status(200).json({
+      success: true,
+      socketToken: signSocketToken({
+        vendorId: req.id,
+        role: "vendor",
+      }),
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to create socket auth token",
+    });
+  }
+};
+
+export const getAdminSocketAuth = async (req, res) => {
   try {
     return res.status(200).json({
       success: true,
@@ -556,29 +789,101 @@ export const getVendorProfile = async (req, res) => {
 
 export const getDashboardSummary = async (req, res) => {
   try {
-    const [totalUsers, totalVendors, recentUsers, recentVendors] =
-      await Promise.all([
+    const recentCutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    if (req.role === "admin") {
+      const [
+        totalAdmins,
+        totalUsers,
+        totalVendors,
+        totalDeliveryPartners,
+        recentAdmins,
+        recentUsers,
+        recentVendors,
+        recentDeliveryPartners,
+      ] = await Promise.all([
+        Admin.countDocuments(),
         User.countDocuments(),
         Vendor.countDocuments(),
-        User.countDocuments({
-          createdAt: {
-            $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-          },
-        }),
-        Vendor.countDocuments({
-          createdAt: {
-            $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
-          },
-        }),
+        DeliveryPartner.countDocuments(),
+        Admin.countDocuments({ createdAt: { $gte: recentCutoff } }),
+        User.countDocuments({ createdAt: { $gte: recentCutoff } }),
+        Vendor.countDocuments({ createdAt: { $gte: recentCutoff } }),
+        DeliveryPartner.countDocuments({ createdAt: { $gte: recentCutoff } }),
       ]);
+
+      return res.status(200).json({
+        success: true,
+        summary: {
+          totalAdmins,
+          totalUsers,
+          totalVendors,
+          totalDeliveryPartners,
+          recentAdmins,
+          recentUsers,
+          recentVendors,
+          recentDeliveryPartners,
+        },
+      });
+    }
+
+    const vendorId = req.id;
+    const [productCounts, stockAggregates, orderSnapshots] = await Promise.all([
+      Promise.all(vendorProductModels.map((Model) => Model.countDocuments({ vendorId }))),
+      Promise.all(
+        vendorProductModels.map((Model) =>
+          Model.aggregate([
+            { $match: { vendorId: new mongoose.Types.ObjectId(vendorId) } },
+            {
+              $group: {
+                _id: null,
+                totalStock: { $sum: { $ifNull: ["$quantity", 0] } },
+                lowStockItems: {
+                  $sum: {
+                    $cond: [{ $lte: [{ $ifNull: ["$quantity", 0] }, 5] }, 1, 0],
+                  },
+                },
+              },
+            },
+          ])
+        )
+      ),
+      getVendorOrderSnapshots(vendorId),
+    ]);
+
+    const totalProducts = productCounts.reduce((sum, count) => sum + Number(count || 0), 0);
+    const recentProducts = productCounts.reduce((sum, count) => sum + Number(count || 0), 0);
+    const totalInventory = stockAggregates.reduce(
+      (sum, entry) => sum + Number(entry?.[0]?.totalStock || 0),
+      0
+    );
+    const lowStockItems = stockAggregates.reduce(
+      (sum, entry) => sum + Number(entry?.[0]?.lowStockItems || 0),
+      0
+    );
+    const totalOrders = orderSnapshots.length;
+    const recentOrders = orderSnapshots.filter(
+      (entry) => new Date(entry.order?.createdAt || 0) >= recentCutoff
+    ).length;
+    const deliveredOrders = orderSnapshots.filter((entry) =>
+      DELIVERED_STATUSES.includes(entry.order?.orderStatus)
+    ).length;
+    const totalRevenue = orderSnapshots.reduce(
+      (sum, entry) => sum + Number(entry.vendorSubtotal || 0),
+      0
+    );
 
     return res.status(200).json({
       success: true,
       summary: {
-        totalUsers,
-        totalVendors,
-        recentUsers,
-        recentVendors,
+        totalProducts,
+        recentProducts,
+        totalInventory,
+        lowStockItems,
+        totalOrders,
+        recentOrders,
+        deliveredOrders,
+        totalRevenue,
       },
     });
   } catch (error) {
@@ -713,37 +1018,30 @@ export const changePassword = async (req, res) => {
   }
 };
 
+export const adminChangePassword = async (req, res) => {
+  try {
+    return await changePassword(req, res);
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const sendResetOtp = async (req, res) => {
   try {
-    const { email } = req.body;
+    return await sendPortalResetOtp(req, res, "vendor");
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to send otp" });
+  }
+};
 
-    if (!email) {
-      return res.json({ success: false, message: "Email is required" });
-    }
-
-    const vendor = await Vendor.findOne({ email });
-
-    if (!vendor) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Vendor not found" });
-    }
-
-    const otp = String(Math.floor(100000 + Math.random() * 900000));
-
-    vendor.resetOtp = createOtpHash(otp);
-    vendor.resetOtpExpireAt = Date.now() + 15 * 60 * 1000;
-
-    await vendor.save();
-
-    await sendResetOtpEmail({
-      to: vendor.email,
-      name: vendor.name,
-      otp,
-      accountType: "vendor",
-    });
-
-    return res.json({ success: true, message: "OTP sent your email" });
+export const sendAdminResetOtp = async (req, res) => {
+  try {
+    return await sendPortalResetOtp(req, res, "admin");
   } catch (error) {
     return res
       .status(500)
@@ -753,60 +1051,18 @@ export const sendResetOtp = async (req, res) => {
 
 export const resetPassword = async (req, res) => {
   try {
-    const { email, otp, newPassword } = req.body;
+    return await resetPortalPassword(req, res, "vendor");
+  } catch (error) {
+    console.error("Reset Password Error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Server error during password reset" });
+  }
+};
 
-    if (!email || !otp || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: "Email, OTP, and new password are required",
-      });
-    }
-
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: "Password must be at least 6 characters",
-      });
-    }
-
-    const vendor = await Vendor.findOne({ email });
-
-    if (!vendor) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Vendor not found" });
-    }
-
-    if (!vendor.resetOtp || vendor.resetOtp !== createOtpHash(otp)) {
-      return res.status(400).json({ success: false, message: "Invalid OTP" });
-    }
-
-    if (vendor.resetOtpExpireAt < Date.now()) {
-      return res.status(400).json({ success: false, message: "OTP Expired" });
-    }
-
-    const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(newPassword, salt);
-
-    vendor.password = hashPassword;
-    vendor.resetOtp = "";
-    vendor.resetOtpExpireAt = 0;
-
-    await vendor.save();
-
-    try {
-      await sendPasswordChangedEmail({
-        to: vendor.email,
-        name: vendor.name,
-        accountType: "vendor",
-      });
-    } catch (mailErr) {
-      console.error("Confirmation mail error:", mailErr);
-    }
-
-    return res
-      .status(200)
-      .json({ success: true, message: "Password has been reset successfully" });
+export const adminResetPassword = async (req, res) => {
+  try {
+    return await resetPortalPassword(req, res, "admin");
   } catch (error) {
     console.error("Reset Password Error:", error);
     res
@@ -886,6 +1142,303 @@ export const exportNewsletterSubscribersCsv = async (_req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to export newsletter subscribers",
+    });
+  }
+};
+
+export const getVendorPayoutSummary = async (req, res) => {
+  try {
+    const { summary } = await buildVendorRevenueSummary(req.id);
+
+    return res.status(200).json({
+      success: true,
+      summary,
+    });
+  } catch (error) {
+    console.error("Failed to load vendor payout summary:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load payout summary",
+    });
+  }
+};
+
+export const getVendorPayoutRequests = async (req, res) => {
+  try {
+    const payoutRequests = await VendorPayout.find({ vendorId: req.id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      payoutRequests,
+    });
+  } catch (error) {
+    console.error("Failed to load vendor payout requests:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load payout requests",
+    });
+  }
+};
+
+export const getAllVendorPayoutRequests = async (_req, res) => {
+  try {
+    const payoutRequests = await VendorPayout.find({})
+      .populate("vendorId", "name email")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      payoutRequests,
+    });
+  } catch (error) {
+    console.error("Failed to load all vendor payout requests:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to load payout queue",
+    });
+  }
+};
+
+export const requestVendorPayout = async (req, res) => {
+  try {
+    const requestedAmount = Number(req.body?.amount || 0);
+    const notes = String(req.body?.notes || "").trim();
+
+    if (!Number.isFinite(requestedAmount) || requestedAmount <= 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid payout amount",
+      });
+    }
+
+    const { summary } = await buildVendorRevenueSummary(req.id);
+
+    if (requestedAmount > summary.availablePayoutAmount) {
+      return res.status(400).json({
+        success: false,
+        message: "Requested amount exceeds available payout balance",
+      });
+    }
+
+    const payoutRequest = await VendorPayout.create({
+      vendorId: req.id,
+      requestedAmount,
+      availableBalanceAtRequest: summary.availablePayoutAmount,
+      notes,
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Payout request submitted successfully",
+      payoutRequest,
+    });
+  } catch (error) {
+    console.error("Failed to create vendor payout request:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to submit payout request",
+    });
+  }
+};
+
+export const updateVendorPayoutStatus = async (req, res) => {
+  try {
+    const { payoutId } = req.params;
+    const nextStatus = String(req.body?.status || "")
+      .trim()
+      .toLowerCase();
+    const processedNotes = String(req.body?.processedNotes || "").trim();
+
+    if (!["approved", "rejected", "paid"].includes(nextStatus)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid payout status",
+      });
+    }
+
+    const payoutRequest = await VendorPayout.findById(payoutId);
+    if (!payoutRequest) {
+      return res.status(404).json({
+        success: false,
+        message: "Payout request not found",
+      });
+    }
+
+    if (payoutRequest.status === "paid" && nextStatus !== "paid") {
+      return res.status(400).json({
+        success: false,
+        message: "Paid payout requests cannot be changed",
+      });
+    }
+
+    if (nextStatus === "paid" && payoutRequest.status !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Only approved payout requests can be marked as paid",
+      });
+    }
+
+    payoutRequest.status = nextStatus;
+    payoutRequest.processedAt = new Date();
+    payoutRequest.processedNotes = processedNotes;
+    await payoutRequest.save();
+
+    const vendor = await Vendor.findById(payoutRequest.vendorId).select("name email");
+    await VendorNotification.create({
+      vendorId: payoutRequest.vendorId,
+      type: "system",
+      title: `Payout ${nextStatus}`,
+      message: `Your payout request for Rs ${Number(payoutRequest.requestedAmount || 0).toLocaleString("en-IN")} is now ${nextStatus}.${processedNotes ? ` Note: ${processedNotes}` : ""}`,
+    });
+    emitVendorNotificationUpdate(payoutRequest.vendorId);
+
+    if (vendor?.email) {
+      try {
+        await sendPayoutStatusEmail({
+          to: vendor.email,
+          name: vendor.name,
+          accountType: "vendor",
+          amount: payoutRequest.requestedAmount,
+          status: nextStatus,
+          note: processedNotes,
+        });
+      } catch (mailErr) {
+        console.error("Vendor payout status email error:", mailErr);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Payout request ${nextStatus} successfully`,
+      payoutRequest,
+    });
+  } catch (error) {
+    console.error("Failed to update payout request status:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update payout status",
+    });
+  }
+};
+
+export const exportVendorPayoutsCsv = async (req, res) => {
+  try {
+    const payoutRequests = await VendorPayout.find({ vendorId: req.id })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const csvRows = [
+      ["Requested Amount", "Status", "Notes", "Requested At", "Processed At"].join(","),
+      ...payoutRequests.map((request) =>
+        [
+          formatCsvCell(Number(request.requestedAmount || 0).toFixed(2)),
+          formatCsvCell(request.status),
+          formatCsvCell(request.notes),
+          formatCsvCell(new Date(request.createdAt).toISOString()),
+          formatCsvCell(
+            request.processedAt ? new Date(request.processedAt).toISOString() : "",
+          ),
+        ].join(","),
+      ),
+    ];
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="vendor-payouts-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+
+    return res.status(200).send(csvRows.join("\n"));
+  } catch (error) {
+    console.error("Failed to export vendor payouts:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export payout report",
+    });
+  }
+};
+
+export const exportVendorOrdersReportCsv = async (req, res) => {
+  try {
+    const { snapshots } = await buildVendorRevenueSummary(req.id);
+
+    const csvRows = [
+      [
+        "Order ID",
+        "Created At",
+        "Status",
+        "Payment Method",
+        "Customer",
+        "Vendor Items",
+        "Vendor Quantity",
+        "Vendor Revenue",
+      ].join(","),
+      ...snapshots.map((entry) =>
+        [
+          formatCsvCell(entry.order.orderId),
+          formatCsvCell(new Date(entry.order.createdAt).toISOString()),
+          formatCsvCell(entry.order.orderStatus),
+          formatCsvCell(entry.order.paymentMethod),
+          formatCsvCell(entry.order.shippingAddress?.fullName || ""),
+          formatCsvCell(
+            entry.vendorItems
+              .map((item) => item.productName || item.productType)
+              .join(" | "),
+          ),
+          formatCsvCell(entry.itemCount),
+          formatCsvCell(Number(entry.vendorSubtotal || 0).toFixed(2)),
+        ].join(","),
+      ),
+    ];
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="vendor-orders-report-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+
+    return res.status(200).send(csvRows.join("\n"));
+  } catch (error) {
+    console.error("Failed to export vendor orders report:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export order report",
+    });
+  }
+};
+
+export const exportVendorSummaryReportCsv = async (req, res) => {
+  try {
+    const { summary } = await buildVendorRevenueSummary(req.id);
+
+    const csvRows = [
+      ["Metric", "Value"],
+      ["Total Orders", summary.totalOrders],
+      ["Gross Revenue", summary.grossRevenue],
+      ["Delivered Revenue", summary.deliveredRevenue],
+      ["Pending Revenue", summary.pendingRevenue],
+      ["Returned Revenue", summary.returnedRevenue],
+      ["Cancelled Revenue", summary.cancelledRevenue],
+      ["Locked Payout Amount", summary.lockedPayoutAmount],
+      ["Paid Out Amount", summary.paidOutAmount],
+      ["Available Payout Amount", summary.availablePayoutAmount],
+    ].map((row) => row.map((value) => formatCsvCell(value)).join(","));
+
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="vendor-summary-report-${new Date().toISOString().slice(0, 10)}.csv"`,
+    );
+
+    return res.status(200).send(csvRows.join("\n"));
+  } catch (error) {
+    console.error("Failed to export vendor summary report:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to export summary report",
     });
   }
 };
@@ -1035,6 +1588,33 @@ export const getVendorNotifications = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to load notifications",
+    });
+  }
+};
+
+export const markVendorNotificationsAsRead = async (req, res) => {
+  try {
+    await VendorNotification.updateMany(
+      {
+        vendorId: req.id,
+        isRead: { $ne: true },
+      },
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Notifications marked as read",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to mark notifications as read",
     });
   }
 };

@@ -46,9 +46,8 @@ const isAuthenticatedVendor = async (req, res, next) => {
     }
 
     req.id = vendorId;
-    req.role = "vendor";
 
-    const vendor = await Vendor.findById(req.id).select("isBlocked");
+    const vendor = await Vendor.findById(req.id).select("isBlocked role");
     if (!vendor) {
       return res.status(401).json({
         message: "Vendor not authenticated",
@@ -62,6 +61,8 @@ const isAuthenticatedVendor = async (req, res, next) => {
         message: "Your account has been blocked plz contact customer care",
       });
     }
+
+    req.role = vendor.role || "vendor";
 
     next();
   } catch (error) {

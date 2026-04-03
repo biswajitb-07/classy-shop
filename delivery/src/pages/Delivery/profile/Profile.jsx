@@ -1,4 +1,5 @@
 import { useSelector } from "react-redux";
+import { useGetDashboardSummaryQuery } from "../../../features/api/authApi";
 import { Bike, Mail, Phone, ShieldCheck } from "lucide-react";
 
 const formatPresenceTime = (value) => {
@@ -17,6 +18,8 @@ const formatPresenceTime = (value) => {
 
 const Profile = () => {
   const { deliveryPartner } = useSelector((state) => state.auth);
+  const { data: summaryData } = useGetDashboardSummaryQuery();
+  const payoutSummary = summaryData?.summary?.payoutSummary || {};
 
   return (
     <div className="space-y-6">
@@ -106,6 +109,24 @@ const Profile = () => {
               </div>
               <p className="mt-3 text-sm font-medium text-white">
                 {formatPresenceTime(deliveryPartner?.lastSeenAt)}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="flex items-center gap-3 text-slate-400">
+                <ShieldCheck size={18} />
+                Approved Payout
+              </div>
+              <p className="mt-3 text-sm font-medium text-white">
+                Rs {Number(payoutSummary.approvedAmount || 0).toLocaleString("en-IN")}
+              </p>
+            </div>
+            <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+              <div className="flex items-center gap-3 text-slate-400">
+                <ShieldCheck size={18} />
+                Paid Payout
+              </div>
+              <p className="mt-3 text-sm font-medium text-white">
+                Rs {Number(payoutSummary.paidAmount || 0).toLocaleString("en-IN")}
               </p>
             </div>
           </div>

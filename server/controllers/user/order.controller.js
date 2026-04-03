@@ -249,6 +249,97 @@ const sanitizeCustomerGeo = (value, { min = -Infinity, max = Infinity } = {}) =>
   return numeric;
 };
 
+const buildInvoiceHtml = (order) => {
+  const couponDiscountAmount = Number(order?.discountAmount || 0);
+  const walletAppliedAmount = Number(order?.walletApplied?.amountUsed || 0);
+  const itemsMarkup = (order?.items || [])
+    .map(
+      (item) => `
+        <tr>
+          <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${item.productName || item.productType}</td>
+          <td style="padding:12px;border-bottom:1px solid #e2e8f0;">${item.variant || "Default"}</td>
+          <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:center;">${Number(item.quantity || 0)}</td>
+          <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">Rs ${Number(item.price || 0).toLocaleString("en-IN")}</td>
+          <td style="padding:12px;border-bottom:1px solid #e2e8f0;text-align:right;">Rs ${Number(item.subtotal || 0).toLocaleString("en-IN")}</td>
+        </tr>
+      `,
+    )
+    .join("");
+
+  return `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Invoice ${order.orderId}</title>
+  </head>
+  <body style="font-family:Arial,sans-serif;padding:32px;color:#0f172a;background:#ffffff;">
+    <div style="max-width:900px;margin:0 auto;">
+      <div style="display:flex;justify-content:space-between;gap:24px;align-items:flex-start;">
+        <div>
+          <p style="letter-spacing:0.3em;font-size:12px;color:#64748b;margin:0;">CLASSYSHOP</p>
+          <h1 style="margin:12px 0 0;font-size:32px;">Tax Invoice</h1>
+          <p style="margin:8px 0 0;color:#475569;">Order #${order.orderId}</p>
+        </div>
+        <div style="text-align:right;">
+          <p style="margin:0;color:#475569;">Date</p>
+          <p style="margin:8px 0 0;font-weight:700;">${new Date(order.createdAt).toLocaleString("en-IN")}</p>
+          <p style="margin:16px 0 0;color:#475569;">Payment</p>
+          <p style="margin:8px 0 0;font-weight:700;">${formatStatusLabel(order.paymentStatus)}</p>
+        </div>
+      </div>
+      <div style="margin-top:28px;padding:20px;border:1px solid #e2e8f0;border-radius:20px;">
+        <p style="margin:0 0 10px;font-size:12px;letter-spacing:0.2em;color:#64748b;">BILL TO</p>
+        <p style="margin:0;font-weight:700;">${order.shippingAddress?.fullName || "Customer"}</p>
+        <p style="margin:8px 0 0;color:#475569;">${[
+          order.shippingAddress?.addressLine1,
+          order.shippingAddress?.village,
+          order.shippingAddress?.city,
+          order.shippingAddress?.district,
+          order.shippingAddress?.state,
+          order.shippingAddress?.postalCode,
+          order.shippingAddress?.country,
+        ]
+          .filter(Boolean)
+          .join(", ")}</p>
+        <p style="margin:8px 0 0;color:#475569;">Phone: ${order.shippingAddress?.phone || "N/A"}</p>
+      </div>
+      <table style="width:100%;margin-top:28px;border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f8fafc;">
+            <th style="padding:12px;text-align:left;">Item</th>
+            <th style="padding:12px;text-align:left;">Variant</th>
+            <th style="padding:12px;text-align:center;">Qty</th>
+            <th style="padding:12px;text-align:right;">Price</th>
+            <th style="padding:12px;text-align:right;">Subtotal</th>
+          </tr>
+        </thead>
+        <tbody>${itemsMarkup}</tbody>
+      </table>
+      <div style="margin-top:28px;display:flex;justify-content:flex-end;">
+        <div style="width:320px;">
+          <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
+            <span>Subtotal</span>
+            <strong>Rs ${Number(order.subtotalAmount || order.totalAmount || 0).toLocaleString("en-IN")}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
+            <span>Coupon Discount</span>
+            <strong>- Rs ${couponDiscountAmount.toLocaleString("en-IN")}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #e2e8f0;">
+            <span>Wallet Applied</span>
+            <strong>- Rs ${walletAppliedAmount.toLocaleString("en-IN")}</strong>
+          </div>
+          <div style="display:flex;justify-content:space-between;padding:14px 0;font-size:20px;">
+            <span>Total</span>
+            <strong>Rs ${Number(order.totalAmount || 0).toLocaleString("en-IN")}</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>`;
+};
+
 const isWithinIndiaBounds = (location) =>
   location?.latitude !== null &&
   location?.latitude !== undefined &&
@@ -659,15 +750,78 @@ const adjustInventoryForOrderItems = async (
   items,
   direction = "decrease"
 ) => {
+  const appliedAdjustments = [];
+
   for (const item of items) {
     const Model = productModels[item.productType];
     if (!Model) continue;
 
-    const delta = direction === "increase" ? Number(item.quantity) : -Number(item.quantity);
-    await Model.findByIdAndUpdate(item.productId, {
-      $inc: { inStock: delta },
+    const quantity = Number(item.quantity || 0);
+    if (!Number.isFinite(quantity) || quantity <= 0) continue;
+
+    if (direction === "increase") {
+      await Model.findByIdAndUpdate(item.productId, {
+        $inc: { inStock: quantity },
+      });
+      continue;
+    }
+
+    const reserveResult = await Model.updateOne(
+      {
+        _id: item.productId,
+        inStock: { $gte: quantity },
+      },
+      {
+        $inc: { inStock: -quantity },
+      },
+    );
+
+    if (!reserveResult?.modifiedCount) {
+      for (const applied of appliedAdjustments.reverse()) {
+        const AppliedModel = productModels[applied.productType];
+        if (!AppliedModel) continue;
+
+        await AppliedModel.findByIdAndUpdate(applied.productId, {
+          $inc: { inStock: applied.quantity },
+        });
+      }
+
+      throw new Error(`${item.productName || item.productType} does not have enough stock`);
+    }
+
+    appliedAdjustments.push({
+      productId: item.productId,
+      productType: item.productType,
+      quantity,
     });
   }
+};
+
+const findExistingPaidOrderForRazorpay = async ({
+  razorpayOrderId,
+  razorpayPaymentId,
+  orderId,
+}) => {
+  const filters = [];
+
+  if (razorpayOrderId) {
+    filters.push({ razorpayOrderId });
+  }
+
+  if (razorpayPaymentId) {
+    filters.push({ razorpayPaymentId });
+  }
+
+  if (orderId) {
+    filters.push({ orderId });
+  }
+
+  if (!filters.length) return null;
+
+  return Order.findOne({
+    $or: filters,
+    paymentStatus: "completed",
+  });
 };
 
 const createVendorNotificationsForOrder = async (order, userId) => {
@@ -1017,6 +1171,21 @@ export const confirmPayment = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Payment not captured" });
     }
+
+    const existingCompletedOrder = await findExistingPaidOrderForRazorpay({
+      razorpayOrderId: razorpay_order_id,
+      razorpayPaymentId: razorpay_payment_id,
+      orderId: rzOrder.receipt,
+    });
+
+    if (existingCompletedOrder) {
+      return res.status(200).json({
+        success: true,
+        message: "Payment already confirmed",
+        order: existingCompletedOrder,
+      });
+    }
+
     const notes = rzOrder.notes;
     if (!notes || !notes.userId || !notes.shippingAddress) {
       return res
@@ -1083,7 +1252,27 @@ export const confirmPayment = async (req, res) => {
       role: "system",
       reason: "Payment confirmed via Razorpay",
     });
-    await order.save();
+    try {
+      await order.save();
+    } catch (saveError) {
+      if (saveError?.code === 11000) {
+        const duplicateOrder = await findExistingPaidOrderForRazorpay({
+          razorpayOrderId: razorpay_order_id,
+          razorpayPaymentId: razorpay_payment_id,
+          orderId,
+        });
+
+        if (duplicateOrder) {
+          return res.status(200).json({
+            success: true,
+            message: "Payment already confirmed",
+            order: duplicateOrder,
+          });
+        }
+      }
+
+      throw saveError;
+    }
     if (walletAmountUsed) {
       await debitWalletForOrder({
         userId,
@@ -1248,6 +1437,61 @@ export const getVendorOrders = async (req, res) => {
     return res
       .status(500)
       .json({ success: false, message: "Failed to get orders" });
+  }
+};
+
+export const downloadUserInvoice = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId).lean();
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    if (String(order.userId) !== String(req.id)) {
+      return res.status(403).json({
+        success: false,
+        message: "You are not allowed to access this invoice",
+      });
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="invoice-${order.orderId}.html"`,
+    );
+
+    return res.status(200).send(buildInvoiceHtml(order));
+  } catch (error) {
+    console.error("downloadUserInvoice error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to download invoice",
+    });
+  }
+};
+
+export const downloadVendorInvoice = async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.orderId).lean();
+
+    if (!order) {
+      return res.status(404).json({ success: false, message: "Order not found" });
+    }
+
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    res.setHeader(
+      "Content-Disposition",
+      `attachment; filename="invoice-${order.orderId}.html"`,
+    );
+
+    return res.status(200).send(buildInvoiceHtml(order));
+  } catch (error) {
+    console.error("downloadVendorInvoice error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to download invoice",
+    });
   }
 };
 
@@ -2180,6 +2424,33 @@ export const getUserNotifications = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: "Failed to load notifications",
+    });
+  }
+};
+
+export const markUserNotificationsAsRead = async (req, res) => {
+  try {
+    await UserNotification.updateMany(
+      {
+        userId: req.id,
+        isRead: { $ne: true },
+      },
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      }
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: "Notifications marked as read",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Failed to mark notifications as read",
     });
   }
 };
