@@ -1,15 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Headset, ImagePlus, Search, Send, ShieldCheck, Store, Trash2, UserRound, X } from "lucide-react";
-import { toast } from "react-hot-toast";
-import {
-  useGetUsersQuery,
-  useGetVendorsQuery,
-} from "../../../features/api/authApi";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { ImagePlus, Send, Trash2, X } from "lucide-react";
 import {
   useDeleteUserSupportConversationMutation,
   useDeleteVendorSupportConversationMutation,
-  useEnsureUserSupportConversationMutation,
-  useEnsureVendorSupportConversationMutation,
   useGetUserSupportConversationDetailsQuery,
   useGetUserSupportConversationsQuery,
   useGetVendorSupportConversationDetailsQuery,
@@ -17,568 +10,664 @@ import {
   useSendUserSupportReplyMutation,
   useSendVendorSupportReplyMutation,
 } from "../../../features/api/supportApi";
-import { useTheme } from "../../../context/ThemeContext";
-import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader.jsx";
+import { connectVendorSocket } from "../../../lib/socket";
+import {
+  playChatReceiveSound,
+  playChatSendSound,
+  primeUiFeedbackSounds,
+  waitForNextPaint,
+} from "../../../utils/uiFeedbackSounds";
 
-const formatTime = (value) =>
-  value
-    ? new Date(value).toLocaleString("en-IN", {
-        day: "2-digit",
-        month: "short",
-        hour: "2-digit",
-        minute: "2-digit",
-      })
-    : "No activity yet";
-
-const tabs = [
-  { id: "users", label: "User Support", icon: UserRound },
-  { id: "vendors", label: "Vendor Support", icon: Store },
+const ROLE_TABS = [
+  { key: "user", label: "User Inbox" },
+  { key: "vendor", label: "Vendor Inbox" },
 ];
 
+const formatStamp = (value) => {
+  if (!value) return "No activity yet";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "No activity yet";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(date);
+};
+
+const normalizeMessages = (items = []) => {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = String(item?._id || `${item?.senderRole}-${item?.createdAt}-${item?.text || ""}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const getContactName = (conversation, tab) =>
+  tab === "user"
+    ? conversation?.user?.name || conversation?.user?.fullname || conversation?.user?.email || "User"
+    : conversation?.vendor?.name ||
+      conversation?.vendor?.storeName ||
+      conversation?.vendor?.email ||
+      "Vendor";
+
+const getContactEmail = (conversation, tab) =>
+  tab === "user" ? conversation?.user?.email || "No email" : conversation?.vendor?.email || "No email";
+
+const getContactId = (conversation, tab) =>
+  tab === "user" ? String(conversation?.user?._id || "") : String(conversation?.vendor?._id || "");
+
+const getLastMessage = (conversation) => {
+  if (conversation?.lastMessage?.trim()) return conversation.lastMessage.trim();
+  if (conversation?.lastMessageText?.trim()) return conversation.lastMessageText.trim();
+  return "No conversation yet";
+};
+
+const MessageBubble = ({ item, isAdmin }) => (
+  <div className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
+    <div
+      className={`max-w-[85%] rounded-[28px] px-5 py-4 shadow-[0_18px_40px_rgba(15,23,42,0.14)] ${
+        isAdmin
+          ? "bg-gradient-to-br from-cyan-500 via-sky-500 to-indigo-500 text-white"
+          : "border border-slate-200 bg-white text-slate-900"
+      }`}
+    >
+      {item?.text ? <p className="whitespace-pre-wrap text-sm leading-6">{item.text}</p> : null}
+      {Array.isArray(item?.attachments)
+        ? item.attachments.map((attachment, index) => (
+            <img
+              key={`${item._id || item.createdAt}-${attachment?.url || index}`}
+              src={attachment?.url}
+              alt={attachment?.fileName || "Support attachment"}
+              className="mt-3 max-h-72 w-full rounded-2xl object-cover"
+            />
+          ))
+        : null}
+      <div className={`mt-3 flex items-center justify-between gap-3 text-[11px] font-medium ${isAdmin ? "text-cyan-50/90" : "text-slate-500"}`}>
+        <span>{formatStamp(item?.createdAt)}</span>
+        {item?.status ? (
+          <span className={`rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.2em] ${isAdmin ? "bg-white/15 text-white/90" : "bg-slate-100 text-slate-500"}`}>
+            {item.status === "sent" ? "read" : item.status}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  </div>
+);
+
 const SupportChats = () => {
-  const { isDark } = useTheme();
-  const [activeTab, setActiveTab] = useState("users");
-  const [search, setSearch] = useState("");
-  const [selectedContactId, setSelectedContactId] = useState(null);
-  const [selectedConversationId, setSelectedConversationId] = useState(null);
-  const [draft, setDraft] = useState("");
+  const [activeTab, setActiveTab] = useState("user");
+  const [searchText, setSearchText] = useState("");
+  const [selectedConversationId, setSelectedConversationId] = useState("");
+  const [message, setMessage] = useState("");
+  const [feedback, setFeedback] = useState({ type: "", text: "" });
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState("");
-  const scrollRef = useRef(null);
+  const [liveMessages, setLiveMessages] = useState([]);
+  const [supportOnline, setSupportOnline] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [onlineVendors, setOnlineVendors] = useState([]);
+  const selectedConversationIdRef = useRef("");
   const fileInputRef = useRef(null);
 
-  const { data: usersData, isLoading: isUsersLoading } = useGetUsersQuery();
-  const { data: vendorsData, isLoading: isVendorsLoading } = useGetVendorsQuery();
+  const userConversationsQuery = useGetUserSupportConversationsQuery(undefined, {
+    pollingInterval: 5000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMountOrArgChange: true,
+  });
 
-  const {
-    data: userConversationsData,
-    isLoading: isUserConversationsLoading,
-    refetch: refetchUserConversations,
-  } = useGetUserSupportConversationsQuery();
-  const {
-    data: vendorConversationsData,
-    isLoading: isVendorConversationsLoading,
-    refetch: refetchVendorConversations,
-  } = useGetVendorSupportConversationsQuery();
+  const vendorConversationsQuery = useGetVendorSupportConversationsQuery(undefined, {
+    pollingInterval: 5000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    refetchOnMountOrArgChange: true,
+  });
 
-  const [ensureUserSupportConversation, { isLoading: isEnsuringUserConversation }] =
-    useEnsureUserSupportConversationMutation();
-  const [ensureVendorSupportConversation, { isLoading: isEnsuringVendorConversation }] =
-    useEnsureVendorSupportConversationMutation();
-  const [sendUserSupportReply, { isLoading: isSendingUserReply }] =
-    useSendUserSupportReplyMutation();
-  const [sendVendorSupportReply, { isLoading: isSendingVendorReply }] =
-    useSendVendorSupportReplyMutation();
-  const [deleteUserSupportConversation, { isLoading: isDeletingUserConversation }] =
-    useDeleteUserSupportConversationMutation();
-  const [deleteVendorSupportConversation, { isLoading: isDeletingVendorConversation }] =
-    useDeleteVendorSupportConversationMutation();
+  const conversations = useMemo(() => {
+    const base =
+      activeTab === "user"
+        ? userConversationsQuery.data?.conversations || []
+        : vendorConversationsQuery.data?.conversations || [];
 
-  const users = usersData?.users || [];
-  const vendors = vendorsData?.vendors || [];
-  const userConversations = userConversationsData?.conversations || [];
-  const vendorConversations = vendorConversationsData?.conversations || [];
-
-  const userConversationMap = useMemo(
-    () =>
-      new Map(
-        userConversations
-          .filter((item) => item?.user?._id)
-          .map((item) => [String(item.user._id), item]),
-      ),
-    [userConversations],
-  );
-  const vendorConversationMap = useMemo(
-    () =>
-      new Map(
-        vendorConversations
-          .filter((item) => item?.vendor?._id)
-          .map((item) => [String(item.vendor._id), item]),
-      ),
-    [vendorConversations],
-  );
-
-  const directoryEntries = useMemo(() => {
-    const normalizedSearch = search.trim().toLowerCase();
-    const source = activeTab === "users" ? users : vendors;
-    const conversationMap =
-      activeTab === "users" ? userConversationMap : vendorConversationMap;
-
-    return source
-      .filter((item) => {
-        if (!normalizedSearch) return true;
-        return [item?.name, item?.email, item?.phone]
-          .filter(Boolean)
-          .some((value) => String(value).toLowerCase().includes(normalizedSearch));
+    return base
+      .filter((conversation) => {
+        const lastMessage = getLastMessage(conversation);
+        return (Boolean(conversation?.lastMessageAt) || Boolean(conversation?.lastMessage)) && lastMessage !== "No conversation yet";
       })
-      .map((item) => ({
-        contact: item,
-        conversation: conversationMap.get(String(item._id)) || null,
-      }))
+      .filter((conversation) => {
+        if (!searchText.trim()) return true;
+        const query = searchText.trim().toLowerCase();
+        return (
+          getContactName(conversation, activeTab).toLowerCase().includes(query) ||
+          getContactEmail(conversation, activeTab).toLowerCase().includes(query) ||
+          getLastMessage(conversation).toLowerCase().includes(query)
+        );
+      })
       .sort((a, b) => {
-        const aTime = a.conversation?.lastMessageAt
-          ? new Date(a.conversation.lastMessageAt).getTime()
-          : 0;
-        const bTime = b.conversation?.lastMessageAt
-          ? new Date(b.conversation.lastMessageAt).getTime()
-          : 0;
+        const aTime = new Date(a?.lastMessageAt || a?.updatedAt || 0).getTime();
+        const bTime = new Date(b?.lastMessageAt || b?.updatedAt || 0).getTime();
         return bTime - aTime;
       });
-  }, [activeTab, search, userConversationMap, users, vendorConversationMap, vendors]);
+  }, [
+    activeTab,
+    searchText,
+    userConversationsQuery.data?.conversations,
+    vendorConversationsQuery.data?.conversations,
+  ]);
 
   useEffect(() => {
-    if (!directoryEntries.length) {
-      setSelectedContactId(null);
-      setSelectedConversationId(null);
-      return;
-    }
-
-    const selectedStillExists = directoryEntries.some(
-      (entry) => String(entry.contact._id) === String(selectedContactId),
-    );
-
-    if (!selectedContactId || !selectedStillExists) {
-      const next = directoryEntries[0];
-      setSelectedContactId(next.contact._id);
-      setSelectedConversationId(next.conversation?._id || null);
-      return;
-    }
-
-    const selectedEntry = directoryEntries.find(
-      (entry) => String(entry.contact._id) === String(selectedContactId),
-    );
-    setSelectedConversationId(selectedEntry?.conversation?._id || null);
-  }, [directoryEntries, selectedContactId]);
-
-  const {
-    data: userDetailsData,
-    isFetching: isUserDetailsFetching,
-    refetch: refetchUserDetails,
-  } = useGetUserSupportConversationDetailsQuery(selectedConversationId, {
-    skip: activeTab !== "users" || !selectedConversationId,
-  });
-  const {
-    data: vendorDetailsData,
-    isFetching: isVendorDetailsFetching,
-    refetch: refetchVendorDetails,
-  } = useGetVendorSupportConversationDetailsQuery(selectedConversationId, {
-    skip: activeTab !== "vendors" || !selectedConversationId,
-  });
-
-  const detailsData = activeTab === "users" ? userDetailsData : vendorDetailsData;
-  const conversation = detailsData?.conversation || null;
-  const messages = detailsData?.messages || [];
-  const isDetailsFetching =
-    activeTab === "users" ? isUserDetailsFetching : isVendorDetailsFetching;
-  const isSending = activeTab === "users" ? isSendingUserReply : isSendingVendorReply;
-  const isDeleting =
-    activeTab === "users" ? isDeletingUserConversation : isDeletingVendorConversation;
-  const isEnsuring =
-    activeTab === "users" ? isEnsuringUserConversation : isEnsuringVendorConversation;
+    selectedConversationIdRef.current = selectedConversationId;
+  }, [selectedConversationId]);
 
   useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    if (!conversations.length) {
+      setSelectedConversationId("");
+      return;
     }
-  }, [messages]);
+    if (!selectedConversationId || !conversations.some((item) => item._id === selectedConversationId)) {
+      setSelectedConversationId(conversations[0]._id);
+    }
+  }, [conversations, selectedConversationId]);
+
+  const userDetailsQuery = useGetUserSupportConversationDetailsQuery(selectedConversationId, {
+    skip: !selectedConversationId || activeTab !== "user",
+    pollingInterval: 4000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const vendorDetailsQuery = useGetVendorSupportConversationDetailsQuery(selectedConversationId, {
+    skip: !selectedConversationId || activeTab !== "vendor",
+    pollingInterval: 4000,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+  });
+
+  const [sendUserReply, sendUserReplyState] = useSendUserSupportReplyMutation();
+  const [sendVendorReply, sendVendorReplyState] = useSendVendorSupportReplyMutation();
+  const [deleteUserConversation] = useDeleteUserSupportConversationMutation();
+  const [deleteVendorConversation] = useDeleteVendorSupportConversationMutation();
+
+  const activeDetails =
+    activeTab === "user" ? userDetailsQuery.data?.conversation : vendorDetailsQuery.data?.conversation;
+  const messages =
+    activeTab === "user"
+      ? userDetailsQuery.data?.messages || []
+      : vendorDetailsQuery.data?.messages || [];
+
+  const loadingConversations =
+    activeTab === "user" ? userConversationsQuery.isLoading : vendorConversationsQuery.isLoading;
+  const loadingDetails = activeTab === "user" ? userDetailsQuery.isLoading : vendorDetailsQuery.isLoading;
+  const sending = sendUserReplyState.isLoading || sendVendorReplyState.isLoading;
+
+  useEffect(() => {
+    setLiveMessages(normalizeMessages(messages));
+  }, [messages, selectedConversationId, activeTab]);
 
   useEffect(() => {
     if (!attachmentFile) {
       setAttachmentPreview("");
       return undefined;
     }
-
     const previewUrl = URL.createObjectURL(attachmentFile);
     setAttachmentPreview(previewUrl);
-
     return () => URL.revokeObjectURL(previewUrl);
   }, [attachmentFile]);
 
-  const selectedEntry = directoryEntries.find(
-    (entry) => String(entry.contact._id) === String(selectedContactId),
-  );
-  const selectedContact = selectedEntry?.contact || null;
+  useEffect(() => {
+    primeUiFeedbackSounds();
+  }, []);
 
-  const prepareConversation = async (contactId = selectedContactId) => {
-    if (!contactId) return null;
+  useEffect(() => {
+    const socket = connectVendorSocket();
 
-    if (activeTab === "users") {
-      const response = await ensureUserSupportConversation(contactId).unwrap();
-      await refetchUserConversations();
-      setSelectedConversationId(response?.conversation?._id || null);
-      return response?.conversation || null;
+    const syncActive = async (conversationId) => {
+      if (!conversationId) return;
+      if (activeTab === "user") {
+        await userConversationsQuery.refetch();
+        if (String(selectedConversationIdRef.current) === String(conversationId)) {
+          await userDetailsQuery.refetch();
+        }
+      } else {
+        await vendorConversationsQuery.refetch();
+        if (String(selectedConversationIdRef.current) === String(conversationId)) {
+          await vendorDetailsQuery.refetch();
+        }
+      }
+    };
+
+    const appendIncoming = (payload) => {
+      if (String(payload?.conversationId) !== String(selectedConversationIdRef.current) || !payload?.message) {
+        return;
+      }
+      setLiveMessages((current) => {
+        const filtered = current.filter(
+          (item) =>
+            item._id !== `temp-admin-${payload.conversationId}` &&
+            String(item._id) !== String(payload.message._id)
+        );
+        return normalizeMessages([...filtered, payload.message]);
+      });
+    };
+
+    const handleUserSupportMessage = async (payload) => {
+      if (activeTab !== "user") return;
+      appendIncoming(payload);
+      await syncActive(payload?.conversationId);
+      if (payload?.message?.senderRole !== "admin" && String(payload?.conversationId) === String(selectedConversationIdRef.current)) {
+        await waitForNextPaint();
+        playChatReceiveSound();
+      }
+    };
+
+    const handleVendorSupportMessage = async (payload) => {
+      if (activeTab !== "vendor") return;
+      appendIncoming(payload);
+      await syncActive(payload?.conversationId);
+      if (payload?.message?.senderRole !== "admin" && String(payload?.conversationId) === String(selectedConversationIdRef.current)) {
+        await waitForNextPaint();
+        playChatReceiveSound();
+      }
+    };
+
+    const handlePresence = (payload) => {
+      setSupportOnline(Boolean(payload?.online));
+    };
+
+    const handleUserPresenceSnapshot = (payload) => {
+      setOnlineUsers((payload?.users || []).map(String));
+    };
+
+    const handleVendorPresenceSnapshot = (payload) => {
+      setOnlineVendors((payload?.vendors || []).map(String));
+    };
+
+    const handleUserOnline = (payload) => {
+      if (!payload?.userId) return;
+      setOnlineUsers((current) =>
+        payload.online
+          ? Array.from(new Set([...current, String(payload.userId)]))
+          : current.filter((id) => id !== String(payload.userId))
+      );
+    };
+
+    const handleVendorOnline = (payload) => {
+      if (!payload?.vendorId) return;
+      setOnlineVendors((current) =>
+        payload.online
+          ? Array.from(new Set([...current, String(payload.vendorId)]))
+          : current.filter((id) => id !== String(payload.vendorId))
+      );
+    };
+
+    const handleConnect = () => {
+      setSupportOnline(true);
+      socket.emit("sync_presence");
+      socket.emit("support_presence_active", { active: true });
+      if (selectedConversationIdRef.current) {
+        socket.emit("join_support_chat", { chatId: selectedConversationIdRef.current });
+      }
+    };
+
+    const handleDisconnect = () => {
+      setSupportOnline(false);
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+    socket.on("support:message", handleUserSupportMessage);
+    socket.on("support:conversation:update", syncActive);
+    socket.on("vendor-support:message", handleVendorSupportMessage);
+    socket.on("vendor-support:conversation:update", syncActive);
+    socket.on("admin-support:presence", handlePresence);
+    socket.on("user_presence_snapshot", handleUserPresenceSnapshot);
+    socket.on("vendor_presence_snapshot", handleVendorPresenceSnapshot);
+    socket.on("user_online", handleUserOnline);
+    socket.on("user_offline", handleUserOnline);
+    socket.on("vendor_online", handleVendorOnline);
+    socket.on("vendor_offline", handleVendorOnline);
+
+    if (socket.connected) handleConnect();
+    else socket.connect();
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+      socket.off("support:message", handleUserSupportMessage);
+      socket.off("support:conversation:update", syncActive);
+      socket.off("vendor-support:message", handleVendorSupportMessage);
+      socket.off("vendor-support:conversation:update", syncActive);
+      socket.off("admin-support:presence", handlePresence);
+      socket.off("user_presence_snapshot", handleUserPresenceSnapshot);
+      socket.off("vendor_presence_snapshot", handleVendorPresenceSnapshot);
+      socket.off("user_online", handleUserOnline);
+      socket.off("user_offline", handleUserOnline);
+      socket.off("vendor_online", handleVendorOnline);
+      socket.off("vendor_offline", handleVendorOnline);
+    };
+  }, [activeTab]);
+
+  useEffect(() => {
+    const socket = connectVendorSocket();
+
+    const handleConnect = () => {
+      setSupportOnline(true);
+      socket.emit("support_presence_active", { active: true });
+    };
+
+    const handleDisconnect = () => {
+      setSupportOnline(false);
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("disconnect", handleDisconnect);
+
+    if (socket.connected) {
+      handleConnect();
+    } else {
+      socket.connect();
     }
 
-    const response = await ensureVendorSupportConversation(contactId).unwrap();
-    await refetchVendorConversations();
-    setSelectedConversationId(response?.conversation?._id || null);
-    return response?.conversation || null;
+    return () => {
+      socket.emit("support_presence_active", { active: false });
+      socket.off("connect", handleConnect);
+      socket.off("disconnect", handleDisconnect);
+    };
+  }, []);
+
+  useEffect(() => {
+    const socket = connectVendorSocket();
+    if (!selectedConversationId) {
+      socket.emit("leave_support_chat");
+      return undefined;
+    }
+    socket.emit("join_support_chat", { chatId: selectedConversationId });
+    return () => {
+      socket.emit("leave_support_chat", { chatId: selectedConversationId });
+    };
+  }, [selectedConversationId]);
+
+  const handleSelectAttachment = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setFeedback({ type: "error", text: "Only image files are allowed." });
+      event.target.value = "";
+      return;
+    }
+    setAttachmentFile(file);
   };
 
-  const handleSelectContact = async (contactId) => {
-    setSelectedContactId(contactId);
-    const entry = directoryEntries.find(
-      (item) => String(item.contact._id) === String(contactId),
-    );
-    setSelectedConversationId(entry?.conversation?._id || null);
+  const handleRemoveAttachment = () => {
+    setAttachmentFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleSend = async () => {
-    if (!selectedContactId) {
-      toast.error(
-        activeTab === "users"
-          ? "Please select a user first"
-          : "Please select a vendor first",
-      );
-      return;
-    }
-
-    if (!draft.trim() && !attachmentFile) {
-      toast.error("Write a message or choose an image");
-      return;
-    }
-
-    let conversationId = selectedConversationId;
-    if (!conversationId) {
-      const prepared = await prepareConversation(selectedContactId);
-      conversationId = prepared?._id || null;
-    }
-
-    if (!conversationId) {
-      toast.error("Conversation could not be prepared");
-      return;
-    }
-
-    const formData = new FormData();
-    if (draft.trim()) formData.append("text", draft.trim());
-    if (attachmentFile) formData.append("attachments", attachmentFile);
+    const text = message.trim();
+    if (!selectedConversationId || (!text && !attachmentFile)) return;
 
     try {
-      if (activeTab === "users") {
-        await sendUserSupportReply({ conversationId, formData }).unwrap();
-        await refetchUserConversations();
-        await refetchUserDetails();
+      const formData = new FormData();
+      if (text) formData.append("text", text);
+      if (attachmentFile) formData.append("attachments", attachmentFile);
+
+      const now = new Date().toISOString();
+      const tempId = `temp-admin-${selectedConversationId}`;
+      setLiveMessages((current) =>
+        normalizeMessages([
+          ...current,
+          {
+            _id: tempId,
+            senderRole: "admin",
+            text,
+            attachments: attachmentPreview
+              ? [{ url: attachmentPreview, fileName: attachmentFile?.name || "attachment" }]
+              : [],
+            createdAt: now,
+            status: "sending",
+          },
+        ])
+      );
+      playChatSendSound();
+
+      let response;
+      if (activeTab === "user") {
+        response = await sendUserReply({ conversationId: selectedConversationId, formData }).unwrap();
       } else {
-        await sendVendorSupportReply({ conversationId, formData }).unwrap();
-        await refetchVendorConversations();
-        await refetchVendorDetails();
+        response = await sendVendorReply({ conversationId: selectedConversationId, formData }).unwrap();
       }
 
-      setSelectedConversationId(conversationId);
-      setDraft("");
-      setAttachmentFile(null);
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
+      if (response?.message) {
+        setLiveMessages((current) =>
+          normalizeMessages(
+            current.map((item) =>
+              item._id === tempId ? { ...response.message, status: "delivered" } : item
+            )
+          )
+        );
       }
-      toast.success("Message sent");
+
+      setMessage("");
+      setAttachmentFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      setFeedback({ type: "success", text: "Reply send ho gaya." });
     } catch (error) {
-      toast.error(error?.data?.message || "Failed to send message");
+      setLiveMessages((current) => current.filter((item) => item._id !== `temp-admin-${selectedConversationId}`));
+      setFeedback({ type: "error", text: error?.data?.message || "Message send nahi ho paya." });
     }
   };
 
   const handleDeleteConversation = async () => {
     if (!selectedConversationId) return;
-
     try {
-      if (activeTab === "users") {
-        await deleteUserSupportConversation(selectedConversationId).unwrap();
-        await refetchUserConversations();
+      if (activeTab === "user") {
+        await deleteUserConversation(selectedConversationId).unwrap();
       } else {
-        await deleteVendorSupportConversation(selectedConversationId).unwrap();
-        await refetchVendorConversations();
+        await deleteVendorConversation(selectedConversationId).unwrap();
       }
-      setSelectedConversationId(null);
-      setDraft("");
-      toast.success("Conversation deleted");
+      setSelectedConversationId("");
+      setLiveMessages([]);
+      setFeedback({ type: "success", text: "Conversation delete ho gaya." });
     } catch (error) {
-      toast.error(error?.data?.message || "Failed to delete conversation");
+      setFeedback({ type: "error", text: error?.data?.message || "Conversation delete nahi ho paya." });
     }
   };
 
-  const handleSelectAttachment = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith("image/")) {
-      toast.error("Only image files are allowed");
-      event.target.value = "";
-      return;
-    }
-
-    setAttachmentFile(file);
-  };
-
-  const shellClass = isDark
-    ? "border-violet-400/25 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.18),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(244,63,94,0.12),transparent_22%),linear-gradient(180deg,#0b1021_0%,#11172f_48%,#161b35_100%)]"
-    : "border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(37,99,235,0.08),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(244,63,94,0.08),transparent_22%),linear-gradient(180deg,#f8fbff_0%,#eef2ff_52%,#fff7f8_100%)]";
-  const cardClass = isDark
-    ? "border-violet-400/18 bg-slate-950/45"
-    : "border-slate-200 bg-white/88";
-  const headingClass = isDark ? "text-white" : "text-slate-900";
-  const mutedClass = isDark ? "text-slate-400" : "text-slate-500";
+  const currentOnline =
+    activeTab === "user"
+      ? onlineUsers.includes(getContactId(activeDetails, activeTab))
+      : onlineVendors.includes(getContactId(activeDetails, activeTab));
 
   return (
-    <section className="pb-8">
-      <div className={`rounded-[34px] border p-4 shadow-[0_28px_90px_rgba(2,6,23,0.18)] md:p-5 ${shellClass}`}>
-        <div className="mb-5 flex flex-col gap-4 rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-sky-300">
-              Admin support
-            </p>
-            <h1 className={`mt-2 text-[1.95rem] font-black md:text-[2.35rem] ${headingClass}`}>
-              Unified conversation console
-            </h1>
-            <p className={`mt-2 max-w-3xl text-sm ${mutedClass}`}>
-              User aur vendor dono chats ab admin se handle hongi. Vendor only admin se
-              baat karega, aur user bhi sirf admin desk tak limited rahega.
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200">
-            <ShieldCheck size={16} />
-            Multi-channel admin desk
-          </div>
-        </div>
-
-        <div className="mb-4 flex flex-wrap gap-3">
-          {tabs.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setActiveTab(id);
-                setSearch("");
-                setDraft("");
-                setAttachmentFile(null);
-              }}
-              className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                activeTab === id
-                  ? "border-sky-400 bg-sky-500/10 text-sky-200"
-                  : isDark
-                    ? "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10"
-                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-            >
-              <Icon size={16} />
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid gap-4 xl:grid-cols-[24rem_minmax(0,1fr)]">
-          <aside className={`flex min-h-[40rem] flex-col rounded-[28px] border p-4 ${cardClass}`}>
-            <div className="mb-4 flex items-center gap-3">
-              {activeTab === "users" ? (
-                <UserRound className="text-sky-300" size={18} />
-              ) : (
-                <Store className="text-sky-300" size={18} />
-              )}
+    <div className="min-h-screen bg-[#070b1a] px-4 py-5 text-white md:px-6 xl:px-8">
+      <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5">
+        <div className="rounded-[34px] border border-cyan-500/15 bg-[radial-gradient(circle_at_top_left,_rgba(56,189,248,0.18),_transparent_30%),linear-gradient(135deg,_rgba(15,23,42,0.96),_rgba(10,15,33,0.98))] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.35)] md:p-8">
+          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+            <div className="space-y-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.45em] text-cyan-300/80">Admin Support Desk</p>
               <div>
-                <p className={`text-sm font-bold ${headingClass}`}>
-                  {activeTab === "users" ? "Users directory" : "Vendors directory"}
-                </p>
-                <p className={`text-xs ${mutedClass}`}>
-                  Select a contact and start or continue support
+                <h1 className="text-3xl font-black tracking-tight text-white md:text-5xl">Live support workspace</h1>
+                <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300 md:text-base">
+                  Yahan user aur vendor dono ke support chats milenge, realtime online status ke saath.
                 </p>
               </div>
             </div>
 
-            <div className={`mb-4 flex items-center gap-2 rounded-[20px] border px-4 py-3 ${isDark ? "border-white/10 bg-slate-950/35" : "border-slate-200 bg-white"}`}>
-              <Search size={16} className={mutedClass} />
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-3xl border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">User Chats</p>
+                <p className="mt-3 text-3xl font-black text-white">{userConversationsQuery.data?.conversations?.length || 0}</p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Vendor Chats</p>
+                <p className="mt-3 text-3xl font-black text-white">{vendorConversationsQuery.data?.conversations?.length || 0}</p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 px-5 py-4">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Admin</p>
+                <p className="mt-3 text-3xl font-black text-white">{supportOnline ? "Online" : "Offline"}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {feedback.text ? (
+          <div className={`rounded-2xl border px-4 py-3 text-sm ${feedback.type === "error" ? "border-rose-500/30 bg-rose-500/10 text-rose-100" : "border-emerald-500/30 bg-emerald-500/10 text-emerald-100"}`}>
+            {feedback.text}
+          </div>
+        ) : null}
+
+        <div className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
+          <aside className="rounded-[32px] border border-white/10 bg-slate-950/70 p-4 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+            <div className="flex rounded-2xl border border-white/10 bg-white/5 p-1">
+              {ROLE_TABS.map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    setActiveTab(tab.key);
+                    setSearchText("");
+                    setSelectedConversationId("");
+                  }}
+                  className={`flex-1 rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+                    activeTab === tab.key ? "bg-cyan-500 text-slate-950" : "text-slate-300 hover:bg-white/5 hover:text-white"
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4">
               <input
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder={activeTab === "users" ? "Search users..." : "Search vendors..."}
-                className={`w-full bg-transparent text-sm outline-none ${isDark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`}
+                type="text"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder={`Search ${activeTab} conversations`}
+                className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-400 focus:border-cyan-400"
               />
             </div>
 
-            <div className="themed-scrollbar min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
-              {(activeTab === "users" ? isUsersLoading || isUserConversationsLoading : isVendorsLoading || isVendorConversationsLoading) ? (
-                <div className={`rounded-[22px] border px-4 py-6 text-center text-sm ${mutedClass}`}>
-                  Loading directory...
-                </div>
-              ) : directoryEntries.length ? (
-                directoryEntries.map(({ contact, conversation: itemConversation }) => {
-                  const unread = Number(
-                    activeTab === "users"
-                      ? itemConversation?.unreadForAdmin || 0
-                      : itemConversation?.unreadForAdmin || 0,
-                  );
+            <div className="mt-4 max-h-[72vh] space-y-3 overflow-y-auto pr-1">
+              {loadingConversations ? (
+                <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-300">Conversations load ho rahe hain...</div>
+              ) : null}
 
-                  return (
-                    <button
-                      key={contact._id}
-                      type="button"
-                      onClick={() => handleSelectContact(contact._id)}
-                      className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
-                        String(selectedContactId) === String(contact._id)
-                          ? "border-sky-400 bg-sky-500/10"
-                          : isDark
-                            ? "border-violet-400/14 bg-white/5 hover:bg-white/10"
-                            : "border-slate-200 bg-white hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className={`truncate text-base font-bold ${headingClass}`}>
-                            {contact.name}
-                          </p>
-                          <p className={`mt-1 truncate text-xs ${mutedClass}`}>{contact.email}</p>
-                        </div>
-                        {unread ? (
-                          <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">
-                            {unread}
-                          </span>
-                        ) : null}
-                      </div>
-                      <p className={`mt-3 line-clamp-2 text-sm ${mutedClass}`}>
-                        {itemConversation?.lastMessage || "No conversation yet"}
-                      </p>
-                      <p className={`mt-3 text-xs ${mutedClass}`}>
-                        {formatTime(itemConversation?.lastMessageAt)}
-                      </p>
-                    </button>
-                  );
-                })
-              ) : (
-                <div className={`rounded-[22px] border border-dashed px-4 py-8 text-center text-sm ${mutedClass}`}>
-                  No matches found.
+              {!loadingConversations && !conversations.length ? (
+                <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.03] p-5 text-sm leading-6 text-slate-400">
+                  Is inbox me abhi koi active conversation nahi hai.
                 </div>
-              )}
+              ) : null}
+
+              {conversations.map((conversation) => (
+                <button
+                  key={conversation._id}
+                  type="button"
+                  onClick={() => setSelectedConversationId(conversation._id)}
+                  className={`w-full rounded-[28px] border px-5 py-4 text-left transition ${
+                    conversation._id === selectedConversationId
+                      ? "border-cyan-400 bg-cyan-500/10 shadow-[0_0_0_1px_rgba(34,211,238,0.25)]"
+                      : "border-white/10 bg-white/[0.03] hover:border-cyan-500/40 hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h3 className="truncate text-xl font-bold text-white">{getContactName(conversation, activeTab)}</h3>
+                      <p className="truncate text-sm text-slate-400">{getContactEmail(conversation, activeTab)}</p>
+                    </div>
+                  </div>
+                  <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-300">{getLastMessage(conversation)}</p>
+                  <p className="mt-4 text-xs font-medium uppercase tracking-[0.24em] text-slate-500">{formatStamp(conversation?.lastMessageAt || conversation?.updatedAt)}</p>
+                </button>
+              ))}
             </div>
           </aside>
 
-          <div className={`flex min-h-[40rem] min-w-0 flex-col rounded-[28px] border ${cardClass}`}>
-            <div className="border-b border-white/10 px-5 py-4">
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose-300">
-                    Selected contact
-                  </p>
-                  <h2 className={`mt-2 text-2xl font-black ${headingClass}`}>
-                    {selectedContact?.name ||
-                      (activeTab === "users" ? "Choose a user" : "Choose a vendor")}
-                  </h2>
-                  <p className={`mt-1 text-sm ${mutedClass}`}>
-                    {selectedContact?.email ||
-                      (activeTab === "users"
-                        ? "Select a user to start a support thread"
-                        : "Select a vendor to start a support thread")}
-                  </p>
+          <section className="rounded-[32px] border border-white/10 bg-slate-950/70 shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+            {!selectedConversationId || !activeDetails ? (
+              <div className="flex min-h-[72vh] items-center justify-center px-8 text-center">
+                <div className="max-w-xl">
+                  <p className="text-xs font-semibold uppercase tracking-[0.4em] text-cyan-300/80">Support Workspace</p>
+                  <h2 className="mt-4 text-3xl font-black text-white">Open a live conversation</h2>
                 </div>
-                {selectedConversationId ? (
+              </div>
+            ) : (
+              <div className="flex min-h-[72vh] flex-col">
+                <div className="flex flex-col gap-4 border-b border-white/10 px-5 py-5 md:flex-row md:items-center md:justify-between md:px-7">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.35em] text-cyan-300/80">
+                      {activeTab === "user" ? "User Conversation" : "Vendor Conversation"}
+                    </p>
+                    <h2 className="mt-2 text-2xl font-black text-white">{getContactName(activeDetails, activeTab)}</h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      {getContactEmail(activeDetails, activeTab)}
+                      <span className="ml-3 inline-flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${currentOnline ? "bg-emerald-400" : "bg-slate-500"}`} />
+                        {currentOnline ? `${activeTab} online` : `${activeTab} offline`}
+                      </span>
+                      <span className="ml-3 inline-flex items-center gap-2">
+                        <span className={`h-2.5 w-2.5 rounded-full ${supportOnline ? "bg-emerald-400" : "bg-slate-500"}`} />
+                        {supportOnline ? "Admin online" : "Admin offline"}
+                      </span>
+                    </p>
+                  </div>
                   <button
                     type="button"
                     onClick={handleDeleteConversation}
-                    disabled={isDeleting}
-                    className="inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-60"
+                    className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20"
                   >
-                    {isDeleting ? <AuthButtonLoader color="#ffffff" size={16} /> : <><Trash2 size={16} />Delete</>}
+                    Delete Conversation
                   </button>
-                ) : null}
-              </div>
-            </div>
+                </div>
 
-            <div ref={scrollRef} className="themed-scrollbar min-h-[18rem] flex-1 space-y-4 overflow-y-auto px-4 py-5 md:px-5">
-              {!selectedContact ? (
-                <div className="flex h-full items-center justify-center">
-                  <div className={`rounded-[24px] border border-dashed px-6 py-10 text-center text-sm ${mutedClass}`}>
-                    Left side se contact choose karo, phir admin support yahan open hoga.
-                  </div>
-                </div>
-              ) : isDetailsFetching ? (
-                <div className="flex h-full items-center justify-center">
-                  <div className={`rounded-[24px] border px-6 py-10 text-center text-sm ${mutedClass}`}>
-                    Loading conversation...
-                  </div>
-                </div>
-              ) : messages.length ? (
-                messages.map((message) => {
-                  const isOwn = message.senderRole === "admin";
-                  return (
-                    <div
-                      key={message._id}
-                      className={`max-w-[88%] rounded-[24px] px-5 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.16)] ${
-                        isOwn
-                          ? "ml-auto bg-[linear-gradient(135deg,#2563eb,#3b82f6_55%,#7c3aed)] text-white"
-                          : isDark
-                            ? "border border-violet-400/14 bg-slate-900/80 text-slate-100"
-                            : "border border-slate-200 bg-white text-slate-800"
-                      }`}
-                    >
-                      {message.text ? <p className="text-sm leading-7">{message.text}</p> : null}
-                      {message.attachments?.length ? (
-                        <div className={message.text ? "mt-3" : ""}>
-                          {message.attachments.map((attachment, index) => (
-                            <a
-                              key={`${message._id}-${attachment.url}-${index}`}
-                              href={attachment.url}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block overflow-hidden rounded-[18px] border border-white/10"
-                            >
-                              <img
-                                src={attachment.url}
-                                alt={attachment.fileName || "Attachment"}
-                                className="max-h-72 w-full object-cover"
-                              />
-                            </a>
-                          ))}
-                        </div>
-                      ) : null}
-                      <p className={`mt-3 text-xs ${isOwn ? "text-white/80" : mutedClass}`}>
-                        {formatTime(message.createdAt)}
-                      </p>
+                <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5 md:px-7">
+                  {loadingDetails ? (
+                    <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-5 text-sm text-slate-300">Messages load ho rahe hain...</div>
+                  ) : null}
+                  {!loadingDetails && !liveMessages.length ? (
+                    <div className="rounded-3xl border border-dashed border-white/10 bg-white/[0.03] p-6 text-sm leading-6 text-slate-400">
+                      Is conversation me abhi koi message nahi hai.
                     </div>
-                  );
-                })
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <div className={`rounded-[24px] border border-dashed px-6 py-10 text-center text-sm ${mutedClass}`}>
-                    No messages yet. Admin yahin se first message start kar sakta hai.
-                  </div>
-                </div>
-              )}
-            </div>
+                  ) : null}
 
-            <div className="border-t border-white/10 px-4 py-4 md:px-5">
-              <div className={`rounded-[24px] border p-3 ${isDark ? "border-violet-400/16 bg-slate-950/35" : "border-slate-200 bg-white"}`}>
-                <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                  <div className="flex-1 rounded-[20px] border border-white/10 px-4 py-3">
+                  {liveMessages.map((item) => (
+                    <MessageBubble key={item._id || `${item.senderRole}-${item.createdAt}`} item={item} isAdmin={item?.senderRole === "admin"} />
+                  ))}
+                </div>
+
+                <div className="border-t border-white/10 px-5 py-5 md:px-7">
+                  <div className="rounded-[28px] border border-white/10 bg-white/[0.04] p-3">
                     <textarea
-                      value={draft}
-                      onChange={(event) => setDraft(event.target.value)}
+                      value={message}
+                      onChange={(event) => setMessage(event.target.value)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" && !event.shiftKey) {
                           event.preventDefault();
-                          if (!isSending && !isEnsuring) handleSend();
+                          handleSend();
                         }
                       }}
-                      placeholder={
-                        activeTab === "users"
-                          ? "Write a clear support reply for the user..."
-                          : "Write a clear admin message for the vendor..."
-                      }
-                      className={`min-h-[6rem] w-full resize-none bg-transparent text-sm outline-none ${isDark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`}
+                      placeholder="Reply as admin..."
+                      rows={4}
+                      className="w-full resize-none bg-transparent px-3 py-2 text-sm leading-6 text-white outline-none placeholder:text-slate-400"
                     />
+
                     {attachmentPreview ? (
-                      <div className="relative mt-3 inline-flex overflow-hidden rounded-[18px] border border-white/10">
-                        <img src={attachmentPreview} alt="Preview" className="h-20 w-20 object-cover" />
+                      <div className="relative mt-3 inline-flex overflow-hidden rounded-[20px] border border-white/10">
+                        <img src={attachmentPreview} alt="Selected attachment preview" className="h-20 w-20 object-cover" />
                         <button
                           type="button"
-                          onClick={() => {
-                            setAttachmentFile(null);
-                            if (fileInputRef.current) {
-                              fileInputRef.current.value = "";
-                            }
-                          }}
+                          onClick={handleRemoveAttachment}
                           className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-slate-950/80 text-white"
                         >
                           <X size={14} />
                         </button>
                       </div>
                     ) : null}
-                    <div className="mt-3">
+
+                    <div className="mt-3 flex justify-end">
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -589,36 +678,33 @@ const SupportChats = () => {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold ${isDark ? "border-violet-400/20 bg-white/6 text-slate-100" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                        className="mr-3 rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
                       >
-                        <ImagePlus size={16} />
-                        Add image
+                        <span className="inline-flex items-center gap-2">
+                          <ImagePlus size={16} />
+                          Add image
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        disabled={(!message.trim() && !attachmentFile) || sending}
+                        onClick={handleSend}
+                        className="rounded-2xl bg-gradient-to-r from-cyan-500 to-blue-500 px-6 py-3 text-sm font-bold text-slate-950 transition hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          <Send size={16} />
+                          {sending ? "Sending..." : "Send Reply"}
+                        </span>
                       </button>
                     </div>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={handleSend}
-                    disabled={!selectedContact || isSending || isEnsuring}
-                    className="flex h-[3.5rem] w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(135deg,#2563eb,#3b82f6_55%,#7c3aed)] px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(59,130,246,0.28)] transition hover:brightness-110 disabled:bg-slate-600 disabled:shadow-none md:w-[10rem]"
-                  >
-                    {isSending || isEnsuring ? (
-                      <AuthButtonLoader color="#ffffff" size={18} />
-                    ) : (
-                      <>
-                        <Send size={16} />
-                        Send
-                      </>
-                    )}
-                  </button>
                 </div>
               </div>
-            </div>
-          </div>
+            )}
+          </section>
         </div>
       </div>
-    </section>
+    </div>
   );
 };
 

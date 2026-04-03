@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Headset, ImagePlus, Send, ShieldCheck, Trash2, X } from "lucide-react";
+import {
+  ImagePlus,
+  MessageSquareText,
+  Plus,
+  Send,
+  Trash2,
+  X,
+} from "lucide-react";
 import { toast } from "react-hot-toast";
 import {
   useDeleteSupportConversationMutation,
@@ -7,8 +14,15 @@ import {
   useGetSupportConversationsQuery,
   useSendSupportReplyMutation,
 } from "../../../features/api/supportApi";
-import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader.jsx";
 import { useTheme } from "../../../context/ThemeContext";
+import { connectVendorSocket } from "../../../lib/socket";
+import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader.jsx";
+import {
+  playChatReceiveSound,
+  playChatSendSound,
+  primeUiFeedbackSounds,
+  waitForNextPaint,
+} from "../../../utils/uiFeedbackSounds";
 
 const formatTime = (value) =>
   value
@@ -20,17 +34,34 @@ const formatTime = (value) =>
       })
     : "No activity yet";
 
+const normalizeMessages = (items = []) => {
+  const seen = new Set();
+  return items.filter((item) => {
+    const key = String(item?._id || `${item?.senderRole}-${item?.createdAt}-${item?.text || ""}`);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
 const SupportChats = () => {
   const { isDark } = useTheme();
   const [selectedId, setSelectedId] = useState(null);
   const [reply, setReply] = useState("");
   const [attachmentFile, setAttachmentFile] = useState(null);
   const [attachmentPreview, setAttachmentPreview] = useState("");
+  const [supportOnline, setSupportOnline] = useState(false);
+  const [liveMessages, setLiveMessages] = useState([]);
+  const [deletingConversationId, setDeletingConversationId] = useState(null);
   const scrollRef = useRef(null);
   const fileInputRef = useRef(null);
+  const selectedIdRef = useRef(null);
 
-  const { data: listData, isLoading, refetch: refetchList } =
-    useGetSupportConversationsQuery();
+  const {
+    data: listData,
+    isLoading: isListLoading,
+    refetch: refetchList,
+  } = useGetSupportConversationsQuery();
   const conversations = listData?.conversations || [];
 
   useEffect(() => {
@@ -45,23 +76,37 @@ const SupportChats = () => {
     }
   }, [conversations, selectedId]);
 
-  const { data: detailsData, refetch: refetchDetails } =
-    useGetSupportConversationDetailsQuery(selectedId, {
-      skip: !selectedId,
-    });
+  const {
+    data: detailsData,
+    isLoading: isDetailsLoading,
+    refetch: refetchDetails,
+  } = useGetSupportConversationDetailsQuery(selectedId, {
+    skip: !selectedId,
+  });
 
   const [sendSupportReply, { isLoading: isSending }] = useSendSupportReplyMutation();
-  const [deleteSupportConversation, { isLoading: isDeleting }] =
-    useDeleteSupportConversationMutation();
+  const [deleteSupportConversation] = useDeleteSupportConversationMutation();
 
-  const conversation = detailsData?.conversation || null;
   const messages = useMemo(() => detailsData?.messages || [], [detailsData?.messages]);
+  const selectedConversation = detailsData?.conversation || null;
+
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
+
+  useEffect(() => {
+    setLiveMessages(normalizeMessages(messages));
+  }, [messages, selectedId]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages]);
+  }, [liveMessages]);
+
+  useEffect(() => {
+    primeUiFeedbackSounds();
+  }, []);
 
   useEffect(() => {
     if (!attachmentFile) {
@@ -71,9 +116,92 @@ const SupportChats = () => {
 
     const previewUrl = URL.createObjectURL(attachmentFile);
     setAttachmentPreview(previewUrl);
-
     return () => URL.revokeObjectURL(previewUrl);
   }, [attachmentFile]);
+
+  useEffect(() => {
+    const socket = connectVendorSocket();
+
+    const handleConnect = () => {
+      socket.emit("sync_presence");
+      if (selectedIdRef.current) {
+        socket.emit("join_support_chat", { chatId: selectedIdRef.current });
+      }
+    };
+
+    const handlePresence = (payload) => {
+      setSupportOnline(Boolean(payload?.online));
+    };
+
+    const handleVendorSupportMessage = async (payload) => {
+      if (!payload?.conversationId) return;
+
+      if (
+        String(payload.conversationId) === String(selectedIdRef.current) &&
+        payload?.message
+      ) {
+        setLiveMessages((current) => {
+          const filtered = current.filter(
+            (item) =>
+              item._id !== `temp-vendor-${payload.conversationId}` &&
+              String(item._id) !== String(payload.message._id)
+          );
+          return normalizeMessages([...filtered, payload.message]);
+        });
+      }
+
+      await refetchList();
+      if (String(payload.conversationId) === String(selectedIdRef.current)) {
+        await refetchDetails();
+      }
+
+      if (
+        payload?.message?.senderRole === "admin" &&
+        String(payload.conversationId) === String(selectedIdRef.current)
+      ) {
+        await waitForNextPaint();
+        playChatReceiveSound();
+      }
+    };
+
+    const handleConversationUpdate = async (payload) => {
+      if (!payload?.conversationId) return;
+      await refetchList();
+      if (String(payload.conversationId) === String(selectedIdRef.current)) {
+        await refetchDetails();
+      }
+    };
+
+    socket.on("connect", handleConnect);
+    socket.on("admin-support:presence", handlePresence);
+    socket.on("vendor-support:message", handleVendorSupportMessage);
+    socket.on("vendor-support:conversation:update", handleConversationUpdate);
+
+    if (socket.connected) handleConnect();
+    else socket.connect();
+
+    return () => {
+      socket.off("connect", handleConnect);
+      socket.off("admin-support:presence", handlePresence);
+      socket.off("vendor-support:message", handleVendorSupportMessage);
+      socket.off("vendor-support:conversation:update", handleConversationUpdate);
+    };
+  }, [refetchDetails, refetchList]);
+
+  useEffect(() => {
+    const socket = connectVendorSocket();
+
+    if (!selectedId) {
+      socket.emit("leave_support_chat");
+      return undefined;
+    }
+
+    socket.emit("join_support_chat", { chatId: selectedId });
+
+    return () => {
+      socket.emit("leave_support_chat", { chatId: selectedId });
+    };
+  }, [selectedId]);
 
   const handleSelectAttachment = (event) => {
     const file = event.target.files?.[0];
@@ -107,28 +235,64 @@ const SupportChats = () => {
     if (attachmentFile) formData.append("attachments", attachmentFile);
 
     try {
-      await sendSupportReply({ conversationId: selectedId, formData }).unwrap();
+      const now = new Date().toISOString();
+      const tempId = `temp-vendor-${selectedId}`;
+
+      setLiveMessages((current) =>
+        normalizeMessages([
+          ...current,
+          {
+            _id: tempId,
+            senderRole: "vendor",
+            text: reply.trim(),
+            attachments: attachmentPreview
+              ? [{ url: attachmentPreview, fileName: attachmentFile?.name || "attachment" }]
+              : [],
+            createdAt: now,
+            status: "sending",
+          },
+        ])
+      );
+
+      playChatSendSound();
+
+      const response = await sendSupportReply({ conversationId: selectedId, formData }).unwrap();
+      if (response?.message) {
+        setLiveMessages((current) =>
+          normalizeMessages(
+            current.map((item) =>
+              item._id === tempId ? { ...response.message, status: "delivered" } : item
+            )
+          )
+        );
+      }
+
       setReply("");
       setAttachmentFile(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
+
       await refetchList();
       await refetchDetails();
-      toast.success("Message sent to admin");
     } catch (error) {
+      setLiveMessages((current) =>
+        current.filter((item) => item._id !== `temp-vendor-${selectedId}`)
+      );
       toast.error(error?.data?.message || "Failed to send message");
     }
   };
 
-  const handleDeleteConversation = async () => {
-    if (!selectedId) return;
+  const handleDeleteConversation = async (conversationId = selectedId) => {
+    if (!conversationId) return;
 
     try {
-      await deleteSupportConversation(selectedId).unwrap();
+      setDeletingConversationId(conversationId);
+      await deleteSupportConversation(conversationId).unwrap();
       setSelectedId(null);
       setReply("");
       setAttachmentFile(null);
+      setLiveMessages([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
@@ -136,189 +300,316 @@ const SupportChats = () => {
       toast.success("Conversation deleted");
     } catch (error) {
       toast.error(error?.data?.message || "Failed to delete conversation");
+    } finally {
+      setDeletingConversationId(null);
     }
   };
 
   const shellClass = isDark
     ? "border-violet-400/25 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.18),transparent_20%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.18),transparent_24%),linear-gradient(180deg,#090d1f_0%,#101530_52%,#111938_100%)]"
     : "border-slate-200 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.1),transparent_18%),radial-gradient(circle_at_bottom_left,rgba(168,85,247,0.1),transparent_22%),linear-gradient(180deg,#f8fbff_0%,#eef2ff_50%,#fdf2f8_100%)]";
-  const panelClass = isDark
-    ? "border-violet-400/20 bg-slate-950/45"
-    : "border-slate-200 bg-white/90";
+  const contentPanelClass = isDark
+    ? "border-white/10 bg-[linear-gradient(180deg,rgba(12,18,38,0.96),rgba(15,23,42,0.94))]"
+    : "border-slate-200 bg-white/92";
+  const sidebarClass = isDark
+    ? "border-white/10 bg-[linear-gradient(180deg,#1f2d59_0%,#1a2148_55%,#1d214b_100%)] text-white"
+    : "border-slate-200 bg-[linear-gradient(180deg,#f8fbff_0%,#e9efff_100%)] text-slate-900";
+  const borderSoftClass = isDark ? "border-white/10" : "border-slate-200";
   const headingClass = isDark ? "text-white" : "text-slate-900";
   const mutedClass = isDark ? "text-slate-400" : "text-slate-500";
+  const supportProfileClass = isDark
+    ? "border-white/10 bg-white/5 text-white"
+    : "border-slate-200 bg-white text-slate-900";
+  const supportAvatarClass = isDark
+    ? "bg-[linear-gradient(135deg,#4f46e5,#7c3aed)] text-white"
+    : "bg-[linear-gradient(135deg,#4f46e5,#6366f1)] text-white";
+  const incomingBubbleClass = isDark
+    ? "border border-white/10 bg-white/[0.05] text-slate-100"
+    : "border border-slate-200 bg-white text-slate-800";
+  const emptyCardClass = isDark
+    ? "border border-white/10 bg-white/[0.04] text-slate-300"
+    : "border border-slate-200 bg-white text-slate-600";
+  const composerWrapClass = isDark
+    ? "bg-[linear-gradient(180deg,rgba(7,11,26,0.85),rgba(17,24,39,0.95))]"
+    : "bg-[linear-gradient(180deg,rgba(255,255,255,0.75),rgba(248,250,252,0.96))]";
+  const composerShellClass = isDark
+    ? "border-white/10 bg-white/[0.04]"
+    : "border-slate-200 bg-white";
+  const inputCardClass = isDark
+    ? "border-white/10 bg-[#0d1330]"
+    : "border-slate-200 bg-slate-50";
+  const textareaClass = `min-h-[7rem] w-full resize-none bg-transparent text-sm outline-none ${
+    isDark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"
+  }`;
+  const attachmentButtonClass = isDark
+    ? "inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/[0.08]"
+    : "inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-200";
 
   return (
     <section className="pb-8">
       <div className={`rounded-[34px] border p-4 shadow-[0_28px_90px_rgba(2,6,23,0.18)] md:p-5 ${shellClass}`}>
-        <div className="mb-5 flex flex-col gap-3 rounded-[28px] border border-white/10 bg-white/5 px-5 py-4 md:flex-row md:items-center md:justify-between">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-[0.24em] text-sky-300">
-              Vendor support
-            </p>
-            <h1 className={`mt-2 text-[1.9rem] font-black md:text-[2.2rem] ${headingClass}`}>
-              Admin conversation desk
-            </h1>
-            <p className={`mt-2 max-w-2xl text-sm ${mutedClass}`}>
-              Yahan se sirf admin team ke saath baat hogi. Customer chats ab vendor panel me
-              nahi aayengi.
-            </p>
-          </div>
-          <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/20 bg-emerald-500/10 px-4 py-2 text-sm font-semibold text-emerald-200">
-            <ShieldCheck size={16} />
-            Admin-only channel
-          </div>
-        </div>
-
-        <div className="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)]">
-          <aside className={`flex min-h-[34rem] flex-col rounded-[28px] border p-4 ${panelClass}`}>
-            <div className="mb-4 flex items-center gap-3">
-              <Headset className="text-sky-300" size={18} />
-              <div>
-                <p className={`text-sm font-bold ${headingClass}`}>Conversations</p>
-                <p className={`text-xs ${mutedClass}`}>Your admin support thread</p>
-              </div>
+        <div className="grid gap-4 lg:grid-cols-[25rem_minmax(0,1fr)]">
+          <aside className={`relative flex min-h-[42rem] flex-col overflow-hidden rounded-[30px] border p-6 ${sidebarClass}`}>
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-[0.35em] text-slate-300">
+                Chat List
+              </p>
+              <h2 className="mt-4 text-[2.25rem] font-black leading-[0.95]">Support Chats</h2>
             </div>
 
-            <div className="min-h-0 flex-1 overflow-hidden">
-              <div className="themed-scrollbar h-full space-y-3 overflow-y-auto pr-1">
-                {isLoading ? (
-                  <div className={`rounded-[22px] border px-4 py-6 text-center text-sm ${mutedClass}`}>
-                    Loading conversation...
+            <button
+              type="button"
+              onClick={() => {
+                if (conversations[0]?._id) {
+                  setSelectedId(conversations[0]._id);
+                }
+              }}
+              className="mt-10 flex h-[5rem] items-center justify-between rounded-full border border-sky-300/25 bg-[linear-gradient(180deg,rgba(65,102,190,0.45),rgba(57,72,144,0.45))] px-8 text-xl font-bold text-white shadow-[0_22px_50px_rgba(37,99,235,0.18)]"
+            >
+              <span className="inline-flex items-center gap-3">
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-400 text-[10px] text-emerald-950">
+                  <span className="h-2 w-2 rounded-full bg-emerald-950/70" />
+                </span>
+                New Chat
+              </span>
+              <Plus size={22} />
+            </button>
+
+            <div className="relative mt-10 flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="flex items-center justify-between">
+                <p className="text-base font-semibold text-slate-300">Recent chats</p>
+                <span className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400/80">
+                  {conversations.length}
+                </span>
+              </div>
+
+              <div className="themed-scrollbar mt-4 min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+                {isListLoading ? (
+                  <div className="rounded-[28px] border border-white/10 bg-white/8 px-4 py-5 text-sm text-slate-200 backdrop-blur-xl">
+                    Loading conversations...
                   </div>
                 ) : conversations.length ? (
-                  conversations.map((item) => {
-                    const unread = Number(item.unreadForVendor || 0);
-                    return (
-                      <button
-                        key={item._id}
-                        type="button"
-                        onClick={() => setSelectedId(item._id)}
-                        className={`w-full rounded-[24px] border px-4 py-4 text-left transition ${
-                          String(selectedId) === String(item._id)
-                            ? "border-sky-400 bg-sky-500/10"
-                            : isDark
-                              ? "border-violet-400/14 bg-white/5 hover:bg-white/10"
-                              : "border-slate-200 bg-white hover:bg-slate-50"
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className={`truncate text-base font-bold ${headingClass}`}>
-                              Admin Support
-                            </p>
-                            <p className={`mt-1 truncate text-xs ${mutedClass}`}>
-                              {item.lastMessage || "Start your first message"}
-                            </p>
-                          </div>
-                          {unread ? (
-                            <span className="rounded-full bg-rose-500 px-2.5 py-1 text-xs font-bold text-white">
-                              {unread}
-                            </span>
-                          ) : null}
+                  conversations.map((item) => (
+                    <div
+                      key={item._id}
+                      className={`rounded-[26px] border px-4 py-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.08)] transition ${
+                        selectedId === item._id
+                          ? "border-sky-300/45 bg-[linear-gradient(180deg,rgba(145,109,255,0.22),rgba(255,255,255,0.08))] shadow-[0_14px_30px_rgba(71,85,180,0.28)]"
+                          : "border-white/10 bg-white/5 hover:bg-white/10"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedId(item._id)}
+                          className="min-w-0 flex-1 text-left"
+                        >
+                          <p className="truncate text-[1.05rem] font-bold text-white">
+                            {item.lastMessage || "Admin support conversation"}
+                          </p>
+                          <p className="mt-2 text-sm text-slate-300">
+                            {formatTime(item.lastMessageAt)}
+                          </p>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteConversation(item._id)}
+                          disabled={deletingConversationId === item._id}
+                          className="flex h-11 w-11 items-center justify-center rounded-full border border-rose-300/25 bg-rose-400/10 text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-60"
+                        >
+                          {deletingConversationId === item._id ? (
+                            <AuthButtonLoader color="#ffffff" size={16} />
+                          ) : (
+                            <Trash2 size={16} />
+                          )}
+                        </button>
+                      </div>
+                      {item.unreadForVendor ? (
+                        <div className="mt-3">
+                          <span className="rounded-full bg-rose-500/90 px-2.5 py-1 text-[11px] font-bold text-white">
+                            {item.unreadForVendor} unread
+                          </span>
                         </div>
-                        <p className={`mt-3 text-xs ${mutedClass}`}>
-                          {formatTime(item.lastMessageAt)}
-                        </p>
-                      </button>
-                    );
-                  })
+                      ) : null}
+                    </div>
+                  ))
                 ) : (
-                  <div className={`rounded-[22px] border border-dashed px-4 py-8 text-center text-sm ${mutedClass}`}>
-                    Support channel ready hai. First message bhejte hi thread active ho jayega.
+                  <div className="rounded-[28px] border border-dashed border-white/15 bg-white/5 px-4 py-6 text-sm leading-6 text-slate-300">
+                    No support conversations yet. Send your first message to create one.
                   </div>
                 )}
               </div>
             </div>
-          </aside>
 
-          <div className={`flex min-h-[34rem] min-w-0 flex-col rounded-[28px] border ${panelClass}`}>
-            <div className="border-b border-white/10 px-5 py-4">
-              <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div className="relative mt-4 flex shrink-0 items-center justify-between rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,111,171,0.08))] px-4 py-4 text-sm backdrop-blur-xl">
+              <div className="flex items-center gap-3 text-slate-200">
+                <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white/10">
+                  <MessageSquareText size={15} />
+                </span>
                 <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-rose-300">
-                    Active desk
+                  <p className="font-semibold">
+                    {supportOnline ? "Online Support" : "Offline Support"}
                   </p>
-                  <h2 className={`mt-2 text-2xl font-black ${headingClass}`}>Admin Support Team</h2>
-                  <p className={`mt-1 text-sm ${mutedClass}`}>
-                    Business, payout, policy, ya dashboard support yahin handle hoga.
+                  <p className="text-xs text-slate-400">
+                    {supportOnline ? "Admin is active now" : "Replies may take longer"}
                   </p>
                 </div>
-                {selectedId ? (
+              </div>
+              <span className="text-sm font-semibold text-slate-400">
+                {conversations.length} chats
+              </span>
+            </div>
+          </aside>
+
+          <div className={`relative flex min-h-[42rem] min-w-0 flex-col overflow-hidden rounded-[30px] border ${contentPanelClass}`}>
+            <div className={`border-b px-5 py-4 md:px-8 ${borderSoftClass}`}>
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-[11px] font-bold uppercase tracking-[0.22em] text-rose-500 md:text-xs">
+                    VENDOR SUPPORT CHAT
+                  </p>
+                  <h2 className={`mt-2 text-[1.75rem] font-black tracking-[-0.03em] md:text-[2.05rem] ${headingClass}`}>
+                    {selectedId ? "Your full chat history" : "Start a support conversation"}
+                  </h2>
+                </div>
+                <div className="text-right">
+                  <p className={`text-lg font-semibold ${mutedClass}`}>
+                    {conversations.length} chat{conversations.length === 1 ? "" : "s"}
+                  </p>
+                  {selectedConversation?.lastMessageAt ? (
+                    <p className={`mt-1 text-sm ${mutedClass}`}>
+                      Active: {formatTime(selectedConversation.lastMessageAt)}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+              <div className={`mt-3 inline-flex items-center gap-3 rounded-[20px] border px-4 py-2.5 ${supportProfileClass}`}>
+                <div className={`flex h-11 w-11 items-center justify-center rounded-full text-base font-black ${supportAvatarClass}`}>
+                  ST
+                </div>
+                <div>
+                  <p className={`text-base font-bold ${headingClass}`}>Support Team</p>
+                  <div className={`mt-1 flex items-center gap-2 text-sm ${mutedClass}`}>
+                    <span className={`h-2.5 w-2.5 rounded-full ${supportOnline ? "bg-emerald-400" : "bg-slate-500"}`} />
+                    {supportOnline ? "Online" : "Offline"}
+                  </div>
+                </div>
+              </div>
+              {selectedId ? (
+                <div className="mt-4">
                   <button
                     type="button"
-                    onClick={handleDeleteConversation}
-                    disabled={isDeleting}
-                    className="inline-flex items-center gap-2 rounded-full border border-rose-400/30 bg-rose-500/10 px-4 py-2 text-sm font-semibold text-rose-200 transition hover:bg-rose-500/20 disabled:opacity-60"
+                    onClick={() => handleDeleteConversation(selectedId)}
+                    disabled={deletingConversationId === selectedId}
+                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-rose-300/25 bg-rose-400/10 px-5 text-sm font-bold text-rose-100 transition hover:bg-rose-400/20 disabled:opacity-60"
                   >
-                    {isDeleting ? <AuthButtonLoader color="#ffffff" size={16} /> : <><Trash2 size={16} />Delete</>}
+                    {deletingConversationId === selectedId ? (
+                      <AuthButtonLoader color="#ffffff" size={16} />
+                    ) : (
+                      <>
+                        <Trash2 size={16} />
+                        Delete Conversation
+                      </>
+                    )}
                   </button>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
             </div>
 
-            <div ref={scrollRef} className="themed-scrollbar min-h-[18rem] flex-1 space-y-4 overflow-y-auto px-4 py-5 md:px-5">
+            <div
+              ref={scrollRef}
+              className="themed-scrollbar relative min-h-[18rem] flex-1 space-y-5 overflow-y-auto px-4 py-5 md:min-h-[22rem] md:px-8 md:py-6 lg:max-h-[42rem]"
+            >
               {selectedId ? (
-                messages.length ? (
-                  messages.map((message) => {
-                    const isVendorMessage = message.senderRole === "vendor";
-                    return (
+                isDetailsLoading ? (
+                  <div className={`flex h-full items-center justify-center ${mutedClass}`}>
+                    Loading conversation...
+                  </div>
+                ) : liveMessages.length ? (
+                  <>
+                    {liveMessages.map((messageItem) => (
                       <div
-                        key={message._id}
-                        className={`max-w-[88%] rounded-[24px] px-5 py-4 shadow-[0_14px_30px_rgba(2,6,23,0.16)] ${
-                          isVendorMessage
-                            ? "ml-auto bg-[linear-gradient(135deg,#2563eb,#3b82f6_55%,#7c3aed)] text-white"
-                            : isDark
-                              ? "border border-violet-400/14 bg-slate-900/80 text-slate-100"
-                              : "border border-slate-200 bg-white text-slate-800"
+                        key={messageItem._id}
+                        className={`max-w-[92%] rounded-[30px] px-6 py-5 shadow-[0_18px_40px_rgba(15,23,42,0.08)] md:max-w-[78%] ${
+                          messageItem.senderRole === "vendor"
+                            ? "ml-auto bg-[linear-gradient(90deg,#3b82f6_0%,#4f46e5_72%,#7c3aed_100%)] text-white"
+                            : incomingBubbleClass
                         }`}
                       >
-                        {message.text ? <p className="text-sm leading-7">{message.text}</p> : null}
-                        {message.attachments?.length ? (
-                          <div className={message.text ? "mt-3" : ""}>
-                            {message.attachments.map((attachment, index) => (
+                        {messageItem.text ? (
+                          <p className="text-base font-semibold leading-7">
+                            {messageItem.text}
+                          </p>
+                        ) : null}
+                        {messageItem.attachments?.length ? (
+                          <div className={messageItem.text ? "mt-4" : ""}>
+                            {messageItem.attachments.map((attachment, index) => (
                               <a
-                                key={`${message._id}-${attachment.url}-${index}`}
+                                key={`${messageItem._id}-${attachment.url}-${index}`}
                                 href={attachment.url}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="block overflow-hidden rounded-[18px] border border-white/10"
+                                className={`block overflow-hidden rounded-[22px] border ${
+                                  messageItem.senderRole === "vendor"
+                                    ? "border-white/20 bg-white/10"
+                                    : "border-slate-200 bg-slate-100"
+                                }`}
                               >
                                 <img
                                   src={attachment.url}
-                                  alt={attachment.fileName || "Attachment"}
-                                  className="max-h-72 w-full object-cover"
+                                  alt={attachment.fileName || "Support attachment"}
+                                  className="max-h-80 w-full object-cover"
                                 />
                               </a>
                             ))}
                           </div>
                         ) : null}
-                        <p className={`mt-3 text-xs ${isVendorMessage ? "text-white/80" : mutedClass}`}>
-                          {formatTime(message.createdAt)}
-                        </p>
+                        <div className="mt-4 flex items-center justify-between gap-3 text-xs">
+                          <span className={messageItem.senderRole === "vendor" ? "text-white/80" : mutedClass}>
+                            {formatTime(messageItem.createdAt)}
+                          </span>
+                          <span
+                            className={`rounded-full px-4 py-2 text-sm font-bold capitalize ${
+                              messageItem.senderRole === "vendor"
+                                ? "bg-white/18 text-white"
+                                : isDark
+                                  ? "bg-white/10 text-slate-200"
+                                  : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {messageItem.status === "sent" ? "read" : messageItem.status}
+                          </span>
+                        </div>
                       </div>
-                    );
-                  })
+                    ))}
+                  </>
                 ) : (
                   <div className="flex h-full items-center justify-center">
-                    <div className={`rounded-[24px] border border-dashed px-6 py-10 text-center text-sm ${mutedClass}`}>
-                      No messages yet. Send your first note to admin.
+                    <div className={`max-w-md rounded-[30px] px-7 py-10 text-center ${emptyCardClass}`}>
+                      <p className={`text-xl font-black ${headingClass}`}>No messages in this conversation</p>
+                      <p className={`mt-3 text-sm leading-7 ${mutedClass}`}>
+                        This chat is ready. Send your first message below.
+                      </p>
                     </div>
                   </div>
                 )
               ) : (
                 <div className="flex h-full items-center justify-center">
-                  <div className={`rounded-[24px] border border-dashed px-6 py-10 text-center text-sm ${mutedClass}`}>
-                    Conversation loading...
+                  <div className={`max-w-md rounded-[30px] px-7 py-10 text-center ${emptyCardClass}`}>
+                    <MessageSquareText className="mx-auto text-slate-400" size={28} />
+                    <p className={`mt-4 text-xl font-black ${headingClass}`}>Start your first support chat</p>
+                    <p className={`mt-3 text-sm leading-7 ${mutedClass}`}>
+                      Send a message below and your support conversation will be created automatically.
+                    </p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="border-t border-white/10 px-4 py-4 md:px-5">
-              <div className={`rounded-[24px] border p-3 ${isDark ? "border-violet-400/16 bg-slate-950/35" : "border-slate-200 bg-white"}`}>
+            <div className={`border-t px-4 py-3 backdrop-blur-xl md:px-6 md:py-4 ${borderSoftClass} ${composerWrapClass}`}>
+              <div className={`rounded-[30px] border p-3 ${composerShellClass}`}>
                 <div className="flex flex-col gap-3 md:flex-row md:items-end">
-                  <div className="flex-1 rounded-[20px] border border-white/10 px-4 py-3">
+                  <div className={`flex-1 rounded-[24px] border px-5 py-3 ${inputCardClass}`}>
                     <textarea
                       value={reply}
                       onChange={(event) => setReply(event.target.value)}
@@ -329,11 +620,15 @@ const SupportChats = () => {
                         }
                       }}
                       placeholder="Write your message for admin..."
-                      className={`min-h-[6rem] w-full resize-none bg-transparent text-sm outline-none ${isDark ? "text-white placeholder:text-slate-500" : "text-slate-800 placeholder:text-slate-400"}`}
+                      className={textareaClass}
                     />
                     {attachmentPreview ? (
-                      <div className="relative mt-3 inline-flex overflow-hidden rounded-[18px] border border-white/10">
-                        <img src={attachmentPreview} alt="Preview" className="h-20 w-20 object-cover" />
+                      <div className="relative mt-4 inline-flex overflow-hidden rounded-[20px] border border-slate-200 bg-slate-100 shadow-sm">
+                        <img
+                          src={attachmentPreview}
+                          alt="Selected attachment preview"
+                          className="h-20 w-20 object-cover"
+                        />
                         <button
                           type="button"
                           onClick={handleRemoveAttachment}
@@ -343,7 +638,7 @@ const SupportChats = () => {
                         </button>
                       </div>
                     ) : null}
-                    <div className="mt-3">
+                    <div className="mt-4 flex flex-wrap items-center gap-3">
                       <input
                         ref={fileInputRef}
                         type="file"
@@ -354,9 +649,9 @@ const SupportChats = () => {
                       <button
                         type="button"
                         onClick={() => fileInputRef.current?.click()}
-                        className={`inline-flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold ${isDark ? "border-violet-400/20 bg-white/6 text-slate-100" : "border-slate-200 bg-slate-50 text-slate-700"}`}
+                        className={attachmentButtonClass}
                       >
-                        <ImagePlus size={16} />
+                        <ImagePlus size={17} />
                         Add image
                       </button>
                     </div>
@@ -365,10 +660,17 @@ const SupportChats = () => {
                   <button
                     type="button"
                     onClick={handleReply}
-                    disabled={!selectedId || isSending}
-                    className="flex h-[3.5rem] w-full items-center justify-center gap-2 rounded-[20px] bg-[linear-gradient(135deg,#2563eb,#3b82f6_55%,#7c3aed)] px-5 text-sm font-semibold text-white shadow-[0_14px_28px_rgba(59,130,246,0.28)] transition hover:brightness-110 disabled:bg-slate-600 disabled:shadow-none md:w-[10rem]"
+                    disabled={isSending}
+                    className="flex h-[3.5rem] w-full items-center justify-center gap-2 rounded-full bg-[linear-gradient(135deg,#2d3f93,#4338ca_52%,#7c3aed)] px-6 text-base font-bold text-white shadow-[0_16px_32px_rgba(76,29,149,0.25)] transition hover:scale-[1.01] disabled:scale-100 disabled:opacity-60 md:w-[9.5rem]"
                   >
-                    {isSending ? <AuthButtonLoader color="#ffffff" size={18} /> : <><Send size={16} />Send</>}
+                    {isSending ? (
+                      <AuthButtonLoader color="#ffffff" size={18} />
+                    ) : (
+                      <>
+                        <Send size={18} />
+                        Send
+                      </>
+                    )}
                   </button>
                 </div>
               </div>

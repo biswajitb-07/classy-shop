@@ -3,6 +3,10 @@ import { Vendor } from "../../models/vendor/vendor.model.js";
 import { Admin } from "../../models/admin/admin.model.js";
 import { VendorSupportConversation } from "../../models/support/vendorSupportConversation.model.js";
 import { VendorSupportMessage } from "../../models/support/vendorSupportMessage.model.js";
+import {
+  emitVendorSupportConversationRefresh,
+  emitVendorSupportMessageCreated,
+} from "../../socket/socket.js";
 import { deleteMediaFromCloudinary, uploadMedia } from "../../utils/cloudinary.js";
 
 const mapConversation = (conversation) => ({
@@ -52,18 +56,6 @@ const uploadAttachments = async (files = []) => {
   return uploads;
 };
 
-const ensureVendorConversation = async (vendorId) => {
-  const existing = await VendorSupportConversation.findOne({ vendor: vendorId })
-    .populate("vendor", "name email photoUrl")
-    .populate("assignedAdmin", "name email photoUrl");
-  if (existing) return existing;
-
-  const created = await VendorSupportConversation.create({
-    vendor: vendorId,
-  });
-  return loadConversation(created._id);
-};
-
 const deleteConversationAssets = async (conversationId) => {
   const messages = await VendorSupportMessage.find({
     conversation: conversationId,
@@ -78,6 +70,36 @@ const deleteConversationAssets = async (conversationId) => {
   await Promise.all(publicIds.map((publicId) => deleteMediaFromCloudinary(publicId)));
   await VendorSupportMessage.deleteMany({ conversation: conversationId });
   await VendorSupportConversation.findByIdAndDelete(conversationId);
+};
+
+const cleanupExpiredVendorSupportConversations = async (filter = {}) => {
+  const cutoffDate = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000);
+  const expiredConversations = await VendorSupportConversation.find({
+    ...filter,
+    lastMessageAt: { $ne: null, $lte: cutoffDate },
+  }).select("_id");
+
+  if (!expiredConversations.length) return;
+
+  await Promise.all(
+    expiredConversations.map((conversation) =>
+      deleteConversationAssets(conversation._id),
+    )
+  );
+};
+
+const ensureVendorConversation = async (vendorId) => {
+  await cleanupExpiredVendorSupportConversations({ vendor: vendorId });
+
+  const existing = await VendorSupportConversation.findOne({ vendor: vendorId })
+    .populate("vendor", "name email photoUrl")
+    .populate("assignedAdmin", "name email photoUrl");
+  if (existing) return existing;
+
+  const created = await VendorSupportConversation.create({
+    vendor: vendorId,
+  });
+  return loadConversation(created._id);
 };
 
 export const getVendorAdminConversations = async (req, res) => {
@@ -107,6 +129,8 @@ export const getVendorAdminConversations = async (req, res) => {
 export const ensureAdminVendorSupportConversation = async (req, res) => {
   try {
     const { vendorId } = req.params;
+
+    await cleanupExpiredVendorSupportConversations({ vendor: vendorId });
 
     if (!mongoose.Types.ObjectId.isValid(vendorId)) {
       return res.status(400).json({
@@ -152,6 +176,12 @@ export const ensureAdminVendorSupportConversation = async (req, res) => {
 export const getVendorAdminConversationDetails = async (req, res) => {
   try {
     const { conversationId } = req.params;
+
+    if (req.role === "vendor") {
+      await cleanupExpiredVendorSupportConversations({ vendor: req.id });
+    } else if (req.role === "admin") {
+      await cleanupExpiredVendorSupportConversations();
+    }
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       return res.status(400).json({
@@ -288,11 +318,22 @@ export const sendVendorAdminMessage = async (req, res) => {
     });
 
     const updatedConversation = await loadConversation(conversationId);
+    const payload = mapMessage(message.toObject ? message.toObject() : message);
+
+    emitVendorSupportMessageCreated({
+      conversationId,
+      vendorId: conversation.vendor?._id || conversation.vendor,
+      message: payload,
+    });
+    emitVendorSupportConversationRefresh({
+      conversationId,
+      vendorId: conversation.vendor?._id || conversation.vendor,
+    });
 
     return res.status(201).json({
       success: true,
       conversation: mapConversation(updatedConversation),
-      message: mapMessage(message.toObject ? message.toObject() : message),
+      message: payload,
     });
   } catch (error) {
     return res.status(500).json({
@@ -304,6 +345,8 @@ export const sendVendorAdminMessage = async (req, res) => {
 
 export const getAdminVendorSupportConversations = async (_req, res) => {
   try {
+    await cleanupExpiredVendorSupportConversations();
+
     const conversations = await VendorSupportConversation.find({
       lastMessageAt: { $ne: null },
     })
@@ -359,6 +402,11 @@ export const deleteVendorAdminConversation = async (req, res) => {
     }
 
     await deleteConversationAssets(conversationId);
+
+    emitVendorSupportConversationRefresh({
+      conversationId,
+      vendorId: conversation.vendor?._id || conversation.vendor,
+    });
 
     return res.status(200).json({
       success: true,

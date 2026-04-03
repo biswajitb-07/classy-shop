@@ -322,12 +322,28 @@ export const initSocket = (httpServer) => {
         process.env.USER_URL,
         process.env.VENDOR_URL,
         process.env.DELIVERY_URL,
+        process.env.ADMIN_URL,
         ...(process.env.NODE_ENV === "production"
           ? []
           : [
               "http://localhost:3000",
               "http://localhost:3001",
               "http://localhost:3002",
+              "http://localhost:3003",
+              "http://localhost:3004",
+              "http://localhost:3005",
+              "http://127.0.0.1:3000",
+              "http://127.0.0.1:3001",
+              "http://127.0.0.1:3002",
+              "http://127.0.0.1:3003",
+              "http://127.0.0.1:3004",
+              "http://127.0.0.1:3005",
+              "http://localhost:5173",
+              "http://localhost:5174",
+              "http://localhost:5175",
+              "http://127.0.0.1:5173",
+              "http://127.0.0.1:5174",
+              "http://127.0.0.1:5175",
             ]),
       ].filter(Boolean),
       credentials: true,
@@ -384,9 +400,16 @@ export const initSocket = (httpServer) => {
         return next(new Error("Unauthorized"));
       }
 
+      if (adminToken) {
+        const adminDecoded = jwt.verify(adminToken, process.env.SECRET_KEY);
+        socket.data.adminId = adminDecoded.adminId;
+        socket.data.role = "admin";
+        return next();
+      }
+
       if (vendorToken) {
-        // Vendor dashboard and user storefront use different cookie names, so
-        // the socket layer mirrors the same distinction during fallback auth.
+        // Prefer explicit admin auth first because admin and vendor panels can
+        // be open in the same browser and share fallback cookies.
         const decoded = jwt.verify(vendorToken, process.env.SECRET_KEY);
         socket.data.vendorId = decoded.vendorId;
         socket.data.role = "vendor";
@@ -406,13 +429,6 @@ export const initSocket = (httpServer) => {
         const deliveryDecoded = jwt.verify(deliveryToken, process.env.SECRET_KEY);
         socket.data.deliveryPartnerId = deliveryDecoded.deliveryPartnerId;
         socket.data.role = "delivery";
-        return next();
-      }
-
-      if (adminToken) {
-        const adminDecoded = jwt.verify(adminToken, process.env.SECRET_KEY);
-        socket.data.adminId = adminDecoded.adminId;
-        socket.data.role = "admin";
         return next();
       }
 
@@ -439,6 +455,7 @@ export const initSocket = (httpServer) => {
 
       if (socket.data.role === "admin" && socket.data.adminId) {
         socket.join(`admin:${socket.data.adminId}`);
+        socket.join("admins:all");
         socket.join("vendors:all");
       }
 
@@ -532,8 +549,12 @@ export const emitSupportMessageCreated = ({
 }) => {
   if (!io) return;
 
-  // Vendors watch the shared support room, while the user receives updates in
-  // their own private room so unrelated users never see the event.
+  io.to("admins:all").emit("support:message", {
+    conversationId: String(conversationId),
+    message,
+    at: Date.now(),
+  });
+
   io.to(supportVendorRoom).emit("support:message", {
     conversationId: String(conversationId),
     message,
@@ -555,6 +576,11 @@ export const emitSupportConversationRefresh = ({
 }) => {
   if (!io) return;
 
+  io.to("admins:all").emit("support:conversation:update", {
+    conversationId: String(conversationId),
+    at: Date.now(),
+  });
+
   io.to(supportVendorRoom).emit("support:conversation:update", {
     conversationId: String(conversationId),
     at: Date.now(),
@@ -562,6 +588,47 @@ export const emitSupportConversationRefresh = ({
 
   if (userId) {
     io.to(supportRooms.user(userId)).emit("support:conversation:update", {
+      conversationId: String(conversationId),
+      at: Date.now(),
+    });
+  }
+};
+
+export const emitVendorSupportMessageCreated = ({
+  conversationId,
+  vendorId,
+  message,
+}) => {
+  if (!io || !conversationId) return;
+
+  io.to("admins:all").emit("vendor-support:message", {
+    conversationId: String(conversationId),
+    message,
+    at: Date.now(),
+  });
+
+  if (vendorId) {
+    io.to(`vendor:${vendorId}`).emit("vendor-support:message", {
+      conversationId: String(conversationId),
+      message,
+      at: Date.now(),
+    });
+  }
+};
+
+export const emitVendorSupportConversationRefresh = ({
+  conversationId,
+  vendorId,
+}) => {
+  if (!io || !conversationId) return;
+
+  io.to("admins:all").emit("vendor-support:conversation:update", {
+    conversationId: String(conversationId),
+    at: Date.now(),
+  });
+
+  if (vendorId) {
+    io.to(`vendor:${vendorId}`).emit("vendor-support:conversation:update", {
       conversationId: String(conversationId),
       at: Date.now(),
     });

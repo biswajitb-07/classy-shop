@@ -7,7 +7,7 @@ const SUPPORT_USERS_ROOM = "support:users";
 // incorrectly mark a user/vendor offline while another tab is still connected.
 const activeUsers = new Map();
 const activeVendors = new Map();
-const activeSupportVendors = new Map();
+const activeAdmins = new Map();
 
 const roomNames = {
   user: (userId) => `user:${userId}`,
@@ -40,28 +40,28 @@ const removeActiveSocket = (map, entityId, socketId) => {
   return sockets.size;
 };
 
-const syncSupportVendorAvailability = (io, vendorId, socketId, active) => {
-  const key = String(vendorId);
-
-  if (active) {
-    addActiveSocket(activeSupportVendors, key, socketId);
-  } else {
-    removeActiveSocket(activeSupportVendors, key, socketId);
-  }
-
-  const online = activeSupportVendors.size > 0;
-  io.to(SUPPORT_USERS_ROOM).emit(online ? "vendor_online" : "vendor_offline", {
+const broadcastAdminPresence = (io) => {
+  const online = activeAdmins.size > 0;
+  const payload = {
     online,
-    vendorIds: Array.from(activeSupportVendors.keys()),
+    adminIds: Array.from(activeAdmins.keys()),
     at: Date.now(),
+  };
+
+  io.to(SUPPORT_USERS_ROOM).emit(online ? "vendor_online" : "vendor_offline", {
+    ...payload,
   });
+  io.to(SUPPORT_USERS_ROOM).emit("admin-support:presence", payload);
+  io.to(SUPPORT_VENDORS_ROOM).emit("admin-support:presence", payload);
+  io.emit("admin-support:presence", payload);
 };
 
 const isUserOnline = (userId) => activeUsers.has(String(userId));
-const areVendorsOnline = () => activeSupportVendors.size > 0;
+const areAdminsOnline = () => activeAdmins.size > 0;
 
 const getOnlineUserIds = () => Array.from(activeUsers.keys());
-const getOnlineVendorIds = () => Array.from(activeSupportVendors.keys());
+const getOnlineVendorIds = () => Array.from(activeVendors.keys());
+const getOnlineAdminIds = () => Array.from(activeAdmins.keys());
 const isSupportAgent = (socket) =>
   (socket.data.role === "vendor" && socket.data.vendorId) ||
   (socket.data.role === "admin" && socket.data.adminId);
@@ -128,6 +128,19 @@ const emitUserPresenceToVendors = (io, userId, online) => {
     online,
     at: Date.now(),
   });
+  io.to("admins:all").emit(online ? "user_online" : "user_offline", {
+    userId: String(userId),
+    online,
+    at: Date.now(),
+  });
+};
+
+const emitVendorPresenceToAdmins = (io, vendorId, online) => {
+  io.to("admins:all").emit(online ? "vendor_online" : "vendor_offline", {
+    vendorId: String(vendorId),
+    online,
+    at: Date.now(),
+  });
 };
 
 const emitStopTypingForActiveRoom = (socket) => {
@@ -152,12 +165,34 @@ export const registerSupportRealtime = (io, socket) => {
         users: getOnlineUserIds(),
         at: Date.now(),
       });
+      socket.emit("admin-support:presence", {
+        online: areAdminsOnline(),
+        adminIds: getOnlineAdminIds(),
+        at: Date.now(),
+      });
+      socket.emit("vendor_presence_snapshot", {
+        vendors: getOnlineVendorIds(),
+        at: Date.now(),
+      });
     }
 
     if (socket.data.role === "user" && socket.data.userId) {
       socket.emit("vendor_presence_snapshot", {
-        online: areVendorsOnline(),
-        vendorIds: getOnlineVendorIds(),
+        online: areAdminsOnline(),
+        adminIds: getOnlineAdminIds(),
+        at: Date.now(),
+      });
+      socket.emit("admin-support:presence", {
+        online: areAdminsOnline(),
+        adminIds: getOnlineAdminIds(),
+        at: Date.now(),
+      });
+    }
+
+    if (socket.data.role === "vendor" && socket.data.vendorId) {
+      socket.emit("admin-support:presence", {
+        online: areAdminsOnline(),
+        adminIds: getOnlineAdminIds(),
         at: Date.now(),
       });
     }
@@ -209,22 +244,26 @@ export const registerSupportRealtime = (io, socket) => {
   socket.on("typing", onTyping);
   socket.on("stop_typing", onStopTyping);
   socket.on("sync_presence", emitPresenceSnapshot);
-  socket.on("support_presence_active", ({ active } = {}) => {
-    if (!isSupportAgent(socket)) return;
-
-    socket.data.supportPresenceActive = Boolean(active);
-    syncSupportVendorAvailability(
-      io,
-      getSupportAgentId(socket),
-      socket.id,
-      socket.data.supportPresenceActive,
-    );
+  socket.on("support_presence_active", () => {
+    if (socket.data.role !== "admin" || !socket.data.adminId) return;
+    // Admin support availability is now derived from the live admin socket
+    // connection itself, which keeps presence stable across tab changes.
+    broadcastAdminPresence(io);
   });
 
   if (isSupportAgent(socket)) {
-    const vendorId = String(getSupportAgentId(socket));
-    addActiveSocket(activeVendors, vendorId, socket.id);
-    socket.join(roomNames.vendor(vendorId));
+    const agentId = String(getSupportAgentId(socket));
+    if (socket.data.role === "vendor") {
+      const count = addActiveSocket(activeVendors, agentId, socket.id);
+      emitVendorPresenceToAdmins(io, agentId, true);
+      socket.data.vendorPresenceCount = count;
+    }
+    if (socket.data.role === "admin") {
+      const count = addActiveSocket(activeAdmins, agentId, socket.id);
+      socket.data.adminPresenceCount = count;
+      broadcastAdminPresence(io);
+    }
+    socket.join(roomNames.vendor(agentId));
     socket.join(SUPPORT_VENDORS_ROOM);
     emitPresenceSnapshot();
   }
@@ -249,8 +288,20 @@ export const registerSupportRealtime = (io, socket) => {
 
     if (isSupportAgent(socket)) {
       const agentId = getSupportAgentId(socket);
-      removeActiveSocket(activeVendors, agentId, socket.id);
-      syncSupportVendorAvailability(io, agentId, socket.id, false);
+      if (socket.data.role === "vendor") {
+        const remainingVendorSockets = removeActiveSocket(activeVendors, agentId, socket.id);
+        if (!remainingVendorSockets) {
+          emitVendorPresenceToAdmins(io, agentId, false);
+        }
+      }
+      if (socket.data.role === "admin") {
+        const remainingAdminSockets = removeActiveSocket(activeAdmins, agentId, socket.id);
+        if (!remainingAdminSockets) {
+          broadcastAdminPresence(io);
+        } else {
+          broadcastAdminPresence(io);
+        }
+      }
     }
 
     if (socket.data.role === "user" && socket.data.userId) {
@@ -272,6 +323,7 @@ export const supportVendorRoom = SUPPORT_VENDORS_ROOM;
 export const getSupportPresenceSnapshot = () => ({
   onlineUsers: getOnlineUserIds(),
   onlineVendors: getOnlineVendorIds(),
+  onlineAdmins: getOnlineAdminIds(),
 });
 export const isSupportUserOnline = isUserOnline;
-export const areSupportVendorsOnline = areVendorsOnline;
+export const areSupportVendorsOnline = areAdminsOnline;

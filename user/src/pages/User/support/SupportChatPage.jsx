@@ -390,6 +390,7 @@ const SupportChatPage = () => {
       }
     });
     socket.on("vendor_presence_snapshot", handleVendorPresence);
+    socket.on("admin-support:presence", handleVendorPresence);
     socket.on("vendor_online", handleVendorPresence);
     socket.on("vendor_offline", handleVendorPresence);
     socket.on("typing", handleTyping);
@@ -408,6 +409,7 @@ const SupportChatPage = () => {
       socket.off("support:message");
       socket.off("support:conversation:update");
       socket.off("vendor_presence_snapshot", handleVendorPresence);
+      socket.off("admin-support:presence", handleVendorPresence);
       socket.off("vendor_online", handleVendorPresence);
       socket.off("vendor_offline", handleVendorPresence);
       socket.off("typing", handleTyping);
@@ -588,6 +590,7 @@ const SupportChatPage = () => {
         senderRole: "user",
         unreadForUser: 0,
       });
+      playChatSendSound();
 
       const response = await sendSupportMessage(formData).unwrap();
       if (response?.message) {
@@ -616,8 +619,6 @@ const SupportChatPage = () => {
       if (conversationId && selectedIdRef.current) {
         refetchDetails();
       }
-      await waitForNextPaint();
-      playChatSendSound();
     } catch (error) {
       if (conversationId) {
         removeOptimisticMessage(conversationId, tempMessageId);
