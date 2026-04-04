@@ -663,9 +663,16 @@ const CheckoutPage = () => {
                   type="button"
                   onClick={handleSaveAddress}
                   disabled={savingAddresses}
-                  className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
+                  className="inline-flex min-h-[2.75rem] items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:opacity-60"
                 >
-                  {savingAddresses ? "Saving..." : "Save Address"}
+                  {savingAddresses ? (
+                    <>
+                      <AuthButtonLoader color="#ffffff" size={16} />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Address"
+                  )}
                 </button>
               </div>
 
@@ -857,9 +864,16 @@ const CheckoutPage = () => {
                     type="button"
                     onClick={handleApplyCoupon}
                     disabled={couponLoading}
-                    className="rounded-xl bg-red-500 px-4 py-3 font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
+                    className="inline-flex min-h-[3rem] items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-3 font-semibold text-white transition hover:bg-red-600 disabled:opacity-60"
                   >
-                    {couponLoading ? "Applying..." : "Apply"}
+                    {couponLoading ? (
+                      <>
+                        <AuthButtonLoader color="#ffffff" size={16} />
+                        Applying...
+                      </>
+                    ) : (
+                      "Apply"
+                    )}
                   </button>
                 </div>
 

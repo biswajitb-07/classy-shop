@@ -26,7 +26,6 @@ import {
 } from "recharts";
 import { useGetDashboardSummaryQuery } from "../../../features/api/authApi";
 import { useGetAssignedOrdersQuery } from "../../../features/api/orderApi";
-import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
 import { getDeliveryOrderPath } from "../../../utils/orderRouting";
 
@@ -113,6 +112,123 @@ const statusColors = {
 const chartCardClass =
   "rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6 shadow-xl shadow-slate-950/20";
 
+const shimmerClass =
+  "animate-pulse rounded-[1.5rem] border border-slate-800 bg-slate-900/70 shadow-xl shadow-slate-950/10";
+
+const DeliveryDashboardSkeleton = () => (
+  <div className="space-y-6">
+    <section className="rounded-[2rem] border border-slate-800 bg-[radial-gradient(circle_at_top_right,rgba(79,70,229,0.22),transparent_30%),linear-gradient(180deg,rgba(15,23,42,0.92)_0%,rgba(2,6,23,0.96)_100%)] p-6 shadow-xl shadow-slate-950/40">
+      <div className="flex flex-wrap items-start justify-between gap-5">
+        <div className="space-y-3">
+          <div className="h-3 w-28 rounded-full bg-slate-800" />
+          <div className="h-10 w-72 rounded-full bg-slate-800" />
+          <div className="h-4 w-[26rem] max-w-full rounded-full bg-slate-800" />
+          <div className="h-4 w-[20rem] max-w-full rounded-full bg-slate-800" />
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          {[0, 1].map((item) => (
+            <div key={item} className="rounded-3xl border border-slate-800 bg-slate-900/70 px-5 py-4">
+              <div className="h-3 w-24 rounded-full bg-slate-800" />
+              <div className="mt-4 h-8 w-28 rounded-full bg-slate-800" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+
+    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <div key={index} className={`${shimmerClass} p-5`}>
+          <div className="flex items-center justify-between">
+            <div className="h-4 w-28 rounded-full bg-slate-800" />
+            <div className="h-12 w-12 rounded-2xl bg-slate-800" />
+          </div>
+          <div className="mt-5 h-10 w-24 rounded-full bg-slate-800" />
+        </div>
+      ))}
+    </section>
+
+    <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
+      {[0, 1].map((item) => (
+        <div key={item} className={`${shimmerClass} p-6`}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3">
+              <div className="h-6 w-52 rounded-full bg-slate-800" />
+              <div className="h-4 w-72 rounded-full bg-slate-800" />
+            </div>
+            <div className="h-8 w-24 rounded-full bg-slate-800" />
+          </div>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {[0, 1, 2].map((card) => (
+              <div key={card} className="rounded-[1.5rem] border border-slate-800 bg-slate-950/70 p-5">
+                <div className="h-3 w-20 rounded-full bg-slate-800" />
+                <div className="mt-4 h-8 w-24 rounded-full bg-slate-800" />
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </section>
+
+    <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
+      {[0, 1].map((item) => (
+        <div key={item} className={`${shimmerClass} p-6`}>
+          <div className="flex items-start justify-between gap-4">
+            <div className="space-y-3">
+              <div className="h-6 w-56 rounded-full bg-slate-800" />
+              <div className="h-4 w-72 rounded-full bg-slate-800" />
+            </div>
+            <div className="h-5 w-5 rounded-full bg-slate-800" />
+          </div>
+          <div className="mt-6 h-72 rounded-[1.5rem] bg-slate-950/70" />
+        </div>
+      ))}
+    </section>
+
+    <section className={`${shimmerClass} p-6`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-3">
+          <div className="h-6 w-52 rounded-full bg-slate-800" />
+          <div className="h-4 w-72 rounded-full bg-slate-800" />
+        </div>
+        <div className="h-5 w-5 rounded-full bg-slate-800" />
+      </div>
+      <div className="mt-6 h-72 rounded-[1.5rem] bg-slate-950/70" />
+    </section>
+
+    <section className={`${shimmerClass} p-6`}>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-3">
+          <div className="h-6 w-56 rounded-full bg-slate-800" />
+          <div className="h-4 w-72 rounded-full bg-slate-800" />
+        </div>
+        <div className="h-10 w-24 rounded-2xl bg-slate-800" />
+      </div>
+      <div className="mt-5 space-y-3">
+        {Array.from({ length: 4 }).map((_, index) => (
+          <div
+            key={index}
+            className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="space-y-2">
+                <div className="h-4 w-36 rounded-full bg-slate-800" />
+                <div className="h-3 w-44 rounded-full bg-slate-800" />
+              </div>
+              <div className="h-7 w-24 rounded-full bg-slate-800" />
+            </div>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <div className="h-3 w-16 rounded-full bg-slate-800" />
+              <div className="h-3 w-20 rounded-full bg-slate-800" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  </div>
+);
+
 const Home = () => {
   const { deliveryPartner } = useSelector((state) => state.auth);
   const {
@@ -129,7 +245,7 @@ const Home = () => {
   } = useGetAssignedOrdersQuery();
 
   if (isSummaryLoading || isOrdersLoading) {
-    return <PageLoader message="Loading dashboard..." />;
+    return <DeliveryDashboardSkeleton />;
   }
 
   if (isSummaryError || isOrdersError) {

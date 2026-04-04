@@ -11,6 +11,7 @@ import {
 import {
   getAiCatalogChatReply,
   getAiMemoryRecommendationDialog,
+  getAiPoweredSearchResults,
   streamAiCatalogChatReply,
   trackAiBehavior,
 } from "../../controllers/ai/ai.controller.js";
@@ -31,5 +32,6 @@ cartWishlistRouter.post("/ai-chat", optionalAuthenticatedUser, getAiCatalogChatR
 cartWishlistRouter.post("/ai-chat/stream", optionalAuthenticatedUser, streamAiCatalogChatReply);
 cartWishlistRouter.post("/ai-chat/behavior", optionalAuthenticatedUser, trackAiBehavior);
 cartWishlistRouter.get("/ai-chat/recommendations", optionalAuthenticatedUser, getAiMemoryRecommendationDialog);
+cartWishlistRouter.post("/ai-chat/search", optionalAuthenticatedUser, getAiPoweredSearchResults);
 
 export default cartWishlistRouter;

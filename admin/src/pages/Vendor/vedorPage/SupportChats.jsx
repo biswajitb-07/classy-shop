@@ -65,6 +65,16 @@ const getLastMessage = (conversation) => {
   return "No conversation yet";
 };
 
+const getClassificationTone = (priority) => {
+  if (priority === "high") {
+    return "bg-rose-500/15 text-rose-200 border border-rose-500/20";
+  }
+  if (priority === "medium") {
+    return "bg-amber-500/15 text-amber-100 border border-amber-500/20";
+  }
+  return "bg-cyan-500/15 text-cyan-100 border border-cyan-500/20";
+};
+
 const MessageBubble = ({ item, isAdmin }) => (
   <div className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
     <div
@@ -578,9 +588,23 @@ const SupportChats = () => {
                       <h3 className="truncate text-xl font-bold text-white">{getContactName(conversation, activeTab)}</h3>
                       <p className="truncate text-sm text-slate-400">{getContactEmail(conversation, activeTab)}</p>
                     </div>
+                    {conversation?.classification?.label ? (
+                      <div className={`shrink-0 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] ${getClassificationTone(conversation.classification.priority)}`}>
+                        {conversation.classification.label}
+                      </div>
+                    ) : null}
                   </div>
                   <p className="mt-4 line-clamp-2 text-sm leading-6 text-slate-300">{getLastMessage(conversation)}</p>
-                  <p className="mt-4 text-xs font-medium uppercase tracking-[0.24em] text-slate-500">{formatStamp(conversation?.lastMessageAt || conversation?.updatedAt)}</p>
+                  <div className="mt-4 flex items-center justify-between gap-3">
+                    <p className="text-xs font-medium uppercase tracking-[0.24em] text-slate-500">
+                      {formatStamp(conversation?.lastMessageAt || conversation?.updatedAt)}
+                    </p>
+                    {conversation?.classification?.priority ? (
+                      <span className="text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-500">
+                        {conversation.classification.priority} priority
+                      </span>
+                    ) : null}
+                  </div>
                 </button>
               ))}
             </div>
@@ -613,6 +637,16 @@ const SupportChats = () => {
                         {supportOnline ? "Admin online" : "Admin offline"}
                       </span>
                     </p>
+                    {activeDetails?.classification?.summary ? (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.22em] ${getClassificationTone(activeDetails.classification.priority)}`}>
+                          {activeDetails.classification.label}
+                        </span>
+                        <span className="text-sm text-slate-400">
+                          {activeDetails.classification.summary}
+                        </span>
+                      </div>
+                    ) : null}
                   </div>
                   <button
                     type="button"

@@ -14,6 +14,7 @@ import {
   FaStar,
 } from "react-icons/fa";
 import toast from "react-hot-toast";
+import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 
 const BagBrandManager = () => {
   const [deletingBrand, setDeletingBrand] = useState(null);
@@ -138,7 +139,7 @@ const BagBrandManager = () => {
                   disabled={isAdding}
                 >
                   {isAdding ? (
-                    <div className="w-5 sm:w-6 h-5 sm:h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+                    <AuthButtonLoader size={20} color="#2563eb" />
                   ) : (
                     <FaPlus className="text-base sm:text-xl" />
                   )}
@@ -197,7 +198,7 @@ const BagBrandManager = () => {
                             disabled={isUpdating}
                           >
                             {isUpdating ? (
-                              <div className="w-4 sm:w-5 h-4 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                              <AuthButtonLoader size={16} color="#ffffff" />
                             ) : (
                               <FaCheck className="text-base sm:text-lg" />
                             )}
@@ -234,7 +235,7 @@ const BagBrandManager = () => {
                               disabled={deletingBrand === brand}
                             >
                               {deletingBrand === brand ? (
-                                <div className="w-4 sm:w-5 h-4 sm:h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                <AuthButtonLoader size={16} color="#ffffff" />
                               ) : (
                                 <FaTrash className="text-base sm:text-lg" />
                               )}
@@ -267,3 +268,4 @@ const BagBrandManager = () => {
 };
 
 export default BagBrandManager;
+

@@ -101,6 +101,13 @@ export const authApi = createApi({
         method: "GET",
       }),
     }),
+    generateProductDescription: builder.mutation({
+      query: (body) => ({
+        url: "ai/description",
+        method: "POST",
+        body,
+      }),
+    }),
     getUsers: builder.query({
       query: () => ({
         url: "users",
@@ -398,6 +405,7 @@ export const {
   useResetPasswordMutation,
   useChangePasswordMutation,
   useGetDashboardSummaryQuery,
+  useGenerateProductDescriptionMutation,
   useGetUsersQuery,
   useGetVendorsQuery,
   useGetNewsletterSubscribersQuery,

@@ -8,6 +8,7 @@ import {
   emitVendorSupportMessageCreated,
 } from "../../socket/socket.js";
 import { deleteMediaFromCloudinary, uploadMedia } from "../../utils/cloudinary.js";
+import { classifySupportTicket } from "../../services/ai/commerceAssistant.service.js";
 
 const mapConversation = (conversation) => ({
   _id: conversation._id,
@@ -19,6 +20,10 @@ const mapConversation = (conversation) => ({
   unreadForVendor: conversation.unreadForVendor,
   unreadForAdmin: conversation.unreadForAdmin,
   status: conversation.status,
+  classification: classifySupportTicket({
+    message: conversation.lastMessage,
+    scope: "vendor",
+  }),
   createdAt: conversation.createdAt,
   updatedAt: conversation.updatedAt,
 });

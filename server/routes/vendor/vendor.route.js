@@ -57,6 +57,7 @@ import {
   updateAdminProfile,
   updateAdminById,
 } from "../../controllers/admin/admin.controller.js";
+import { createVendorDescriptionDraft as createVendorAiDescriptionDraft } from "../../controllers/ai/ai.controller.js";
 import {
   deleteVendorSupportConversation,
   ensureAdminUserSupportConversation,
@@ -127,6 +128,7 @@ vendorRouter.post("/change-password", isAuthenticatedVendor, changePassword);
 vendorRouter.post("/admin/change-password", isAuthenticatedAdmin, adminChangePassword);
 vendorRouter.get("/socket-auth", isAuthenticatedVendor, getVendorSocketAuth);
 vendorRouter.get("/admin/socket-auth", isAuthenticatedAdmin, getAdminSocketAuth);
+vendorRouter.post("/ai/description", isAuthenticatedVendor, createVendorAiDescriptionDraft);
 
 vendorRouter.get("/profile", isAuthenticatedVendor, getVendorProfile);
 vendorRouter.get("/admin/profile", isAuthenticatedAdmin, getAdminProfile);

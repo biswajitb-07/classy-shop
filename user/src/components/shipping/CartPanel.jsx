@@ -374,7 +374,7 @@ const CartPanel = ({ openCartPanel, isOpenCartPanel }) => {
                                         className={`p-2 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all duration-200 disabled:cursor-not-allowed hover:scale-110 cursor-pointer ${isDark ? "text-slate-400" : "text-gray-400"}`}
                                       >
                                         {loading[removeKey] ? (
-                                          <div className="w-4 h-4 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                                          <AuthButtonLoader size={16} color="#ef4444" />
                                         ) : (
                                           <Trash2
                                             size={16}

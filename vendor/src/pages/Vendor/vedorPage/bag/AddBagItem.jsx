@@ -14,6 +14,7 @@ import { HiSparkles, HiTrendingUp } from "react-icons/hi";
 import { MdLuggage } from "react-icons/md";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import toast from "react-hot-toast";
+import AiDescriptionAssistant from "../../../../component/ai/AiDescriptionAssistant";
 
 const AddBagItem = ({
   onClose,
@@ -377,6 +378,7 @@ const AddBagItem = ({
           </div>
 
           {/* Description Section */}
+            <AiDescriptionAssistant form={form} setForm={setForm} categoryLabel={form.category || "product"} />
           <div className="mt-6 sm:mt-8 bg-gradient-to-br from-amber-200 to-slate-200 p-4 sm:p-6 rounded-xl border border-gray-200">
             <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
               <FaInfoCircle className="text-gray-500" />
@@ -462,3 +464,6 @@ const AddBagItem = ({
 };
 
 export default AddBagItem;
+
+
+

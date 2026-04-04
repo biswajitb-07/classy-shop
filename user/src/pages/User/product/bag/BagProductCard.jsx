@@ -174,7 +174,7 @@ const BagProductCard = ({ products = [], isLoading = false }) => {
                   onClick={() => navigate(getProductDetailsPath(p))}
                   src={p.image[0]}
                   alt={p.name}
-                  className="h-36 md:h-56 w-full object-cover object-top rounded-t-xl transition-opacity duration-700 ease-linear group-hover:opacity-0"
+                  className={`h-36 md:h-56 w-full object-cover object-top rounded-t-xl transition-opacity duration-700 ease-linear ${p.image?.[1] ? "group-hover:opacity-0" : "opacity-100"}`}
                 />
                 {p.image[1] && (
                   <img
@@ -290,3 +290,5 @@ const BagProductCardSkeleton = () => (
     ))}
   </div>
 );
+
+

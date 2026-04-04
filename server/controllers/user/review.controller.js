@@ -9,6 +9,7 @@ import Wellness from "../../models/vendor/wellness/wellness.model.js";
 import Jewellery from "../../models/vendor/jewellery/jewellery.model.js";
 import Order from "../../models/user/order.model.js";
 import { ProductReview } from "../../models/user/productReview.model.js";
+import { summarizeProductReviews } from "../../services/ai/commerceAssistant.service.js";
 
 const productRegistry = {
   fashion: {
@@ -231,6 +232,12 @@ export const getProductReviews = async (req, res) => {
         name: productData.product.name,
       },
       summary: productData.summary,
+      aiSummary: summarizeProductReviews({
+        productName: productData.product.name,
+        reviews,
+        averageRating: productData.summary?.averageRating,
+        totalReviews: productData.summary?.totalReviews,
+      }),
       reviews: reviews.map(serializeReview),
     });
   } catch (error) {

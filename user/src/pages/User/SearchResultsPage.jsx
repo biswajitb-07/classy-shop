@@ -1,21 +1,41 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowRight, FaRegStar, FaStar, FaStarHalfAlt, FaLink } from "react-icons/fa";
 import toast from "react-hot-toast";
+import { Sparkles } from "lucide-react";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import Search from "../../components/Search.jsx";
 import { useMarketplaceSearch } from "../../components/search/useMarketplaceSearch.js";
+import { useGetAiSearchResultsQuery } from "../../features/api/aiApi.js";
+import PageLoader from "../../components/Loader/PageLoader.jsx";
 
 const SearchResultsPage = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { isDark } = useTheme();
+  const [openingProductId, setOpeningProductId] = useState("");
   const query = searchParams.get("q") || "";
 
   const { matchedProducts, isLoading, getProductPath } =
     useMarketplaceSearch(query);
+  const { data: aiSearchData, isFetching: isAiSearching } =
+    useGetAiSearchResultsQuery(
+      { query, limit: 10 },
+      { skip: !query.trim() }
+    );
 
-  const results = useMemo(() => matchedProducts, [matchedProducts]);
+  const results = useMemo(() => {
+    const aiProducts = aiSearchData?.products || [];
+    if (!aiProducts.length) return matchedProducts;
+
+    const seen = new Set();
+    return [...aiProducts, ...matchedProducts].filter((product) => {
+      const key = `${product.sourceLabel}-${product._id}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [aiSearchData?.products, matchedProducts]);
   const hasQuery = Boolean(query.trim());
   const resultCountText = hasQuery
     ? `${results.length} products matched "${query}"`
@@ -56,9 +76,13 @@ const SearchResultsPage = () => {
   };
 
   const openProduct = (product) => {
-    navigate(getProductPath(product, query), {
-      state: { fromSearch: true, query },
-    });
+    if (!product?._id) return;
+    setOpeningProductId(String(product._id));
+    window.setTimeout(() => {
+      navigate(getProductPath(product, query), {
+        state: { fromSearch: true, query, openingProduct: true },
+      });
+    }, 40);
   };
 
   const copyProductLink = async (product) => {
@@ -73,6 +97,7 @@ const SearchResultsPage = () => {
 
   return (
     <div className={`min-h-screen pb-16 ${bgClass}`}>
+      {openingProductId ? <PageLoader message="Opening product..." /> : null}
       <div className="container mx-auto px-4 pt-10">
         <div className="mb-8">
           <Search />
@@ -87,7 +112,7 @@ const SearchResultsPage = () => {
               {hasQuery ? `Results for "${query}"` : "All products"}
             </h1>
             <p className={`mt-2 ${bodyClass}`}>
-              {isLoading
+              {isLoading || isAiSearching
                 ? "Loading products..."
                 : resultCountText}
             </p>
@@ -105,9 +130,26 @@ const SearchResultsPage = () => {
 
         {hasQuery && (
           <div className={`mb-6 rounded-2xl p-4 ${panelClass}`}>
-            <p className={bodyClass}>
-              Showing products that match <span className={headingClass}>"{query}"</span>.
-            </p>
+            <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className={bodyClass}>
+                  Showing products that match <span className={headingClass}>"{query}"</span>.
+                </p>
+                {aiSearchData?.explanation ? (
+                  <p className={`mt-2 text-sm leading-6 ${bodyClass}`}>
+                    AI insight: {aiSearchData.explanation}
+                  </p>
+                ) : null}
+              </div>
+              {aiSearchData?.products?.length ? (
+                <div className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold ${
+                  isDark ? "bg-cyan-500/10 text-cyan-200" : "bg-amber-100 text-amber-700"
+                }`}>
+                  <Sparkles size={14} />
+                  AI ranked results
+                </div>
+              ) : null}
+            </div>
           </div>
         )}
 
@@ -187,9 +229,10 @@ const SearchResultsPage = () => {
                     <div className="flex items-center gap-3 pt-1">
                       <button
                         type="button"
+                        disabled={openingProductId === String(product._id)}
                         className="flex-1 rounded-xl bg-red-500 px-4 py-3 text-sm font-semibold text-white hover:bg-red-600 transition-colors"
                       >
-                        Open product
+                        {openingProductId === String(product._id) ? "Opening..." : "Open product"}
                       </button>
                       <button
                         type="button"

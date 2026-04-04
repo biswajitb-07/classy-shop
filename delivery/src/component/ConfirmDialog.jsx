@@ -1,3 +1,5 @@
+import AuthButtonLoader from "./Loader/AuthButtonLoader.jsx";
+
 const ConfirmDialog = ({
   open,
   title,
@@ -30,9 +32,16 @@ const ConfirmDialog = ({
             type="button"
             onClick={onConfirm}
             disabled={loading}
-            className="inline-flex min-h-[3rem] items-center justify-center rounded-2xl bg-rose-500 px-4 text-sm font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex min-h-[3rem] items-center justify-center gap-2 rounded-2xl bg-rose-500 px-4 text-sm font-semibold text-white transition hover:bg-rose-400 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? "Cancelling..." : confirmText}
+            {loading ? (
+              <>
+                <AuthButtonLoader color="#ffffff" size={16} />
+                Cancelling...
+              </>
+            ) : (
+              confirmText
+            )}
           </button>
         </div>
       </div>

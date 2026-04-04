@@ -71,7 +71,7 @@ const ProductCard = ({ products = [], isLoading = false }) => {
                 <img
                   src={p.image[0]}
                   alt={p.name}
-                  className="h-56 w-full object-cover object-top rounded-t-xl transition-opacity duration-700 ease-linear group-hover:opacity-0"
+                  className={`h-56 w-full object-cover object-top rounded-t-xl transition-opacity duration-700 ease-linear ${p.image?.[1] ? "group-hover:opacity-0" : "opacity-100"}`}
                 />
 
                 {p.image[1] && (
@@ -252,3 +252,5 @@ const ProductCardSkeleton = () => {
     </div>
   );
 };
+
+

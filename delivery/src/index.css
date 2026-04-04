@@ -56,14 +56,21 @@
 
 html {
   font-size: clamp(13px, 0.18vw + 12.4px, 16px);
+  background-color: #050816;
 }
 
 body {
   font-family: "Montserrat", sans-serif;
   font-optical-sizing: auto;
+  min-height: 100vh;
   background-color: var(--app-bg);
   color: var(--app-text);
   transition: background-color 300ms ease, color 300ms ease;
+}
+
+#root {
+  min-height: 100vh;
+  background-color: var(--app-bg);
 }
 
 /*

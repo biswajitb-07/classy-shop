@@ -10,14 +10,15 @@ const PopularProduct = () => {
   const [canScrollNavRight, setCanScrollNavRight] = useState(false);
   const [canScrollProductLeft, setCanScrollProductLeft] = useState(false);
   const [canScrollProductRight, setCanScrollProductRight] = useState(false);
-  const { categories } = useHomeCatalog();
+  const { categories, popularProductsByCategory } = useHomeCatalog();
   const [selectedCategory, setSelectedCategory] = useState("Fashion");
 
   const visibleCategories = categories;
   const selectedCategoryData =
     visibleCategories.find((category) => category.key === selectedCategory) ||
     visibleCategories[0];
-  const popularProducts = (selectedCategoryData?.products || []).slice(0, 7);
+  const popularProducts =
+    (popularProductsByCategory?.[selectedCategoryData?.key] || []).slice(0, 7);
   const isLoading = selectedCategoryData?.isLoading ?? false;
 
   const checkNavScrollability = () => {

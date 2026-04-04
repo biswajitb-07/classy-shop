@@ -12,6 +12,7 @@ import {
   emitSupportMessageCreated,
   isUserOnline,
 } from "../../socket/socket.js";
+import { classifySupportTicket } from "../../services/ai/commerceAssistant.service.js";
 
 const mapMessage = (message) => ({
   _id: message._id,
@@ -39,6 +40,10 @@ const mapConversation = (conversation) => ({
   unreadForAdmin: conversation.unreadForAdmin,
   status: conversation.status,
   userOnline: isUserOnline(conversation.user?._id || conversation.user),
+  classification: classifySupportTicket({
+    message: conversation.lastMessage,
+    scope: "user",
+  }),
   createdAt: conversation.createdAt,
   updatedAt: conversation.updatedAt,
 });

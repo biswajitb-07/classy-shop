@@ -7,6 +7,10 @@ import {
   ensureAiUserMemory,
   recordAiBehaviorEvent,
 } from "../../services/ai/memory.service.js";
+import {
+  generateVendorProductDescription,
+  getAiPoweredProductSearch,
+} from "../../services/ai/commerceAssistant.service.js";
 
 const writeSseEvent = (res, event, data) => {
   res.write(`event: ${event}\n`);
@@ -176,6 +180,50 @@ export const getAiMemoryRecommendationDialog = async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to load AI recommendations",
+    });
+  }
+};
+
+export const getAiPoweredSearchResults = async (req, res) => {
+  try {
+    const query = String(req.body?.query || "").trim();
+
+    if (!query) {
+      return res.status(400).json({
+        success: false,
+        message: "Search query is required",
+      });
+    }
+
+    const result = await getAiPoweredProductSearch({
+      query,
+      limit: Number(req.body?.limit || 8),
+    });
+
+    return res.status(200).json({
+      success: true,
+      ...result,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to run AI search",
+    });
+  }
+};
+
+export const createVendorDescriptionDraft = async (req, res) => {
+  try {
+    const description = generateVendorProductDescription(req.body || {});
+
+    return res.status(200).json({
+      success: true,
+      description,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to generate description",
     });
   }
 };

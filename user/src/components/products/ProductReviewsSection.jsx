@@ -115,6 +115,7 @@ const ProductReviewsSection = ({
     }),
     [rating, reviewsCount, reviewsData?.summary?.averageRating, reviewsData?.summary?.totalReviews]
   );
+  const aiSummary = reviewsData?.aiSummary || null;
 
   const ratingDistribution = useMemo(
     () =>
@@ -304,6 +305,65 @@ const ProductReviewsSection = ({
 
         <div className="grid gap-8 px-5 py-6 xl:grid-cols-[0.92fr_1.08fr] xl:px-7">
           <div className="space-y-5">
+            {aiSummary ? (
+              <div className="rounded-[1.75rem] border border-violet-200 bg-[linear-gradient(135deg,rgba(255,255,255,0.96),rgba(245,243,255,0.96))] p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-500">
+                      AI Review Summary
+                    </p>
+                    <h3 className="mt-2 text-lg font-semibold text-slate-900">
+                      {aiSummary.headline}
+                    </h3>
+                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      aiSummary.sentiment === "positive"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : aiSummary.sentiment === "mixed"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-rose-100 text-rose-700"
+                    }`}
+                  >
+                    {aiSummary.sentiment}
+                  </span>
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  {aiSummary.shortSummary}
+                </p>
+
+                {aiSummary.positives?.length ? (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      Customers like
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {aiSummary.positives.map((item) => (
+                        <span key={item} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {aiSummary.concerns?.length ? (
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      Watch-outs
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {aiSummary.concerns.map((item) => (
+                        <span key={item} className="rounded-full bg-rose-50 px-3 py-1 text-xs font-medium text-rose-700">
+                          {item}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
             <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50/90 p-5">
               <h3 className="text-lg font-semibold text-slate-900">
                 Rating snapshot

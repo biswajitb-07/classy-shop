@@ -292,7 +292,7 @@ const HomeProductCard = ({ productScrollRef, products, isLoading }) => {
                     onClick={() => goToProduct(p)}
                     src={p.image?.[0] || "/fallback-image.jpg"}
                     alt={p.name}
-                    className="h-56 w-full object-cover object-top transition-opacity duration-700 ease-linear group-hover/card:opacity-0"
+                    className={`h-56 w-full object-cover object-top transition-opacity duration-700 ease-linear ${p.image?.[1] ? "group-hover/card:opacity-0" : "opacity-100"}`}
                   />
 
                   {p.image?.[1] && (
@@ -441,3 +441,5 @@ const SkeletonCard = () => (
     </div>
   </div>
 );
+
+

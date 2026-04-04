@@ -84,7 +84,6 @@ const MainLayout = () => {
   const [showOverlay, setShowOverlay] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [deletingNotificationIds, setDeletingNotificationIds] = useState([]);
-  const [hasAppliedDesktopDefault, setHasAppliedDesktopDefault] = useState(false);
   const [isLogoutDialogOpen, setIsLogoutDialogOpen] = useState(false);
   const [logoutUser, { isLoading: isLoggingOut }] = useLogoutUserMutation();
   const [toggleAvailability, { isLoading: isUpdatingAvailability }] =
@@ -134,16 +133,6 @@ const MainLayout = () => {
     const timeout = setTimeout(() => setShowOverlay(false), 300);
     return () => clearTimeout(timeout);
   }, [isOpen]);
-
-  useEffect(() => {
-    if (hasAppliedDesktopDefault) return;
-
-    if (window.innerWidth >= 1024) {
-      dispatch(setSidebarOpen(true));
-    }
-
-    setHasAppliedDesktopDefault(true);
-  }, [dispatch, hasAppliedDesktopDefault]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {

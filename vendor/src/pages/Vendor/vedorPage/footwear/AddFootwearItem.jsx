@@ -15,6 +15,7 @@ import { HiSparkles, HiTrendingUp } from "react-icons/hi";
 import { GiClothes } from "react-icons/gi";
 import AuthButtonLoader from "../../../../component/Loader/AuthButtonLoader";
 import toast from "react-hot-toast";
+import AiDescriptionAssistant from "../../../../component/ai/AiDescriptionAssistant";
 
 const SIZES = ["6", "7", "8", "9", "10", "11"];
 
@@ -417,6 +418,7 @@ const AddFootwearItem = ({
           </div>
 
           {/* Description Section */}
+            <AiDescriptionAssistant form={form} setForm={setForm} categoryLabel={form.category || "product"} />
           <div className="mt-6 sm:mt-8 bg-gradient-to-br from-amber-200 to-slate-200 p-4 sm:p-6 rounded-xl border border-gray-200">
             <h4 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center gap-2">
               <FaInfoCircle className="text-gray-500" />
@@ -502,3 +504,6 @@ const AddFootwearItem = ({
 };
 
 export default AddFootwearItem;
+
+
+

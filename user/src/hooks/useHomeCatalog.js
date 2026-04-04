@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import { useGetFashionItemsQuery } from "../features/api/fashionApi.js";
 import { useGetElectronicItemsQuery } from "../features/api/electronicApi.js";
 import { useGetBagItemsQuery } from "../features/api/bagApi.js";
@@ -66,33 +66,106 @@ const getTimestamp = (product) => {
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
-const buildSeededRandom = (seed) => {
-  let state = seed % 2147483647;
-  if (state <= 0) state += 2147483646;
-
-  return () => {
-    state = (state * 16807) % 2147483647;
-    return (state - 1) / 2147483646;
-  };
+const getNumber = (value, fallback = 0) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-const shuffleProducts = (products, seed) => {
-  const random = buildSeededRandom(seed);
-  const nextProducts = [...products];
+const getRecencyScore = (product) => {
+  const timestamp = getTimestamp(product);
+  if (!timestamp) return 0;
 
-  for (let index = nextProducts.length - 1; index > 0; index -= 1) {
-    const swapIndex = Math.floor(random() * (index + 1));
-    [nextProducts[index], nextProducts[swapIndex]] = [
-      nextProducts[swapIndex],
-      nextProducts[index],
-    ];
+  const ageInDays = Math.max(
+    0,
+    (Date.now() - timestamp) / (1000 * 60 * 60 * 24),
+  );
+
+  if (ageInDays <= 3) return 36;
+  if (ageInDays <= 7) return 26;
+  if (ageInDays <= 15) return 18;
+  if (ageInDays <= 30) return 10;
+  return 0;
+};
+
+const getDiscountScore = (product) => {
+  const originalPrice = getNumber(product?.originalPrice);
+  const discountedPrice = getNumber(product?.discountedPrice);
+  if (!originalPrice || !discountedPrice || discountedPrice >= originalPrice) {
+    return 0;
   }
 
-  return nextProducts;
+  const percentage = ((originalPrice - discountedPrice) / originalPrice) * 100;
+  if (percentage >= 50) return 18;
+  if (percentage >= 35) return 14;
+  if (percentage >= 20) return 10;
+  if (percentage >= 10) return 6;
+  return 2;
 };
 
+const getStockScore = (product) => {
+  const stock = getNumber(product?.inStock);
+  if (stock <= 0) return -40;
+  if (stock <= 3) return 3;
+  if (stock <= 10) return 6;
+  if (stock <= 25) return 10;
+  return 12;
+};
+
+const getPopularityScore = (product) => {
+  const rating = getNumber(product?.rating);
+  const reviews = getNumber(product?.reviews);
+
+  return (
+    rating * 30 +
+    Math.min(reviews, 250) * 1.8 +
+    getRecencyScore(product) +
+    getDiscountScore(product) +
+    getStockScore(product)
+  );
+};
+
+const getFeaturedScore = (product) => {
+  const rating = getNumber(product?.rating);
+  const reviews = getNumber(product?.reviews);
+
+  return (
+    rating * 42 +
+    Math.min(reviews, 200) * 1.5 +
+    getDiscountScore(product) * 1.4 +
+    getStockScore(product) +
+    getRecencyScore(product) * 0.8
+  );
+};
+
+const sortByNewest = (products = []) =>
+  [...products].sort((left, right) => getTimestamp(right) - getTimestamp(left));
+
+const sortByPopularity = (products = []) =>
+  [...products].sort((left, right) => {
+    const popularityDelta = getPopularityScore(right) - getPopularityScore(left);
+    if (popularityDelta !== 0) return popularityDelta;
+
+    const ratingDelta = getNumber(right?.rating) - getNumber(left?.rating);
+    if (ratingDelta !== 0) return ratingDelta;
+
+    const reviewDelta = getNumber(right?.reviews) - getNumber(left?.reviews);
+    if (reviewDelta !== 0) return reviewDelta;
+
+    return getTimestamp(right) - getTimestamp(left);
+  });
+
+const sortByFeatured = (products = []) =>
+  [...products].sort((left, right) => {
+    const featuredDelta = getFeaturedScore(right) - getFeaturedScore(left);
+    if (featuredDelta !== 0) return featuredDelta;
+
+    const popularityDelta = getPopularityScore(right) - getPopularityScore(left);
+    if (popularityDelta !== 0) return popularityDelta;
+
+    return getTimestamp(right) - getTimestamp(left);
+  });
+
 export const useHomeCatalog = () => {
-  const refreshSeedRef = useRef(Date.now());
   const fashion = useGetFashionItemsQuery();
   const electronics = useGetElectronicItemsQuery();
   const bags = useGetBagItemsQuery();
@@ -139,34 +212,22 @@ export const useHomeCatalog = () => {
 
   const featuredProducts = useMemo(
     () =>
-      shuffleProducts(
-        [...allProducts].sort((left, right) => {
-          const ratingDelta =
-            Number(right?.rating || 0) - Number(left?.rating || 0);
-          if (ratingDelta !== 0) return ratingDelta;
-
-          const reviewDelta =
-            Number(right?.reviews || 0) - Number(left?.reviews || 0);
-          if (reviewDelta !== 0) return reviewDelta;
-
-          return getTimestamp(right) - getTimestamp(left);
-        }),
-        refreshSeedRef.current + 17
-      )
-        .slice(0, 10),
+      sortByFeatured(allProducts).slice(0, 10),
     [allProducts]
   );
 
   const latestProducts = useMemo(
-    () =>
-      shuffleProducts(
-        [...allProducts].sort(
-          (left, right) => getTimestamp(right) - getTimestamp(left)
-        ),
-        refreshSeedRef.current + 71
-      )
-        .slice(0, 10),
+    () => sortByNewest(allProducts).slice(0, 10),
     [allProducts]
+  );
+
+  const popularProductsByCategory = useMemo(
+    () =>
+      categories.reduce((accumulator, category) => {
+        accumulator[category.key] = sortByPopularity(category.products);
+        return accumulator;
+      }, {}),
+    [categories]
   );
 
   return {
@@ -174,6 +235,7 @@ export const useHomeCatalog = () => {
     allProducts,
     featuredProducts,
     latestProducts,
+    popularProductsByCategory,
     isLoading: Object.values(queryResults).some((result) => result.isLoading),
   };
 };

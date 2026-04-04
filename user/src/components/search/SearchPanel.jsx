@@ -4,16 +4,25 @@ import { X, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { useMarketplaceSearch } from "./useMarketplaceSearch.js";
+import { useGetAiSearchResultsQuery } from "../../features/api/aiApi.js";
+import PageLoader from "../Loader/PageLoader.jsx";
 
 const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
   const navigate = useNavigate();
   const { isDark } = useTheme();
   const [query, setQuery] = useState("");
+  const [isOpeningProduct, setIsOpeningProduct] = useState(false);
   const inputRef = useRef(null);
   const deferredQuery = useDeferredValue(query);
   const shouldLoadSearchResults = Boolean(deferredQuery.trim());
   const { matchedProducts, isLoading, getProductPath } =
     useMarketplaceSearch(deferredQuery, { enabled: shouldLoadSearchResults });
+  const { data: aiSearchData, isFetching: isAiSearching } =
+    useGetAiSearchResultsQuery(
+      { query: deferredQuery, limit: 8 },
+      { skip: !shouldLoadSearchResults }
+    );
+  const searchResults = aiSearchData?.products?.length ? aiSearchData.products : matchedProducts;
 
   useEffect(() => {
     const root = document.documentElement;
@@ -35,14 +44,18 @@ const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
   const showResults = Boolean(trimmedQuery);
 
   const openProduct = (product) => {
-    navigate(getProductPath(product, query), {
-      state: { fromSearch: true, query },
-    });
+    setIsOpeningProduct(true);
     openSearchPanel();
+    window.setTimeout(() => {
+      navigate(getProductPath(product, query), {
+        state: { fromSearch: true, query, openingProduct: true },
+      });
+    }, 40);
   };
 
   return (
     <>
+      {isOpeningProduct ? <PageLoader message="Opening product..." /> : null}
       <div
         className={`fixed inset-0 z-50 bg-black/60 backdrop-blur-sm transition-all duration-500 ease-out lg:hidden
           ${isOpenSearchPanel ? "opacity-100" : "opacity-0 pointer-events-none"}`}
@@ -104,7 +117,7 @@ const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
           </div>
 
           <div className={`flex-1 overflow-y-auto ${isDark ? "bg-[#0f172a]" : "bg-gradient-to-br from-gray-50 to-gray-100"}`}>
-            {!showResults ? null : isLoading ? (
+            {!showResults ? null : isLoading || isAiSearching ? (
               <div className="grid place-items-center h-full px-4">
                 <div className="text-center">
                   <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ${isDark ? "bg-slate-800" : "bg-white"}`}>
@@ -115,7 +128,7 @@ const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
                   </p>
                 </div>
               </div>
-            ) : showResults && matchedProducts.length === 0 ? (
+            ) : showResults && searchResults.length === 0 ? (
               <div className={`flex flex-col items-center justify-center h-full px-4 py-8 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                 <div className={`mb-4 flex h-16 w-16 items-center justify-center rounded-full shadow-lg ${isDark ? "bg-slate-800" : "bg-white"}`}>
                   <FaSearch size={26} className={isDark ? "text-slate-300" : "text-gray-400"} />
@@ -129,7 +142,7 @@ const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
               </div>
             ) : (
               <div className="p-2 sm:p-3 md:p-4 space-y-3">
-                {matchedProducts.map((product) => (
+                {searchResults.map((product) => (
                   <button
                     key={`${product.sourceLabel}-${product._id}`}
                     type="button"
