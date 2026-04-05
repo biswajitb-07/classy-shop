@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { FaArrowRight, FaRegStar, FaStar, FaStarHalfAlt, FaLink } from "react-icons/fa";
 import toast from "react-hot-toast";
 import { Sparkles } from "lucide-react";
@@ -11,6 +11,7 @@ import PageLoader from "../../components/Loader/PageLoader.jsx";
 
 const SearchResultsPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { isDark } = useTheme();
   const [openingProductId, setOpeningProductId] = useState("");
@@ -84,6 +85,10 @@ const SearchResultsPage = () => {
       });
     }, 40);
   };
+
+  useEffect(() => {
+    setOpeningProductId("");
+  }, [location.pathname, location.search]);
 
   const copyProductLink = async (product) => {
     const link = `${window.location.origin}${getProductPath(product, query)}`;

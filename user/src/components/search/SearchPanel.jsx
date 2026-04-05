@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useDeferredValue } from "react";
 import { FaSearch } from "react-icons/fa";
 import { X, ShoppingBag } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext.jsx";
 import { useMarketplaceSearch } from "./useMarketplaceSearch.js";
 import { useGetAiSearchResultsQuery } from "../../features/api/aiApi.js";
@@ -9,6 +9,7 @@ import PageLoader from "../Loader/PageLoader.jsx";
 
 const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isDark } = useTheme();
   const [query, setQuery] = useState("");
   const [isOpeningProduct, setIsOpeningProduct] = useState(false);
@@ -39,6 +40,10 @@ const SearchPanel = ({ openSearchPanel, isOpenSearchPanel }) => {
       window.setTimeout(() => inputRef.current?.focus(), 150);
     }
   }, [isOpenSearchPanel]);
+
+  useEffect(() => {
+    setIsOpeningProduct(false);
+  }, [location.pathname, location.search]);
 
   const trimmedQuery = query.trim();
   const showResults = Boolean(trimmedQuery);

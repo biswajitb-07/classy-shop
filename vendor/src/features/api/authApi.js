@@ -8,8 +8,6 @@ export const authApi = createApi({
   reducerPath: "authApi",
   tagTypes: [
     "VendorNotifications",
-    "NewsletterSubscribers",
-    "Coupons",
     "DeliveryPartners",
     "VendorPayouts",
   ],
@@ -108,72 +106,6 @@ export const authApi = createApi({
         body,
       }),
     }),
-    getUsers: builder.query({
-      query: () => ({
-        url: "users",
-        method: "GET",
-      }),
-    }),
-    getVendors: builder.query({
-      query: () => ({
-        url: "vendors",
-        method: "GET",
-      }),
-    }),
-    getNewsletterSubscribers: builder.query({
-      query: () => ({
-        url: "newsletter/subscribers",
-        method: "GET",
-      }),
-      providesTags: [{ type: "NewsletterSubscribers", id: "LIST" }],
-    }),
-    createVendor: builder.mutation({
-      query: (body) => ({
-        url: "vendors",
-        method: "POST",
-        body,
-      }),
-    }),
-    updateUserById: builder.mutation({
-      query: ({ id, ...body }) => ({
-        url: `users/${id}`,
-        method: "PUT",
-        body,
-      }),
-    }),
-    deleteUserById: builder.mutation({
-      query: (id) => ({
-        url: `users/${id}`,
-        method: "DELETE",
-      }),
-    }),
-    toggleUserBlock: builder.mutation({
-      query: ({ id, isBlocked }) => ({
-        url: `users/${id}/block`,
-        method: "PATCH",
-        body: { isBlocked },
-      }),
-    }),
-    updateVendorById: builder.mutation({
-      query: ({ id, ...body }) => ({
-        url: `vendors/${id}`,
-        method: "PUT",
-        body,
-      }),
-    }),
-    deleteVendorById: builder.mutation({
-      query: (id) => ({
-        url: `vendors/${id}`,
-        method: "DELETE",
-      }),
-    }),
-    toggleVendorBlock: builder.mutation({
-      query: ({ id, isBlocked }) => ({
-        url: `vendors/${id}/block`,
-        method: "PATCH",
-        body: { isBlocked },
-      }),
-    }),
     getVendorNotifications: builder.query({
       query: () => ({
         url: "vendor-notifications",
@@ -231,50 +163,6 @@ export const authApi = createApi({
       }),
       invalidatesTags: [{ type: "VendorNotifications", id: "LIST" }],
     }),
-    getCoupons: builder.query({
-      query: () => ({
-        url: "coupons",
-        method: "GET",
-      }),
-      providesTags: (result) =>
-        result?.coupons
-          ? [
-              ...result.coupons.map((coupon) => ({
-                type: "Coupons",
-                id: coupon._id,
-              })),
-              { type: "Coupons", id: "LIST" },
-            ]
-          : [{ type: "Coupons", id: "LIST" }],
-    }),
-    createCoupon: builder.mutation({
-      query: (body) => ({
-        url: "coupons",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: [{ type: "Coupons", id: "LIST" }],
-    }),
-    toggleCouponStatus: builder.mutation({
-      query: (id) => ({
-        url: `coupons/${id}/toggle`,
-        method: "PATCH",
-      }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Coupons", id },
-        { type: "Coupons", id: "LIST" },
-      ],
-    }),
-    deleteCoupon: builder.mutation({
-      query: (id) => ({
-        url: `coupons/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Coupons", id },
-        { type: "Coupons", id: "LIST" },
-      ],
-    }),
     getDeliveryPartners: builder.query({
       query: () => ({
         url: "delivery-partners",
@@ -290,35 +178,6 @@ export const authApi = createApi({
               { type: "DeliveryPartners", id: "LIST" },
             ]
           : [{ type: "DeliveryPartners", id: "LIST" }],
-    }),
-    createDeliveryPartner: builder.mutation({
-      query: (body) => ({
-        url: "delivery-partners",
-        method: "POST",
-        body,
-      }),
-      invalidatesTags: [{ type: "DeliveryPartners", id: "LIST" }],
-    }),
-    toggleDeliveryPartnerBlock: builder.mutation({
-      query: ({ id, isBlocked }) => ({
-        url: `delivery-partners/${id}/block`,
-        method: "PATCH",
-        body: { isBlocked },
-      }),
-      invalidatesTags: (_result, _error, { id }) => [
-        { type: "DeliveryPartners", id },
-        { type: "DeliveryPartners", id: "LIST" },
-      ],
-    }),
-    deleteDeliveryPartner: builder.mutation({
-      query: (id) => ({
-        url: `delivery-partners/${id}`,
-        method: "DELETE",
-      }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "DeliveryPartners", id },
-        { type: "DeliveryPartners", id: "LIST" },
-      ],
     }),
     assignDeliveryPartner: builder.mutation({
       query: ({ orderId, deliveryPartnerId }) => ({
@@ -351,22 +210,6 @@ export const authApi = createApi({
             ]
           : [{ type: "VendorPayouts", id: "LIST" }],
     }),
-    getAllVendorPayoutRequests: builder.query({
-      query: () => ({
-        url: "payouts/admin/all",
-        method: "GET",
-      }),
-      providesTags: (result) =>
-        result?.payoutRequests
-          ? [
-              ...result.payoutRequests.map((request) => ({
-                type: "VendorPayouts",
-                id: `admin-${request._id}`,
-              })),
-              { type: "VendorPayouts", id: "ADMIN_LIST" },
-            ]
-          : [{ type: "VendorPayouts", id: "ADMIN_LIST" }],
-    }),
     requestVendorPayout: builder.mutation({
       query: (body) => ({
         url: "payouts/request",
@@ -378,25 +221,10 @@ export const authApi = createApi({
         { type: "VendorPayouts", id: "LIST" },
       ],
     }),
-    updateVendorPayoutStatus: builder.mutation({
-      query: ({ payoutId, status, processedNotes }) => ({
-        url: `payouts/${payoutId}/status`,
-        method: "PATCH",
-        body: { status, processedNotes },
-      }),
-      invalidatesTags: (_result, _error, { payoutId }) => [
-        { type: "VendorPayouts", id: payoutId },
-        { type: "VendorPayouts", id: `admin-${payoutId}` },
-        { type: "VendorPayouts", id: "SUMMARY" },
-        { type: "VendorPayouts", id: "LIST" },
-        { type: "VendorPayouts", id: "ADMIN_LIST" },
-      ],
-    }),
   }),
 });
 
 export const {
-  useRegisterUserMutation,
   useLoginUserMutation,
   useLogoutUserMutation,
   useLoadUserQuery,
@@ -406,32 +234,13 @@ export const {
   useChangePasswordMutation,
   useGetDashboardSummaryQuery,
   useGenerateProductDescriptionMutation,
-  useGetUsersQuery,
-  useGetVendorsQuery,
-  useGetNewsletterSubscribersQuery,
-  useCreateVendorMutation,
-  useUpdateUserByIdMutation,
-  useDeleteUserByIdMutation,
-  useToggleUserBlockMutation,
-  useUpdateVendorByIdMutation,
-  useDeleteVendorByIdMutation,
-  useToggleVendorBlockMutation,
   useGetVendorNotificationsQuery,
   useMarkVendorNotificationsReadMutation,
   useDeleteVendorNotificationMutation,
   useClearVendorNotificationsMutation,
-  useGetCouponsQuery,
-  useCreateCouponMutation,
-  useToggleCouponStatusMutation,
-  useDeleteCouponMutation,
   useGetDeliveryPartnersQuery,
-  useCreateDeliveryPartnerMutation,
-  useToggleDeliveryPartnerBlockMutation,
-  useDeleteDeliveryPartnerMutation,
   useAssignDeliveryPartnerMutation,
   useGetVendorPayoutSummaryQuery,
   useGetVendorPayoutRequestsQuery,
-  useGetAllVendorPayoutRequestsQuery,
   useRequestVendorPayoutMutation,
-  useUpdateVendorPayoutStatusMutation,
 } = authApi;

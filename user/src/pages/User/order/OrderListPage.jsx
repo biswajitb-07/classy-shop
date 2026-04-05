@@ -1,13 +1,21 @@
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { FaBoxOpen, FaChevronRight } from "react-icons/fa";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { FaBoxOpen, FaChevronLeft, FaChevronRight } from "react-icons/fa";
 import { useGetUserOrdersQuery } from "../../../features/api/orderApi.js";
 import PageLoader from "../../../components/Loader/PageLoader.jsx";
 import ErrorMessage from "../../../components/error/ErrorMessage.jsx";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 
+const ITEMS_PER_PAGE = 6;
+
+const parsePositivePage = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0 ? parsed : 1;
+};
+
 const OrderListPage = () => {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const {
     data: ordersData,
     isLoading,
@@ -18,13 +26,36 @@ const OrderListPage = () => {
   const { isDark } = useTheme();
 
   const [isAnimated, setIsAnimated] = useState(false);
+  const rawPage = parsePositivePage(searchParams.get("page"));
+  const totalPages = Math.max(1, Math.ceil(orders.length / ITEMS_PER_PAGE));
+  const currentPage = Math.min(rawPage, totalPages);
 
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
-    // Trigger animation after a short delay for smooth entrance
     const timer = setTimeout(() => setIsAnimated(true), 100);
     return () => clearTimeout(timer);
   }, []);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [currentPage]);
+
+  useEffect(() => {
+    if (currentPage !== rawPage) {
+      const next = new URLSearchParams(searchParams);
+      if (currentPage <= 1) {
+        next.delete("page");
+      } else {
+        next.set("page", String(currentPage));
+      }
+      setSearchParams(next, { replace: true });
+    }
+  }, [currentPage, rawPage, searchParams, setSearchParams]);
+
+  const paginatedOrders = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return orders.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [currentPage, orders]);
 
   if (isError) return <ErrorMessage onRetry={refetch} />;
 
@@ -112,16 +143,11 @@ const OrderListPage = () => {
     const bgClass = getBgColor(status);
     const match = bgClass.match(/bg-([a-z-]+)-500/);
     if (!match) {
-      return { bg: bgClass, border: "", text: "", dot: "", ring: "" };
+      return { bg: bgClass, fillBg: bgClass };
     }
-    const colorName = match[1];
     return {
       bg: bgClass,
-      border: `border-${colorName}-500`,
-      text: `text-${colorName}-500`,
-      dot: `bg-${colorName}-500`,
-      ring: `ring-${colorName}-100`,
-      fillBg: `bg-${colorName}-500`, // Added for current step filled bg
+      fillBg: `bg-${match[1]}-500`,
     };
   };
 
@@ -160,7 +186,6 @@ const OrderListPage = () => {
       return steps;
     }
 
-    // Normal flow
     const allSteps = [
       { key: "pending", label: "Order Placed" },
       { key: "processing", label: "Processing" },
@@ -177,15 +202,23 @@ const OrderListPage = () => {
         index < currentIndex
           ? "completed"
           : index === currentIndex
-          ? "current"
-          : "pending",
+            ? "current"
+            : "pending",
     }));
   };
 
-  const canTrackOrder = (status) =>
-    ["shipped", "out_for_delivery", "return_approved", "delivered"].includes(
-      status
-    );
+  const handlePageChange = (page) => {
+    const next = new URLSearchParams(searchParams);
+    if (page <= 1) {
+      next.delete("page");
+    } else {
+      next.set("page", String(page));
+    }
+    setSearchParams(next, { replace: true });
+  };
+
+  const showingFrom = orders.length ? (currentPage - 1) * ITEMS_PER_PAGE + 1 : 0;
+  const showingTo = Math.min(currentPage * ITEMS_PER_PAGE, orders.length);
 
   return (
     <div className={`min-h-screen pb-[2rem] ${isDark ? "bg-[#050816] text-white" : "bg-gradient-to-br from-gray-50 to-gray-100 text-slate-900"}`}>
@@ -197,14 +230,13 @@ const OrderListPage = () => {
           </h1>
           <div className="w-24 h-1 bg-gradient-to-r from-red-500 to-pink-500 rounded-full mt-2"></div>
         </div>
+
         <div className="space-y-6">
-          {orders.map((order) => {
+          {paginatedOrders.map((order) => {
             const steps = getOrderSteps(order.orderStatus);
             const theme = getThemeColor(order.orderStatus);
-
-            // Calculate progress including completed + current for full bar on final states
             const completedCount = steps.filter(
-              (s) => s.status === "completed" || s.status === "current"
+              (s) => s.status === "completed" || s.status === "current",
             ).length;
             const progressWidth =
               steps.length > 1
@@ -217,7 +249,7 @@ const OrderListPage = () => {
                 className={`rounded-2xl shadow-lg p-6 cursor-pointer hover:shadow-xl transition-shadow duration-300 ${isDark ? "bg-slate-900 border border-slate-700" : "bg-white"}`}
                 onClick={() => navigate(`/order/${order._id}`)}
               >
-                <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6 gap-4">
                   <div>
                     <h3 className={`font-bold ${isDark ? "text-white" : "text-gray-800"}`}>
                       Order #{order.orderId}
@@ -232,7 +264,7 @@ const OrderListPage = () => {
                   </div>
                   <span
                     className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(
-                      order.orderStatus
+                      order.orderStatus,
                     )}`}
                   >
                     {order.orderStatus.charAt(0).toUpperCase() +
@@ -240,10 +272,8 @@ const OrderListPage = () => {
                   </span>
                 </div>
 
-                {/* Progress Bar with Animation */}
                 <div className="mb-6 px-2">
                   <div className="flex items-center justify-between relative">
-                    {/* Static gray background line */}
                     <div
                       className="absolute top-4 left-0 right-0 h-0.5 bg-gray-200"
                       style={{
@@ -253,7 +283,6 @@ const OrderListPage = () => {
                       }}
                     ></div>
 
-                    {/* Animated progress line - starts at 0%, animates to calculated width */}
                     <div
                       className={`absolute top-4 left-0 h-0.5 transition-all duration-700 ease-out ${
                         theme.bg
@@ -266,7 +295,6 @@ const OrderListPage = () => {
                       }}
                     ></div>
 
-                    {/* Step indicators with staggered animation */}
                     {steps.map((step, index) => (
                       <div
                         key={index}
@@ -278,31 +306,16 @@ const OrderListPage = () => {
                             step.status === "completed"
                               ? "bg-green-500 border-green-500 scale-110"
                               : step.status === "current"
-                              ? `${theme.fillBg} border-${theme.bg
-                                  .split("-")[1]
-                                  .replace("bg-", "")}-500 scale-105` // Filled bg for current
-                              : "bg-white border-gray-300 scale-100"
+                                ? `${theme.fillBg} scale-105 border-transparent`
+                                : "bg-white border-gray-300 scale-100"
                           } ${isAnimated ? "opacity-100" : "opacity-0"}`}
                           style={{
-                            transitionDelay: `${index * 100}ms`, // Staggered entrance
+                            transitionDelay: `${index * 100}ms`,
                           }}
                         >
-                          {step.status === "completed" && (
+                          {(step.status === "completed" || step.status === "current") && (
                             <svg
                               className="w-4 h-4 text-white"
-                              fill="currentColor"
-                              viewBox="0 0 20 20"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          )}
-                          {step.status === "current" && (
-                            <svg
-                              className="w-4 h-4 text-white" // White tick on filled bg
                               fill="currentColor"
                               viewBox="0 0 20 20"
                             >
@@ -318,12 +331,12 @@ const OrderListPage = () => {
                           className={`text-xs mt-2 text-center max-w-[80px] transition-opacity duration-500 ${
                             step.status === "pending"
                               ? "text-gray-400"
-                              : "text-gray-700 font-medium"
+                              : isDark
+                                ? "text-slate-200 font-medium"
+                                : "text-gray-700 font-medium"
                           } ${isAnimated ? "opacity-100" : "opacity-0"}`}
                           style={{
-                            transitionDelay: `${
-                              (steps.length - index) * 100
-                            }ms`, // Reverse stagger for labels
+                            transitionDelay: `${(steps.length - index) * 100}ms`,
                           }}
                         >
                           {step.label}
@@ -333,7 +346,6 @@ const OrderListPage = () => {
                   </div>
                 </div>
 
-                {/* Order Details Grid */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                   <div>
                     <p className={`${isDark ? "text-slate-300" : "text-gray-600"} text-sm`}>Items</p>
@@ -368,14 +380,11 @@ const OrderListPage = () => {
                   <div>
                     <p className={`${isDark ? "text-slate-300" : "text-gray-600"} text-sm`}>Shipping</p>
                     <p className={`font-medium ${isDark ? "text-white" : ""}`}>
-                      {order.shippingAddress.city},{" "}
-                      {order.shippingAddress.district},{" "}
-                      {order.shippingAddress.state}
+                      {order.shippingAddress.city}, {order.shippingAddress.district}, {order.shippingAddress.state}
                     </p>
                   </div>
                 </div>
 
-                {/* View Details Button */}
                 <div className="flex flex-wrap justify-end gap-3">
                   <button className="flex items-center gap-2 text-red-500 hover:text-red-400 font-medium transition-colors duration-200">
                     View Details <FaChevronRight size={14} />
@@ -385,6 +394,62 @@ const OrderListPage = () => {
             );
           })}
         </div>
+
+        {orders.length > ITEMS_PER_PAGE ? (
+          <section className={`mt-8 rounded-2xl px-5 py-4 ${isDark ? "border border-slate-800 bg-slate-900/70" : "border border-slate-200 bg-white shadow-sm"}`}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className={`text-sm ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                Showing {showingFrom}-{showingTo} of {orders.length} orders
+              </p>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isDark
+                      ? "border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  <FaChevronLeft className="h-3 w-3" />
+                  Prev
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    onClick={() => handlePageChange(page)}
+                    className={`h-10 min-w-10 rounded-xl px-3 text-sm font-semibold transition ${
+                      page === currentPage
+                        ? isDark
+                          ? "bg-red-500 text-slate-950 shadow-sm"
+                          : "bg-red-500 text-white shadow-sm"
+                        : isDark
+                          ? "border border-slate-700 bg-slate-950 text-slate-300 hover:bg-slate-800"
+                          : "border border-slate-200 bg-white text-slate-600 hover:bg-red-100"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-50 ${
+                    isDark
+                      ? "border-slate-700 bg-slate-950 text-slate-200 hover:bg-slate-800"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Next
+                  <FaChevronRight className="h-3 w-3" />
+                </button>
+              </div>
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

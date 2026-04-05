@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useDeferredValue } from "react";
 import { IoSearch } from "react-icons/io5";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Sparkles } from "lucide-react";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { useMarketplaceSearch } from "./search/useMarketplaceSearch.js";
@@ -9,6 +9,7 @@ import PageLoader from "./Loader/PageLoader.jsx";
 
 const Search = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { isDark } = useTheme();
   const [query, setQuery] = useState("");
   const [isOpen, setIsOpen] = useState(false);
@@ -34,6 +35,10 @@ const Search = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    setIsOpeningProduct(false);
+  }, [location.pathname, location.search]);
 
   const trimmedQuery = query.trim();
 

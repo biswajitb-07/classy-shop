@@ -1379,7 +1379,7 @@ const Home = () => {
                   <p className="text-sm font-semibold text-slate-200">
                     Community growth chart
                   </p>
-                  <h3 className="mt-2 text-3xl font-black">Users & Vendors</h3>
+
                 </div>
                 <div className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
                   Live summary

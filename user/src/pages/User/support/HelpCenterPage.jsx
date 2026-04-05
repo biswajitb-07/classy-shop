@@ -119,7 +119,7 @@ const HelpCenterPage = () => {
         }`}
       >
         <div
-          className={`px-6 py-10 md:px-10 lg:px-12 ${
+          className={`px-6 py-7 md:px-10 md:py-8 lg:px-12 lg:py-9 ${
             isDark
               ? "bg-[linear-gradient(135deg,#020617_0%,#0f172a_48%,#082f49_100%)]"
               : "bg-[linear-gradient(135deg,#eff6ff_0%,#ffffff_45%,#fef3c7_100%)]"
@@ -129,13 +129,13 @@ const HelpCenterPage = () => {
             <BadgeHelp size={14} />
             Help Center
           </div>
-          <div className="mt-6 grid gap-6 lg:grid-cols-[1.1fr_0.9fr] lg:items-end">
+          <div className="mt-5 grid gap-5 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
             <div>
-              <h1 className="max-w-3xl text-4xl font-black leading-tight md:text-5xl">
+              <h1 className="max-w-3xl text-3xl font-black leading-tight md:text-4xl lg:text-[3.25rem]">
                 Answers, tracking help, and support shortcuts in one place.
               </h1>
               <p
-                className={`mt-4 max-w-3xl text-base leading-7 ${
+                className={`mt-3 max-w-3xl text-[15px] leading-7 ${
                   isDark ? "text-slate-300" : "text-slate-600"
                 }`}
               >
@@ -145,7 +145,7 @@ const HelpCenterPage = () => {
             </div>
 
             <div
-              className={`rounded-[28px] border p-4 shadow-sm ${
+              className={`rounded-[26px] border p-4 shadow-sm lg:p-5 ${
                 isDark
                   ? "border-slate-800 bg-slate-900/80"
                   : "border-white bg-white/80"
