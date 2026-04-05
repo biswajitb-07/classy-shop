@@ -1,12 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
   Ban,
   Clock3,
-  LocateFixed,
-  LocateOff,
   MapPin,
   PackageCheck,
   RotateCcw,
@@ -21,8 +19,6 @@ import PageLoader from "../../../component/Loader/PageLoader";
 import ErrorMessage from "../../../component/error/ErrorMessage";
 import AuthButtonLoader from "../../../component/Loader/AuthButtonLoader";
 import ConfirmDialog from "../../../component/ConfirmDialog";
-import { getDeliverySocket } from "../../../lib/socket";
-import LiveRouteMap from "../../../component/tracking/LiveRouteMap";
 import { resolveDeliveryOrderIdFromRoute } from "../../../utils/orderRouting";
 
 const formatCurrency = (value) =>
@@ -340,7 +336,6 @@ const OrderDetailsPage = () => {
     orderSlug,
     searchParams,
   });
-  const trackingWatchRef = useRef(null);
   const {
     data,
     isLoading,
@@ -350,13 +345,6 @@ const OrderDetailsPage = () => {
   const [otpDialogOpen, setOtpDialogOpen] = useState(false);
   const [otpCode, setOtpCode] = useState("");
   const [otpMeta, setOtpMeta] = useState(null);
-  const [isTrackingActive, setIsTrackingActive] = useState(false);
-  const [isStartingTracking, setIsStartingTracking] = useState(false);
-  const [isStoppingTracking, setIsStoppingTracking] = useState(false);
-  const [liveLocation, setLiveLocation] = useState(null);
-  const [liveDestination, setLiveDestination] = useState(null);
-  const [trackingError, setTrackingError] = useState("");
-  const [routeMeta, setRouteMeta] = useState(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [sendDeliveryCompletionOtp, { isLoading: isSendingOtp }] =
     useSendDeliveryCompletionOtpMutation();
@@ -390,32 +378,6 @@ const OrderDetailsPage = () => {
     return entries;
   }, [order]);
 
-  const isIndiaDeliveryOrder = String(order?.shippingAddress?.country || "")
-    .trim()
-    .toLowerCase()
-    .includes("india");
-  const trackingInfo = order?.deliveryTracking || {};
-  const recentTrailPoints = useMemo(
-    () => sanitizeTrackingPoints(trackingInfo?.recentPoints || [], isIndiaDeliveryOrder),
-    [isIndiaDeliveryOrder, trackingInfo?.recentPoints]
-  );
-  const rawDestinationLocation =
-    liveDestination ||
-    order?.customerLiveLocation ||
-    order?.shippingAddress?.location;
-  const destinationLocation =
-    isIndiaDeliveryOrder &&
-    rawDestinationLocation &&
-    !isWithinIndiaBounds(rawDestinationLocation)
-      ? order?.shippingAddress?.location || null
-      : rawDestinationLocation;
-  const hasCustomerLiveDestination = Boolean(
-    liveDestination?.source === "customer_live" ||
-      (order?.customerLiveLocation?.latitude !== null &&
-        order?.customerLiveLocation?.latitude !== undefined &&
-        order?.customerLiveLocation?.longitude !== null &&
-        order?.customerLiveLocation?.longitude !== undefined)
-  );
   const canMarkDelivered = order?.orderStatus === "out_for_delivery";
   const canCancelOrder = ["processing", "shipped", "out_for_delivery"].includes(
     order?.orderStatus
@@ -423,134 +385,6 @@ const OrderDetailsPage = () => {
   const canCompleteReturn = order?.orderStatus === "return_approved";
   const otpPurpose = canCompleteReturn ? "return" : "delivery";
   const isReturnRequested = order?.orderStatus === "return_requested";
-  const canShareLiveLocation = ["out_for_delivery", "return_approved"].includes(
-    order?.orderStatus
-  );
-
-  useEffect(() => {
-    if (!order) return;
-
-    const currentLocation = order.deliveryTracking?.currentLocation;
-    setLiveLocation(
-      currentLocation?.latitude !== null &&
-        currentLocation?.latitude !== undefined &&
-        currentLocation?.longitude !== null &&
-        currentLocation?.longitude !== undefined
-        ? currentLocation
-        : null
-    );
-    setLiveDestination(
-      order.customerLiveLocation?.latitude !== null &&
-        order.customerLiveLocation?.latitude !== undefined &&
-        order.customerLiveLocation?.longitude !== null &&
-        order.customerLiveLocation?.longitude !== undefined
-        ? order.customerLiveLocation
-        : order.shippingAddress?.location || null
-    );
-    setIsTrackingActive(Boolean(order.deliveryTracking?.isLive));
-    setRouteMeta(null);
-  }, [
-    order?._id,
-    order?.customerLiveLocation?.latitude,
-    order?.customerLiveLocation?.longitude,
-    order?.customerLiveLocation?.updatedAt,
-    order?.shippingAddress?.location?.latitude,
-    order?.shippingAddress?.location?.longitude,
-    order?.deliveryTracking?.isLive,
-    order?.deliveryTracking?.currentLocation?.latitude,
-    order?.deliveryTracking?.currentLocation?.longitude,
-    order?.deliveryTracking?.currentLocation?.updatedAt,
-  ]);
-
-  const stopLiveTracking = ({ silent = false } = {}) => {
-    setIsStoppingTracking(true);
-
-    if (trackingWatchRef.current !== null && navigator.geolocation) {
-      navigator.geolocation.clearWatch(trackingWatchRef.current);
-      trackingWatchRef.current = null;
-    }
-
-    const socket = getDeliverySocket();
-    if (socket.connected && orderId) {
-      socket.emit("delivery:location:stop", { orderId });
-    }
-
-    setIsTrackingActive(false);
-    setIsStartingTracking(false);
-
-    if (!silent) {
-      toast.success("Live tracking stopped");
-    }
-
-    setTimeout(() => {
-      setIsStoppingTracking(false);
-    }, 250);
-  };
-
-  useEffect(() => {
-    if (canShareLiveLocation) return undefined;
-
-    stopLiveTracking({ silent: true });
-    return undefined;
-  }, [canShareLiveLocation]);
-
-  useEffect(
-    () => () => {
-      stopLiveTracking({ silent: true });
-    },
-    []
-  );
-
-  useEffect(() => {
-    const socket = getDeliverySocket();
-
-    const handleTrackingUpdate = (payload) => {
-      if (payload?.orderId !== orderId) return;
-      setLiveLocation(payload.location || null);
-      setIsTrackingActive(Boolean(payload?.tracking?.isLive));
-      setIsStartingTracking(false);
-      setIsStoppingTracking(false);
-    };
-
-    const handleTrackingStop = (payload) => {
-      if (payload?.orderId !== orderId) return;
-      setIsTrackingActive(false);
-      setIsStartingTracking(false);
-      setIsStoppingTracking(false);
-    };
-
-    const handleDestinationUpdate = (payload) => {
-      if (payload?.orderId !== orderId) return;
-      setLiveDestination(payload.destination || order?.shippingAddress?.location || null);
-    };
-
-    const handleTrackingError = (payload) => {
-      if (payload?.orderId !== orderId) return;
-      setTrackingError(
-        payload?.message ||
-          "Live location update reject ho gaya. Browser location settings check karo."
-      );
-      setIsTrackingActive(false);
-      setIsStartingTracking(false);
-      setIsStoppingTracking(false);
-      toast.error(
-        payload?.message ||
-          "Live location update reject ho gaya. Browser location settings check karo."
-      );
-    };
-
-    socket.on("delivery:tracking:update", handleTrackingUpdate);
-    socket.on("delivery:tracking:stopped", handleTrackingStop);
-    socket.on("order:destination:update", handleDestinationUpdate);
-    socket.on("delivery:tracking:error", handleTrackingError);
-
-    return () => {
-      socket.off("delivery:tracking:update", handleTrackingUpdate);
-      socket.off("delivery:tracking:stopped", handleTrackingStop);
-      socket.off("order:destination:update", handleDestinationUpdate);
-      socket.off("delivery:tracking:error", handleTrackingError);
-    };
-  }, [orderId, order?.shippingAddress?.location]);
 
   const handleSendOtp = async () => {
     try {
@@ -578,7 +412,6 @@ const OrderDetailsPage = () => {
         orderId,
         otp: otpCode.trim(),
       }).unwrap();
-      stopLiveTracking({ silent: true });
       toast.success(
         canCompleteReturn
           ? "OTP verified and return pickup completed"
@@ -606,105 +439,11 @@ const OrderDetailsPage = () => {
           reason,
         },
       }).unwrap();
-
-      if (["cancelled", "return_completed"].includes(status)) {
-        stopLiveTracking({ silent: true });
-      }
-
       toast.success(successMessage);
       refetch();
     } catch (error) {
       toast.error(error?.data?.message || "Status update failed");
     }
-  };
-
-  const handleStartLiveTracking = async () => {
-    if (!canShareLiveLocation) {
-      toast.error("Live tracking is available only during delivery or return pickup");
-      return;
-    }
-
-    if (!navigator.geolocation) {
-      toast.error("Location tracking is not supported on this device");
-      return;
-    }
-
-    if (trackingWatchRef.current !== null) {
-      return;
-    }
-
-    setIsStartingTracking(true);
-
-    const socket = getDeliverySocket();
-    if (!socket.connected) {
-      socket.connect();
-    }
-
-    trackingWatchRef.current = navigator.geolocation.watchPosition(
-      (position) => {
-        const nextLocation = {
-          latitude: Number(position.coords.latitude),
-          longitude: Number(position.coords.longitude),
-          accuracy: Number(position.coords.accuracy || 0),
-          heading:
-            position.coords.heading === null || position.coords.heading === undefined
-              ? null
-              : Number(position.coords.heading),
-          speed:
-            position.coords.speed === null || position.coords.speed === undefined
-              ? null
-              : Number(position.coords.speed),
-          updatedAt: new Date().toISOString(),
-        };
-
-        const isIndiaDeliveryOrder = String(order?.shippingAddress?.country || "")
-          .trim()
-          .toLowerCase()
-          .includes("india");
-
-        if (isIndiaDeliveryOrder && !isWithinIndiaBounds(nextLocation)) {
-          const message =
-            "Current device location India ke bahar detect ho rahi hai. Browser location settings ya GPS check karke phir try karo.";
-          setTrackingError(message);
-          setIsTrackingActive(false);
-          setIsStartingTracking(false);
-          toast.error(message);
-          return;
-        }
-
-        setTrackingError("");
-        setLiveLocation(nextLocation);
-        setIsTrackingActive(true);
-        setIsStartingTracking(false);
-        socket.emit("delivery:location:update", {
-          orderId,
-          ...nextLocation,
-        });
-      },
-      (error) => {
-        const message =
-          error?.code === 1
-            ? "Location permission denied. Browser me location allow karo."
-            : error?.code === 2
-            ? "Current location detect nahi ho pa rahi."
-            : "Live location track karne me issue aa raha hai.";
-        setTrackingError(message);
-        setIsTrackingActive(false);
-        setIsStartingTracking(false);
-        toast.error(message);
-      },
-      {
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 5000,
-      }
-    );
-
-    toast.success(
-      canCompleteReturn
-        ? "Return pickup live tracking started"
-        : "Delivery live tracking started"
-    );
   };
 
   if (isLoading) {
@@ -726,65 +465,7 @@ const OrderDetailsPage = () => {
     );
   }
 
-  const rawMapLocation = getResolvedTrackingLocation({
-    liveLocation,
-    trailPoints: recentTrailPoints,
-    currentLocation: trackingInfo.currentLocation,
-    restrictToIndia: isIndiaDeliveryOrder,
-  });
-  const mapLocation =
-    isIndiaDeliveryOrder &&
-    rawMapLocation &&
-    !isWithinIndiaBounds(rawMapLocation)
-      ? null
-      : rawMapLocation;
-  const hasMapLocation = Boolean(
-    mapLocation?.latitude !== null &&
-      mapLocation?.latitude !== undefined &&
-      mapLocation?.longitude !== null &&
-      mapLocation?.longitude !== undefined
-  );
-  const hasDestinationLocation = Boolean(
-    hasCoordinate(destinationLocation?.latitude, destinationLocation?.longitude)
-  );
-  const mapLink = hasMapLocation
-    ? getMapUrl(mapLocation.latitude, mapLocation.longitude)
-    : "";
-  const directionsUrl = buildDirectionsUrl(mapLocation, destinationLocation);
-  const fallbackDistanceKm =
-    hasMapLocation && hasDestinationLocation
-      ? calculateDistanceKm(mapLocation, destinationLocation)
-      : null;
-  const distanceKm =
-    routeMeta?.distanceKm !== null && routeMeta?.distanceKm !== undefined
-      ? routeMeta.distanceKm
-      : fallbackDistanceKm;
-  const fallbackEtaMinutes = estimateEtaMinutes(
-    fallbackDistanceKm,
-    mapLocation?.speed
-  );
-  const etaMinutes =
-    routeMeta?.durationMinutes !== null && routeMeta?.durationMinutes !== undefined
-      ? routeMeta.durationMinutes
-      : fallbackEtaMinutes;
-  const movementTrend = getDistanceTrend({
-    trailPoints: recentTrailPoints,
-    currentLocation: mapLocation,
-    destination: destinationLocation,
-  });
-  const nearbyState = getNearbyState(distanceKm, isTrackingActive);
-  const activeMovementState = nearbyState.priority ? nearbyState : movementTrend;
-  const relativePingLabel = formatRelativePingTime(
-    mapLocation?.updatedAt ||
-      mapLocation?.at ||
-      trackingInfo?.lastSharedAt ||
-      trackingInfo?.updatedAt
-  );
-  const trackingMilestones = getTrackingMilestones(
-    order.orderStatus,
-    isTrackingActive
-  );
-  const isTrackingActionLoading = isStartingTracking || isStoppingTracking;
+  const timelineMoments = timeline.slice(-4).reverse();
 
   return (
     <div className="space-y-6">
@@ -889,231 +570,80 @@ const OrderDetailsPage = () => {
           <div className="rounded-[2rem] border border-slate-800 bg-slate-900/70 p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="text-lg font-semibold text-white">Live map tracking</h2>
+                <h2 className="text-lg font-semibold text-white">Delivery progress</h2>
                 <p className="mt-2 text-sm text-slate-400">
-                  {canCompleteReturn
-                    ? "Return pickup route share karne ke liye live location start karo."
-                    : "Out-for-delivery orders ke liye live location share karo."}
+                  Live map tracking completely remove kar diya gaya hai. Ab delivery handling
+                  status updates, OTP verification, aur return actions se manage hoga.
                 </p>
               </div>
-              <span
-                className={`rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] ${
-                  isTrackingActive
-                    ? "bg-cyan-500/15 text-cyan-300"
-                    : "bg-slate-800 text-slate-300"
-                }`}
-              >
-                {isTrackingActive ? "Tracking live" : "Tracking paused"}
+              <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-indigo-200">
+                {formatStatus(order.orderStatus)}
               </span>
             </div>
 
-            <div className="mt-5 space-y-4">
-              <div className="rounded-3xl border border-cyan-500/20 bg-cyan-500/10 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                      Destination
-                    </p>
-                    <p className="mt-2 text-lg font-bold text-white">
-                      {order.shippingAddress?.fullName}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-300">
-                      {order.shippingAddress?.city}, {order.shippingAddress?.state}
-                    </p>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <p className="text-xs uppercase tracking-[0.22em] text-slate-400">
-                      Estimated arrival
-                    </p>
-                    <p className="mt-2 text-lg font-bold text-white">
-                      {formatEta(etaMinutes)}
-                    </p>
-                    <p className="mt-1 text-sm text-slate-300">
-                      {formatDistance(distanceKm)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  {trackingMilestones.map((step) => (
-                    <div
-                      key={step.label}
-                      className={`rounded-2xl border px-4 py-3 ${
-                        step.done
-                          ? "border-emerald-400/25 bg-emerald-500/10 text-emerald-300"
-                          : step.active
-                          ? "border-cyan-400/25 bg-cyan-500/10 text-cyan-300"
-                          : "border-slate-800 bg-slate-950/60 text-slate-400"
-                      }`}
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em]">
-                        {step.done ? "Done" : step.active ? "Active" : "Next"}
-                      </p>
-                      <p className="mt-2 text-sm font-semibold">{step.label}</p>
-                    </div>
-                  ))}
-                </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
+                  Delivery stage
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">
+                  {canCompleteReturn
+                    ? "Return pickup"
+                    : canMarkDelivered
+                    ? "Final delivery"
+                    : "Order handling"}
+                </p>
               </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
+                  Customer
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">
+                  {order.shippingAddress?.fullName || "Customer"}
+                </p>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
+                  Destination
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">
+                  {order.shippingAddress?.city}, {order.shippingAddress?.state}
+                </p>
+              </div>
+              <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
+                  Last update
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">
+                  {formatDateTime(order.updatedAt || order.createdAt)}
+                </p>
+              </div>
+            </div>
 
-              {false ? (
-                <div className="space-y-4">
-                  <div className="rounded-[24px] border border-slate-800 bg-slate-950/80 p-4">
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div>
-                        <p className="text-xs uppercase tracking-[0.22em] text-slate-500">
-                          Live navigation map
-                        </p>
-                        <h3 className="mt-2 text-2xl font-black text-white">
-                          {etaMinutes
-                            ? `Reach in ${formatEta(etaMinutes)}`
-                            : hasDestinationLocation
-                            ? "Navigate to customer"
-                            : "Waiting for customer pin"}
-                        </h3>
-                        <p className="mt-2 text-sm text-slate-400">
-                          {hasDestinationLocation
-                            ? "Zoom, recenter aur live route follow karke exact road path dekho."
-                            : "Customer saved/live pin sync hote hi full route line draw ho jayegi."}
-                        </p>
-                      </div>
-
-                      <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                            Tracking
-                          </p>
-                          <p className="mt-2 text-sm font-bold text-white">
-                            {isTrackingActive ? "Live now" : "Paused"}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {relativePingLabel}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                            Distance
-                          </p>
-                          <p className="mt-2 text-sm font-bold text-white">
-                            {formatDistance(distanceKm)}
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-800 bg-slate-900/80 px-4 py-3">
-                          <p className="text-[11px] uppercase tracking-[0.18em] text-slate-500">
-                            Nearby
-                          </p>
-                          <p className="mt-2 text-sm font-bold text-white">
-                            {nearbyState.label}
-                          </p>
-                          <p className="mt-1 text-xs text-slate-500">
-                            {nearbyState.detail}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+            <div className="mt-5 grid gap-3 md:grid-cols-2">
+              {timelineMoments.length ? (
+                timelineMoments.map((entry, index) => (
+                  <div
+                    key={`${entry.to || entry.at || index}`}
+                    className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4"
+                  >
+                    <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
+                      {formatStatus(entry.to || order.orderStatus)}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-white">
+                      {entry.reason || "Status updated successfully."}
+                    </p>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {formatDateTime(entry.at || order.updatedAt || order.createdAt)}
+                    </p>
                   </div>
-
-                  <LiveRouteMap
-                    key={`${Number(mapLocation?.latitude || 0).toFixed(6)}:${Number(
-                      mapLocation?.longitude || 0,
-                    ).toFixed(6)}-${Number(destinationLocation?.latitude || 0).toFixed(6)}:${Number(
-                      destinationLocation?.longitude || 0,
-                    ).toFixed(6)}`}
-                    origin={mapLocation}
-                    destination={destinationLocation}
-                    trailPoints={recentTrailPoints}
-                    heightClass="h-[24rem] md:h-[30rem]"
-                    restrictToIndia={isIndiaDeliveryOrder}
-                    riderLabel="Your live location"
-                    destinationLabel={
-                      hasCustomerLiveDestination
-                        ? "Customer live location"
-                        : order.shippingAddress?.fullName || "Customer"
-                    }
-                    statusLabel={
-                      isTrackingActive
-                        ? canCompleteReturn
-                          ? "Tracking return pickup"
-                          : "Tracking delivery"
-                        : "Tracking paused"
-                    }
-                    headline={
-                      etaMinutes
-                        ? `Reach in ${formatEta(etaMinutes)}`
-                        : hasDestinationLocation
-                        ? "Navigate to customer"
-                        : "Waiting for customer pin"
-                    }
-                    subheadline={
-                      routeMeta?.isFallback
-                        ? "Road route sync ho raha hai. Filhaal fallback connector active hai."
-                        : hasDestinationLocation
-                        ? "Blue route aapki live movement ke hisaab se update hoti rahegi."
-                        : "Customer saved/live pin sync hote hi full route draw ho jayega."
-                    }
-                    etaLabel={formatEta(etaMinutes)}
-                    distanceLabel={formatDistance(distanceKm)}
-                    movementLabel={activeMovementState.label}
-                    heading={mapLocation?.heading || trackingInfo?.currentLocation?.heading}
-                    onRouteMetaChange={setRouteMeta}
-                  />
-                </div>
+                ))
               ) : (
-                <div className="rounded-3xl border border-dashed border-slate-700 px-5 py-10 text-center text-sm text-slate-500">
-                  Live location start karte hi map yahan show hoga.
+                <div className="rounded-3xl border border-dashed border-slate-700 px-5 py-10 text-center text-sm text-slate-500 md:col-span-2">
+                  Timeline updates abhi kam hain. Jaise-jaise status change hoga, summary
+                  yahan dikh jayegi.
                 </div>
               )}
-
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
-                    Last shared
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-white">
-                    {relativePingLabel}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
-                    Coordinates
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-white">
-                    {hasMapLocation
-                      ? `${Number(mapLocation.latitude).toFixed(5)}, ${Number(
-                          mapLocation.longitude
-                        ).toFixed(5)}`
-                      : "Not shared yet"}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
-                    Distance left
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-white">
-                    {formatDistance(distanceKm)}
-                  </p>
-                </div>
-                <div className="rounded-3xl border border-slate-800 bg-slate-950/70 p-4">
-                  <p className="text-xs uppercase tracking-[0.2em] text-slate-600">
-                    Movement
-                  </p>
-                  <p className="mt-2 text-sm font-semibold text-white">
-                    {activeMovementState.label}
-                  </p>
-                  <p className="mt-1 text-xs text-slate-500">
-                    {activeMovementState.detail}
-                  </p>
-                </div>
-              </div>
-
-              {trackingError ? (
-                <div className="rounded-3xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-200">
-                  {trackingError}
-                </div>
-              ) : null}
-
-              <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/60 px-4 py-3 text-sm text-slate-400">
-                Live map tracking remove kar diya gaya hai. Order handling ab status, OTP, cancel, aur return actions se manage hoga.
-              </div>
             </div>
           </div>
 
@@ -1318,3 +848,4 @@ const OrderDetailsPage = () => {
 };
 
 export default OrderDetailsPage;
+

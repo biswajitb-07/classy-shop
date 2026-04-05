@@ -5,7 +5,6 @@ import {
   Bike,
   CheckCircle2,
   ChevronRight,
-  MapPinned,
   PackageCheck,
   RotateCcw,
   Route,
@@ -268,10 +267,6 @@ const Home = () => {
     (sum, order) => sum + Number(order.totalAmount || 0),
     0
   );
-  const liveTrackingCount =
-    summary.liveTrackingOrders ||
-    orders.filter((order) => order.deliveryTracking?.isLive).length;
-
   const today = new Date();
   const last7Days = Array.from({ length: 7 }, (_, index) => {
     const date = new Date(today);
@@ -331,8 +326,8 @@ const Home = () => {
 
   const snapshotData = [
     {
-      name: "Live tracking",
-      value: liveTrackingCount,
+      name: "Active deliveries",
+      value: summary.outForDeliveryOrders || 0,
       color: "#06b6d4",
     },
     {
@@ -381,10 +376,10 @@ const Home = () => {
             </div>
             <div className="rounded-3xl border border-cyan-500/20 bg-cyan-500/10 px-5 py-4 text-right">
               <p className="text-xs uppercase tracking-[0.25em] text-cyan-200/80">
-                Live Tracking
+                Active Deliveries
               </p>
               <p className="mt-2 text-2xl font-bold text-white">
-                {formatCompact(liveTrackingCount)}
+                {formatCompact(summary.outForDeliveryOrders || 0)}
               </p>
             </div>
           </div>
@@ -698,12 +693,6 @@ const Home = () => {
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {order.deliveryTracking?.isLive ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/10 px-3 py-1 text-[11px] font-semibold text-cyan-200">
-                        <MapPinned size={12} />
-                        Live
-                      </span>
-                    ) : null}
                     <span className="rounded-full bg-indigo-500/15 px-3 py-1 text-xs font-medium text-indigo-200">
                       {formatStatus(order.orderStatus)}
                     </span>

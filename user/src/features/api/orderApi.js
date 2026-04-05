@@ -154,35 +154,6 @@ export const orderApi = createApi({
       }),
       invalidatesTags: ["Order", "UserNotification"],
     }),
-    saveCustomerLiveLocation: builder.mutation({
-      query: ({ orderId, body }) => ({
-        url: `/location/${orderId}`,
-        method: "PUT",
-        body,
-      }),
-      async onQueryStarted({ orderId }, { queryFulfilled, dispatch }) {
-        try {
-          const { data } = await queryFulfilled;
-          const nextDestination = data?.destination;
-
-          if (!nextDestination) return;
-
-          dispatch(
-            orderApi.util.updateQueryData("getUserOrders", undefined, (draft) => {
-              if (!draft?.orders?.length) return;
-
-              const matchedOrder = draft.orders.find((order) => order?._id === orderId);
-              if (!matchedOrder) return;
-
-              matchedOrder.customerLiveLocation = nextDestination;
-            }),
-          );
-        } catch (_error) {
-          // Mutation error is handled by the caller toast path.
-        }
-      },
-      invalidatesTags: ["Order"],
-    }),
     deleteUserNotification: builder.mutation({
       query: (id) => ({
         url: `/notifications/${id}`,
@@ -211,7 +182,6 @@ export const {
   useValidateCouponMutation,
   useConfirmPaymentMutation,
   useUpdateOrderStatusMutation,
-  useSaveCustomerLiveLocationMutation,
   useDeleteUserNotificationMutation,
   useClearUserNotificationsMutation,
 } = orderApi;

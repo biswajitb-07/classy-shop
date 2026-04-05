@@ -8,7 +8,6 @@ import {
   downloadUserInvoice,
   downloadVendorInvoice,
   orderStatusUpdate,
-  updateCustomerDeliveryLocation,
   getUserNotifications,
   markUserNotificationsAsRead,
   deleteUserNotification,
@@ -25,11 +24,6 @@ orderRouter.post("/confirm-payment", isAuthenticatedUser, confirmPayment);
 orderRouter.get("/", isAuthenticatedUser, getUserOrders);
 orderRouter.get("/invoice/:orderId", isAuthenticatedUser, downloadUserInvoice);
 orderRouter.get("/vendor/invoice/:orderId", isAuthenticatedVendor, downloadVendorInvoice);
-orderRouter.put(
-  "/location/:orderId",
-  isAuthenticatedUser,
-  updateCustomerDeliveryLocation
-);
 orderRouter.get("/notifications", isAuthenticatedUser, getUserNotifications);
 orderRouter.patch("/notifications/read", isAuthenticatedUser, markUserNotificationsAsRead);
 orderRouter.get("/vendor-orders", isAuthenticatedVendor, getVendorOrders);

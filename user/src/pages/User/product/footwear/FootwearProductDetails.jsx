@@ -286,7 +286,7 @@ const FootwearProductDetails = () => {
           </div>
         </div>
 
-        <div className="flex flex-col xl:flex-row gap-5 md:gap-7">
+        <div className="flex flex-col gap-5 md:gap-7 xl:flex-row xl:items-start">
           <div className="flex xl:flex-col gap-2 overflow-x-auto lg:overflow-x-hidden lg:overflow-y-auto pb-2 lg:pb-0">
             {product.image?.map((img, idx) => {
               const isSelected = mainImage ? mainImage === img : idx === 0;
@@ -309,7 +309,7 @@ const FootwearProductDetails = () => {
 
           {/* Main Image */}
           <div
-            className="flex justify-center items-center overflow-hidden w-full xl:w-[33rem] rounded-2xl"
+            className="flex w-full self-start justify-center overflow-hidden rounded-2xl xl:w-[33rem] xl:items-start"
             onMouseMove={handleMouseMove}
             onMouseLeave={() => setTransformOrigin("50% 50%")}
           >
@@ -433,3 +433,4 @@ const FootwearProductDetails = () => {
 };
 
 export default FootwearProductDetails;
+

@@ -19,7 +19,6 @@ import { DeliveryNotification } from "../../models/delivery/deliveryNotification
 import {
   emitDeliveryDashboardUpdate,
   emitDeliveryNotificationUpdate,
-  emitOrderDestinationUpdated,
   emitUserNotificationUpdate,
   emitVendorDashboardUpdate,
   emitVendorNotificationUpdate,
@@ -374,13 +373,7 @@ const getOtpPurposeForOrder = (order) => {
   return "delivery";
 };
 
-const stopDeliveryTracking = (order) => {
-  if (!order) return;
-
-  order.deliveryTracking = order.deliveryTracking || {};
-  order.deliveryTracking.isLive = false;
-  order.deliveryTracking.stoppedAt = new Date();
-};
+const stopDeliveryTracking = (_order) => {};
 
 const appendStatusHistoryEntry = (
   order,
@@ -1495,88 +1488,6 @@ export const downloadVendorInvoice = async (req, res) => {
   }
 };
 
-export const updateCustomerDeliveryLocation = async (req, res) => {
-  try {
-    const { orderId } = req.params;
-    const latitude = sanitizeCustomerGeo(req.body?.latitude, {
-      min: -90,
-      max: 90,
-    });
-    const longitude = sanitizeCustomerGeo(req.body?.longitude, {
-      min: -180,
-      max: 180,
-    });
-    const accuracy = sanitizeCustomerGeo(req.body?.accuracy, { min: 0 });
-
-    if (latitude === null || longitude === null) {
-      return res.status(400).json({
-        success: false,
-        message: "Valid latitude and longitude are required",
-      });
-    }
-
-    const order = await Order.findById(orderId);
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        message: "Order not found",
-      });
-    }
-
-    if (String(order.userId) !== String(req.id)) {
-      return res.status(403).json({
-        success: false,
-        message: "You are not allowed to update this order location",
-      });
-    }
-
-    if (["delivered", "cancelled", "return_completed", "return_rejected"].includes(order.orderStatus)) {
-      return res.status(400).json({
-        success: false,
-        message: "This order no longer accepts customer live location updates",
-      });
-    }
-
-    if (
-      isIndiaOrder(order) &&
-      !isWithinIndiaBounds({ latitude, longitude })
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Current location India ke bahar detect ho rahi hai. Browser location settings check karke phir try karo.",
-      });
-    }
-
-    order.customerLiveLocation = {
-      latitude,
-      longitude,
-      accuracy,
-      label:
-        String(req.body?.label || "").trim() || "Customer live location",
-      source: "customer_live",
-      updatedAt: new Date(),
-    };
-    order.updatedAt = Date.now();
-    await order.save();
-
-    emitOrderDestinationUpdated(order);
-
-    return res.status(200).json({
-      success: true,
-      message: "Customer live location updated successfully",
-      order,
-      destination: order.customerLiveLocation,
-    });
-  } catch (error) {
-    console.error("updateCustomerDeliveryLocation error:", error);
-    return res.status(500).json({
-      success: false,
-      message: "Failed to update customer live location",
-    });
-  }
-};
-
 export const sendDeliveryCompletionOtp = async (req, res) => {
   try {
     if (req.role !== "delivery") {
@@ -2370,10 +2281,6 @@ export const orderStatusUpdate = async (req, res) => {
       order.orderStatus = normalizedStatus;
       if (normalizedStatus === "out_for_delivery") {
         await ensureOrderShippingLocation(order);
-        order.deliveryTracking = order.deliveryTracking || {};
-        order.deliveryTracking.isLive = false;
-        order.deliveryTracking.startedAt = null;
-        order.deliveryTracking.stoppedAt = new Date();
       }
       order.updatedAt = Date.now();
       await order.save();

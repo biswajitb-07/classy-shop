@@ -472,7 +472,6 @@ export const getDeliveryDashboardSummary = async (req, res) => {
       completedOrders,
       outForDeliveryOrders,
       returnPickupOrders,
-      liveTrackingOrders,
       cancelledOrders,
       payoutHistory,
     ] =
@@ -489,10 +488,6 @@ export const getDeliveryDashboardSummary = async (req, res) => {
         Order.countDocuments({
           assignedDeliveryPartner: req.id,
           orderStatus: "return_approved",
-        }),
-        Order.countDocuments({
-          assignedDeliveryPartner: req.id,
-          "deliveryTracking.isLive": true,
         }),
         Order.countDocuments({
           assignedDeliveryPartner: req.id,
@@ -522,7 +517,6 @@ export const getDeliveryDashboardSummary = async (req, res) => {
         completedOrders,
         outForDeliveryOrders,
         returnPickupOrders,
-        liveTrackingOrders,
         cancelledOrders,
         payoutSummary,
       },
