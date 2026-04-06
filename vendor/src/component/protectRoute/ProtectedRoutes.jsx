@@ -1,13 +1,14 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { useLoadUserQuery } from "../../features/api/authApi";
+import PageLoader from "../Loader/PageLoader.jsx";
 
 export const VendorRoute = ({ children }) => {
   const { isAuthenticated } = useSelector((store) => store.auth);
   const { isLoading } = useLoadUserQuery();
 
   if (isLoading) {
-    return null;
+    return <PageLoader message="Opening vendor dashboard..." />;
   }
 
   if (!isAuthenticated) {
@@ -26,7 +27,7 @@ export const PublicRoute = ({ children }) => {
     params.get("blocked") === "1" || params.get("google") === "blocked";
 
   if (isLoading) {
-    return null;
+    return <PageLoader message="Checking vendor session..." />;
   }
 
   if (isAuthenticated && !allowLoginMessage) {

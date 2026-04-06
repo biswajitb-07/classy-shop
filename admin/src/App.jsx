@@ -4,14 +4,14 @@ import { Toaster, toast } from "react-hot-toast";
 import { WifiOff } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const Home = lazy(() => import("./pages/Vendor/vedorPage/Home"));
+import Home from "./pages/Vendor/vedorPage/Home";
 const Login = lazy(() => import("./pages/Vendor/auth/Login"));
 const ForgotPassword = lazy(() => import("./pages/Vendor/auth/ForgetPassword"));
 import {
   VendorRoute,
   PublicRoute,
 } from "./component/protectRoute/ProtectedRoutes";
-const MainLayout = lazy(() => import("./layout/MainLayout"));
+import MainLayout from "./layout/MainLayout";
 const Category = lazy(() => import("./pages/Vendor/category/Category"));
 const Profile = lazy(() => import("./pages/Vendor/profile/Profile"));
 const CategoryList = lazy(() => import("./pages/Vendor/category/CategoryList"));
