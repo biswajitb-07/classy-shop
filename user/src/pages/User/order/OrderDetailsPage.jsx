@@ -926,6 +926,73 @@ const OrderDetailsPage = () => {
       });
   };
 
+  const openCancelDialog = () => {
+    setConfirmMeta({
+      type: "cancel",
+      title: "Cancel this order?",
+      description:
+        "Ye order cancel ho jayega. Agar payment ho chuki hai to refund process order status ke hisaab se start ho jayega.",
+    });
+    setConfirmOpen(true);
+  };
+
+  const handleConfirm = async () => {
+    if (confirmMeta.type !== "cancel") {
+      setConfirmOpen(false);
+      return;
+    }
+
+    try {
+      const response = await updateOrderStatus({
+        orderId: order._id,
+        body: {
+          orderStatus: "cancelled",
+          reason: "Cancelled by user",
+        },
+      }).unwrap();
+
+      toast.success(response?.message || "Order cancelled successfully");
+      setConfirmOpen(false);
+    } catch (error) {
+      toast.error(error?.data?.message || "Order cancel nahi ho paya");
+    }
+  };
+
+  const openReturnDialog = () => {
+    if (!returnPolicy.isEligible) {
+      toast.error("Return window close ho chuki hai");
+      return;
+    }
+
+    setReturnReason(returnRequestInfo?.reason || "");
+    setReturnDialogOpen(true);
+  };
+
+  const handleReturnRequest = async () => {
+    const trimmedReason = returnReason.trim();
+
+    if (!trimmedReason) {
+      toast.error("Please return reason likhiye");
+      return;
+    }
+
+    try {
+      const response = await updateOrderStatus({
+        orderId: order._id,
+        body: {
+          orderStatus: "return_requested",
+          reason: trimmedReason,
+        },
+      }).unwrap();
+
+      toast.success(response?.message || "Return requested successfully");
+      setReturnDialogOpen(false);
+      setReturnReason("");
+    } catch (error) {
+      toast.error(error?.data?.message || "Return request submit nahi ho paya");
+    }
+  };
+
   const renderLiveTrackingCard = () => null;
 
   return (
