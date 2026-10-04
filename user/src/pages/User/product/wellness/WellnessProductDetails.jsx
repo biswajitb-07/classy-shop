@@ -158,7 +158,7 @@ const WellnessProductDetails = () => {
     );
 
     if (result.limitReached) {
-      toast.error("Compare list me maximum 4 products add kar sakte ho.");
+      toast.error("You can compare up to four products.");
       return;
     }
 

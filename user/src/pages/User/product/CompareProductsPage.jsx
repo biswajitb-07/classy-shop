@@ -98,8 +98,8 @@ const CompareProductsPage = () => {
               isDark ? "text-slate-300" : "text-slate-600"
             }`}
           >
-            Product detail pages se Compare button use karke shortlisted products
-            yahan side-by-side dekh sakte ho.
+            Use the Compare button on product pages to review your shortlisted
+            products side by side here.
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <button
@@ -156,8 +156,8 @@ const CompareProductsPage = () => {
                   isDark ? "text-slate-300" : "text-slate-600"
                 }`}
               >
-                Price, ratings, stock, specs, aur shipping details ek saath dekhkar
-                faster decision le sakte ho.
+                Compare prices, ratings, stock, specifications, and shipping
+                details together to make a faster decision.
               </p>
             </div>
 
@@ -184,7 +184,7 @@ const CompareProductsPage = () => {
               </p>
               <p className="mt-3 text-3xl font-black">{products.length}</p>
               <p className={`mt-2 text-sm ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                Upto 4 products ko ek saath compare kar sakte ho.
+                Compare up to four products at a time.
               </p>
             </div>
             <div
@@ -298,7 +298,7 @@ const CompareProductsPage = () => {
                       Add another product
                     </p>
                     <p className="mt-2 text-xs">
-                      Product detail page se Compare use karo.
+                      Use Compare on a product details page.
                     </p>
                   </div>
                 </div>

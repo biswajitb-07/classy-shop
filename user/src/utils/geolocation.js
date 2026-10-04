@@ -54,7 +54,7 @@ export const getBestCurrentLocation = (config = {}) =>
       cleanup();
 
       if (!bestSample) {
-        const error = new Error("Current location detect nahi ho pa rahi.");
+        const error = new Error("Unable to detect your current location.");
         error.code = 2;
         reject(error);
         return;

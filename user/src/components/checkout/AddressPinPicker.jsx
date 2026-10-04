@@ -63,7 +63,7 @@ const AddressPinPicker = ({ value, onChange }) => {
         <div>
           <p className="text-sm font-semibold text-gray-800">Map Pin Selection</p>
           <p className="text-xs text-gray-500">
-            Map par click karke exact delivery pin choose karo.
+            Click the map to choose the exact delivery location.
           </p>
         </div>
         {markerPosition ? (

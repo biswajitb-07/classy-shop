@@ -15,14 +15,14 @@ const QUICK_PROMPT_POOL = [
   "50% off items dikhao",
   "30% off fashion products dikhao",
   "4 star se upar fashion products dikhao",
-  "Mujhe cheap fashion items suggest karo",
-  "Under Rs 1000 ke products dikhao",
-  "Order kaise track kare",
-  "Theme change kaise kare",
+  "Suggest affordable fashion items",
+  "Show products under Rs 1,000",
+  "How do I track my order?",
+  "How do I change the theme?",
   "Terms and conditions samjhao",
   "Mera latest order batao",
-  "Wishlist kaise use kare",
-  "Cart me item kaise add kare",
+  "How do I use the wishlist?",
+  "How do I add an item to my cart?",
   "Above 40% off products dikhao",
 ];
 
@@ -118,7 +118,7 @@ const AIChatbotWidget = () => {
     {
       role: "assistant",
       content:
-        "Hi, main aapka ClassyShop AI shopping assistant hoon. Products, discounts, order guidance, ya website navigation me help kar sakta hoon.",
+        "Hi, I’m your ClassyShop AI shopping assistant. I can help with products, discounts, orders, and navigating the website.",
     },
   ]);
   const requestControllerRef = useRef(null);
@@ -417,8 +417,8 @@ const AIChatbotWidget = () => {
             </div>
             <div className="space-y-3 px-4 py-4 text-sm text-slate-700">
               <p>
-                AI chat use karne ke liye pehle login karo. Login ke baad
-                personalized recommendations aur AI support dono available honge.
+                Sign in to use AI chat. Personalized recommendations and AI
+                support will be available after you sign in.
               </p>
               <Link
                 to="/login"
@@ -595,7 +595,7 @@ const AIChatbotWidget = () => {
                 onKeyDown={(event) => {
                   if (event.key === "Enter") handleSend();
                 }}
-                placeholder="Products, orders, ya website help poochhiye..."
+                placeholder="Ask about products, orders, or the website..."
                 className="flex-1 rounded-2xl border border-slate-200 px-4 py-3 text-sm outline-none focus:border-orange-400"
               />
               <button

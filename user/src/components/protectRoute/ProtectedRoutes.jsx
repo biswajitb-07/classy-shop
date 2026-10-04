@@ -7,7 +7,7 @@ export const UserRoute = ({ children }) => {
   const { isAuthenticated } = useSelector((s) => s.auth);
   const { isLoading } = useLoadUserQuery();
 
-  // Auth API se response aane tak wait karo — reload par white page na aaye
+  // Wait for the auth response so a reload does not briefly show a blank page.
   if (isLoading) return null;
 
   if (!isAuthenticated) {
@@ -30,7 +30,7 @@ export const PublicRoute = ({ children }) => {
   const allowLoginMessage =
     params.get("blocked") === "1" || params.get("google") === "blocked";
 
-  // Auth API se response aane tak wait karo
+  // Wait for the auth response before redirecting.
   if (isLoading) return null;
 
   if (isAuthenticated && !allowLoginMessage) {

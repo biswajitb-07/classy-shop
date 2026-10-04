@@ -164,7 +164,7 @@ const AIRecommendationDialog = () => {
               <div>
                 <p className="text-sm font-bold">Recommended For You</p>
                 <p className="mt-1 text-xs leading-5 text-white/90">
-                  {recommendation.reply || "Aapki recent AI activity ke basis par yeh products suggest kiye gaye hain."}
+                  {recommendation.reply || "These products are based on your recent AI activity."}
                 </p>
               </div>
               <button

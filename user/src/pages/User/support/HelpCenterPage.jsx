@@ -16,28 +16,28 @@ import { useTheme } from "../../../context/ThemeContext.jsx";
 const quickActions = [
   {
     title: "Track my order",
-    description: "Order movement, live tracking, ETA, and delivery status dekho.",
+    description: "View order progress, live tracking, ETA, and delivery status.",
     icon: LocateFixed,
     to: "/orders",
     accent: "from-cyan-500 to-blue-500",
   },
   {
     title: "Contact support",
-    description: "Chat support se issue raise karo ya order help lo.",
+    description: "Contact chat support about an issue or an order.",
     icon: Headset,
     to: "/support",
     accent: "from-fuchsia-500 to-pink-500",
   },
   {
     title: "Compare products",
-    description: "Shortlisted products ko side-by-side compare karo.",
+    description: "Compare shortlisted products side by side.",
     icon: PackageSearch,
     to: "/compare-products",
     accent: "from-amber-500 to-orange-500",
   },
   {
     title: "Wallet & referrals",
-    description: "Wallet balance, rewards, aur invite earnings check karo.",
+    description: "Review your wallet balance, rewards, and referral earnings.",
     icon: Wallet,
     to: "/profile",
     accent: "from-emerald-500 to-teal-500",
@@ -48,25 +48,25 @@ const primaryFaqs = [
   {
     question: "How do I track my order live?",
     answer:
-      "Order details ya dedicated Track Order page par jaake delivery partner ka live route, ETA, aur movement direction dekh sakte ho.",
+      "Open your order details or the Track Order page to view the delivery partner's route, ETA, and direction.",
     icon: LocateFixed,
   },
   {
     question: "How do returns work on ClassyShop?",
     answer:
-      "Delivered orders par return request raise ki ja sakti hai. Vendor approval ke baad pickup assignment aur OTP-based return completion flow chalta hai.",
+      "You can request a return for delivered orders. After vendor approval, a pickup is assigned and completed with an OTP.",
     icon: FileText,
   },
   {
     question: "Can I compare products before buying?",
     answer:
-      "Haan. Product detail pages se Compare add karo aur Compare Products page par price, rating, shipping, aur specs side-by-side dekho.",
+      "Yes. Select Compare on a product details page, then review prices, ratings, shipping, and specifications on the Compare Products page.",
     icon: PackageSearch,
   },
   {
     question: "Is payment and wallet usage secure?",
     answer:
-      "Checkout me secure payment flow aur wallet deduction summary dono dikhte hain. Order details me payment method aur invoice bhi available hai.",
+      "Checkout shows secure payment options and a wallet deduction summary. Your order details include the payment method and invoice.",
     icon: ShieldCheck,
   },
 ];
@@ -139,8 +139,8 @@ const HelpCenterPage = () => {
                   isDark ? "text-slate-300" : "text-slate-600"
                 }`}
               >
-                Order status, returns, payments, compare help, wallet, aur store
-                policies ke liye yahin se quick path mil jayega.
+                Find quick links for order status, returns, payments, product
+                comparisons, your wallet, and store policies.
               </p>
             </div>
 

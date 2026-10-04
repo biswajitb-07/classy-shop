@@ -385,7 +385,7 @@ const getDistanceTrend = ({ trailPoints = [], currentLocation, destination }) =>
   if (!hasCoordinate(destination?.latitude, destination?.longitude)) {
     return {
       label: "Waiting for route",
-      detail: "Destination pin sync hone ke baad movement insight dikh jayega.",
+      detail: "Movement insights will appear after the destination pin syncs.",
       tone: "neutral",
     };
   }
@@ -425,7 +425,7 @@ const getDistanceTrend = ({ trailPoints = [], currentLocation, destination }) =>
   ) {
     return {
       label: "Checking movement",
-      detail: "Latest route data analyse ho raha hai.",
+      detail: "Analyzing the latest route data.",
       tone: "neutral",
     };
   }
@@ -436,7 +436,7 @@ const getDistanceTrend = ({ trailPoints = [], currentLocation, destination }) =>
   if (deltaKm > 0.05) {
     return {
       label: "Approaching you",
-      detail: `Last update me rider lagbhag ${deltaMeters} m aur paas aaya hai.`,
+      detail: `The delivery partner moved about ${deltaMeters} m closer since the last update.`,
       tone: "approaching",
     };
   }
@@ -444,14 +444,14 @@ const getDistanceTrend = ({ trailPoints = [], currentLocation, destination }) =>
   if (deltaKm < -0.05) {
     return {
       label: "Moving away",
-      detail: `Last update me rider lagbhag ${deltaMeters} m door gaya hai.`,
+      detail: `The delivery partner moved about ${deltaMeters} m farther away since the last update.`,
       tone: "away",
     };
   }
 
   return {
     label: "Holding nearby",
-    detail: "Rider ki movement stable hai, next ping par fresh direction milegi.",
+    detail: "The delivery partner's position is stable. The next update will show a new direction.",
     tone: "steady",
   };
 };
@@ -472,7 +472,7 @@ const getNearbyState = (distanceKm, isTrackingActive) => {
   if (distanceKm <= 0.03) {
     return {
       label: "Arriving now",
-      detail: "Delivery partner bilkul aapke pickup point ke paas pahunch gaya hai.",
+      detail: "The delivery partner has almost reached your pickup point.",
       tone: "arrived",
       priority: true,
       alertMessage: "Delivery partner has arrived nearby.",
@@ -482,7 +482,7 @@ const getNearbyState = (distanceKm, isTrackingActive) => {
   if (distanceKm <= 0.1) {
     return {
       label: "Within 100 m",
-      detail: "Rider bahut paas hai. Delivery receive karne ke liye ready raho.",
+      detail: "The delivery partner is nearby. Get ready to receive your order.",
       tone: "nearby",
       priority: true,
       alertMessage: "Delivery partner is within 100 meters.",
@@ -492,7 +492,7 @@ const getNearbyState = (distanceKm, isTrackingActive) => {
   if (distanceKm <= 0.5) {
     return {
       label: "Within 500 m",
-      detail: "Delivery partner nearby hai aur kuch hi der me pahunch sakta hai.",
+      detail: "The delivery partner is nearby and should arrive shortly.",
       tone: "nearby",
       priority: true,
       alertMessage: "Delivery partner is nearby.",
@@ -501,7 +501,7 @@ const getNearbyState = (distanceKm, isTrackingActive) => {
 
   return {
     label: "En route",
-    detail: "Delivery partner abhi route par hai aur aapki taraf aa raha hai.",
+    detail: "The delivery partner is on the way to you.",
     tone: "neutral",
     priority: false,
     alertMessage: "",
@@ -922,7 +922,7 @@ const OrderDetailsPage = () => {
         window.URL.revokeObjectURL(downloadUrl);
       })
       .catch(() => {
-        toast.error("Invoice download nahi ho paya");
+        toast.error("Unable to download the invoice");
       });
   };
 
@@ -931,7 +931,7 @@ const OrderDetailsPage = () => {
       type: "cancel",
       title: "Cancel this order?",
       description:
-        "Ye order cancel ho jayega. Agar payment ho chuki hai to refund process order status ke hisaab se start ho jayega.",
+        "This order will be cancelled. If it has been paid for, the refund will be started based on its status.",
     });
     setConfirmOpen(true);
   };
@@ -946,7 +946,7 @@ const OrderDetailsPage = () => {
       const response = await updateOrderStatus({
         orderId: order._id,
         body: {
-          orderStatus: "cancelled",
+          status: "cancelled",
           reason: "Cancelled by user",
         },
       }).unwrap();
@@ -954,13 +954,13 @@ const OrderDetailsPage = () => {
       toast.success(response?.message || "Order cancelled successfully");
       setConfirmOpen(false);
     } catch (error) {
-      toast.error(error?.data?.message || "Order cancel nahi ho paya");
+      toast.error(error?.data?.message || "Unable to cancel this order");
     }
   };
 
   const openReturnDialog = () => {
     if (!returnPolicy.isEligible) {
-      toast.error("Return window close ho chuki hai");
+      toast.error("The return window has closed");
       return;
     }
 
@@ -980,7 +980,7 @@ const OrderDetailsPage = () => {
       const response = await updateOrderStatus({
         orderId: order._id,
         body: {
-          orderStatus: "return_requested",
+          status: "return_requested",
           reason: trimmedReason,
         },
       }).unwrap();
@@ -989,7 +989,7 @@ const OrderDetailsPage = () => {
       setReturnDialogOpen(false);
       setReturnReason("");
     } catch (error) {
-      toast.error(error?.data?.message || "Return request submit nahi ho paya");
+      toast.error(error?.data?.message || "Unable to submit the return request");
     }
   };
 
@@ -1359,8 +1359,8 @@ const OrderDetailsPage = () => {
                           Return policy for delivered orders
                         </h3>
                         <p className={`mt-2 text-sm ${bodyText}`}>
-                          Delivered date se {RETURN_POLICY_DAYS} days ke andar return request
-                          submit ki ja sakti hai. Reason dena required hai.
+                          Return requests can be submitted within {RETURN_POLICY_DAYS} days
+                          of delivery. A reason is required.
                         </p>
                       </div>
 
@@ -1430,7 +1430,7 @@ const OrderDetailsPage = () => {
 
                     {!returnPolicy.isEligible && order.orderStatus === "delivered" ? (
                       <p className={`mt-4 text-sm ${bodyText}`}>
-                        Return request window close ho chuki hai. New requests ab accept nahi hongi.
+                        The return request window has closed. New requests are no longer accepted.
                       </p>
                     ) : null}
 
@@ -1512,7 +1512,7 @@ const OrderDetailsPage = () => {
                   Add your return reason
                 </h3>
                 <p className={`mt-2 text-sm ${bodyText}`}>
-                  Vendor ko clearly samajh aana chahiye ki aap return kyun request kar rahe ho.
+                  Explain clearly why you are requesting a return so the vendor can review it.
                 </p>
               </div>
               <button
@@ -1554,7 +1554,7 @@ const OrderDetailsPage = () => {
                 onChange={(event) => setReturnReason(event.target.value)}
                 rows={5}
                 maxLength={300}
-                placeholder="Example: Product size mismatch hai aur fitting expected jaisi nahi hai."
+                placeholder="Example: The product size is incorrect and does not fit as expected."
                 className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none transition ${
                   isDark
                     ? "border-slate-700 bg-slate-950 text-slate-100 placeholder:text-slate-500 focus:border-orange-400"

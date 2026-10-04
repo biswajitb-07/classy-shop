@@ -15,7 +15,9 @@ const RouteTransitionLoader = () => {
     setVisible(true);
     const timeoutId = window.setTimeout(() => setVisible(false), 520);
     return () => window.clearTimeout(timeoutId);
-  }, [location.pathname, location.search, location.hash]);
+  // Query-string changes often represent local product selections (such as
+  // quantity or size), so only show route feedback when the page path changes.
+  }, [location.pathname]);
 
   if (!visible) return null;
 

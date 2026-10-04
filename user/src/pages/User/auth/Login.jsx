@@ -305,7 +305,7 @@ const Login = () => {
                     <p className="text-red-500 text-sm">{errors.referralCode}</p>
                   ) : (
                     <p className="text-xs text-gray-500">
-                      Referral reward sirf shared invite link ke saath same code use karne par milega.
+                      Referral rewards are available when the same code is used through the shared invitation link.
                     </p>
                   )}
                 </div>

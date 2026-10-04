@@ -358,7 +358,7 @@ const Profile = () => {
     )}`;
     const sharePayload = {
       title: "Join ClassyShop",
-      text: "Mere referral code se signup karo aur dono ko Rs 50 wallet reward milega.",
+      text: "Sign up with my referral code and we will both receive a Rs 50 wallet reward.",
       url: inviteLink,
     };
 
@@ -372,7 +372,7 @@ const Profile = () => {
       toast.success("Referral invite link copied");
     } catch (error) {
       if (error?.name !== "AbortError") {
-        toast.error("Referral link share nahi hua");
+        toast.error("Unable to share the referral link");
       }
     }
   };
@@ -838,7 +838,7 @@ const Profile = () => {
                   Rs {walletBalance.toLocaleString()}
                 </h3>
                 <p className={`mt-2 text-sm ${subtitleClass}`}>
-                  Referral rewards, refunds, aur wallet checkout yahan reflect honge.
+                  Referral rewards, refunds, and wallet checkout activity will appear here.
                 </p>
               </div>
               <div
@@ -888,12 +888,12 @@ const Profile = () => {
                     isDark ? "border-slate-700 text-slate-400" : "border-slate-200 text-slate-500"
                   }`}
                 >
-                  Wallet history abhi empty hai. Referral rewards ya refunds yahan dikhenge.
+                  Your wallet history is empty. Referral rewards and refunds will appear here.
                 </div>
               ) : null}
               {walletTransactions.length > 2 ? (
                 <p className={`text-xs ${labelClass}`}>
-                  Latest 2 entries dikh rahi hain. New rewards aur refunds yahin update honge.
+                  Showing the two latest entries. New rewards and refunds will appear here.
                 </p>
               ) : null}
             </div>
@@ -913,7 +913,7 @@ const Profile = () => {
                   Invite and earn
                 </h3>
                 <p className={`mt-2 text-sm ${subtitleClass}`}>
-                  Friends ko invite karo. Har successful referral par aapko aur naye user ko Rs 50 wallet reward milega.
+                  Invite friends. For each successful referral, you and the new user will receive a Rs 50 wallet reward.
                 </p>
               </div>
               <div
@@ -1041,10 +1041,10 @@ const Profile = () => {
               </summary>
               <div className={`mt-4 space-y-3 text-sm leading-6 ${subtitleClass}`}>
                 <p>1. Har successful referral par referrer ko Rs 50 wallet credit milega.</p>
-                <p>2. Naya user valid referral code ke saath signup karega to usko bhi Rs 50 wallet reward milega.</p>
-                <p>3. Same person ke multiple accounts, fake signups, ya suspicious activity par referral reward hold ya remove ho sakta hai.</p>
-                <p>4. Referral reward sirf wallet me add hota hai aur checkout ya future orders me use kiya ja sakta hai.</p>
-                <p>5. Existing rewards history alag ho sakti hai, lekin naye referrals par Rs 50 per referral rule apply hoga.</p>
+                <p>2. A new user who signs up with a valid referral code will also receive a Rs 50 wallet reward.</p>
+                <p>3. Referral rewards may be held or removed for multiple accounts belonging to one person, fake signups, or suspicious activity.</p>
+                <p>4. Referral rewards are added to your wallet and can be used at checkout or on future orders.</p>
+                <p>5. Existing reward history may vary. New referrals receive Rs 50 per successful referral.</p>
               </div>
             </details>
           </div>

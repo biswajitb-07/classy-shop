@@ -132,7 +132,7 @@ const Search = () => {
                       AI Smart Search
                     </p>
                     <p className={`mt-1 text-xs leading-5 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
-                      {aiSearchData?.explanation || "Query ko smart way me samajh kar relevant products pick kiye gaye hain."}
+                      {aiSearchData?.explanation || "We interpreted your search and selected relevant products."}
                     </p>
                   </div>
                 </div>

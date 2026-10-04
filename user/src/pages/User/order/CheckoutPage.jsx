@@ -648,7 +648,7 @@ const CheckoutPage = () => {
                 </div>
               ) : (
                 <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-5 text-sm text-gray-500">
-                  Abhi koi saved address nahi hai. Neeche form fill karke first address save kar sakte ho.
+                  You do not have a saved address yet. Use the form below to add your first address.
                 </div>
               )}
             </div>
@@ -773,9 +773,9 @@ const CheckoutPage = () => {
               </h3>
               {walletUsed > 0 ? (
                 <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  Wallet se Rs {walletUsed.toLocaleString()} apply ho raha hai.
+                  Rs {walletUsed.toLocaleString()} from your wallet will be applied.
                   {totalAmount === 0
-                    ? " Is order ko aapka wallet poora cover kar raha hai."
+                    ? " Your wallet covers the full cost of this order."
                     : ` Remaining payable Rs ${totalAmount.toLocaleString()}.`}
                 </div>
               ) : null}

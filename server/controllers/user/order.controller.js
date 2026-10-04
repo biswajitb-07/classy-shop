@@ -1768,7 +1768,10 @@ export const verifyDeliveryCompletionOtp = async (req, res) => {
 
 export const orderStatusUpdate = async (req, res) => {
   try {
-    const { status, reason } = req.body;
+    const { reason } = req.body;
+    // Older clients sent `orderStatus`; accept it alongside the canonical
+    // `status` field so cancellation and return requests remain compatible.
+    const status = req.body?.status ?? req.body?.orderStatus;
     const { orderId } = req.params;
     const normalizedStatus = normalizeOrderStatus(status);
 

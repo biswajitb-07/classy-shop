@@ -8,9 +8,10 @@ import Features from "../components/Features.jsx";
 import CategoryPanel from "../components/category/CategoryPanel.jsx";
 import SearchPanel from "../components/search/SearchPanel.jsx";
 import RouteTransitionLoader from "../components/router/RouteTransitionLoader.jsx";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useGetVendorCategoriesQuery } from "../features/api/categoryApi.js";
 import ScrollToTop from "../components/router/ScrollToTop.jsx";
+import useBackDismissibleOverlay from "../hooks/useBackDismissibleOverlay.js";
 
 const AIChatbotWidget = lazy(() => import("../components/ai/AIChatbotWidget.jsx"));
 const AIRecommendationDialog = lazy(
@@ -38,8 +39,15 @@ const MainLayout = () => {
     setIsOpenCatPanel(!isOpenCatPanel);
   };
 
+  const closeSearchPanel = useCallback(() => setIsOpenSearchPanel(false), []);
+  const dismissSearchPanel = useBackDismissibleOverlay(
+    isOpenSearchPanel,
+    closeSearchPanel,
+    "search",
+  );
   const openSearchPanel = () => {
-    setIsOpenSearchPanel(!isOpenSearchPanel);
+    if (isOpenSearchPanel) dismissSearchPanel();
+    else setIsOpenSearchPanel(true);
   };
 
   useEffect(() => {

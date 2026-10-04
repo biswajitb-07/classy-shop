@@ -253,7 +253,7 @@ const ProductReviewsSection = ({
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
                 {productName
-                  ? `${productName} ke delivered orders se aayi verified reviews.`
+                  ? `Verified reviews from delivered ${productName} orders.`
                   : "Delivered orders se aayi verified reviews."}
               </p>
             </div>
@@ -296,7 +296,7 @@ const ProductReviewsSection = ({
                   </div>
                 </div>
                 <p className="mt-3 text-sm text-slate-600">
-                  Verified buyer opinions aur real product experience.
+                  Verified buyer opinions and real product experiences.
                 </p>
               </div>
             </div>
@@ -403,7 +403,7 @@ const ProductReviewsSection = ({
 
             {!isAuthenticated ? (
               <div className="mt-4 rounded-[1.5rem] border border-dashed border-slate-300 bg-white px-4 py-4 text-sm text-slate-600">
-                Review likhne ke liye login karo.
+                Sign in to write a review.
               </div>
             ) : isMetaLoading ? (
               <div className="mt-4 flex min-h-[12rem] items-center justify-center rounded-[1.5rem] border border-dashed border-slate-300 bg-white">
@@ -553,7 +553,7 @@ const ProductReviewsSection = ({
             <div className="mt-4 space-y-4">
               {isReviewsLoading ? (
                 <div className="rounded-[1.75rem] border border-slate-200 bg-slate-50 px-5 py-10 text-center text-sm text-slate-500">
-                  Reviews load ho rahe hain...
+                  Loading reviews...
                 </div>
               ) : sortedReviews.length ? (
                 <>

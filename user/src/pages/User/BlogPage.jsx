@@ -43,7 +43,7 @@ const BlogPage = () => {
           </p>
           <h1 className="mt-4 text-3xl font-black">No blog post available</h1>
           <p className="mt-3 text-sm text-slate-500">
-            Abhi koi blog content publish nahi hua hai.
+            No blog posts have been published yet.
           </p>
           <Link
             to="/"

@@ -5,7 +5,7 @@ import { IoCartOutline, IoNotifications } from "react-icons/io5";
 import { FaBagShopping } from "react-icons/fa6";
 import { FiBell, FiTrash2 } from "react-icons/fi";
 import { FiSettings } from "react-icons/fi";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
 import {
   useGetCartQuery,
@@ -21,6 +21,7 @@ import Search from "../Search";
 import Navigation from "./Navigation";
 import CartPanel from "../shipping/CartPanel";
 import { useTheme } from "../../context/ThemeContext";
+import useBackDismissibleOverlay from "../../hooks/useBackDismissibleOverlay.js";
 import AuthButtonLoader from "../Loader/AuthButtonLoader.jsx";
 import { connectUserSocket } from "../../lib/socket.js";
 import {
@@ -80,8 +81,15 @@ const Header = ({ visible, openCategoryPanel, isOpenCatPanel, categories }) => {
     markUserNotificationsRead,
   ]);
 
+  const closeCartPanel = useCallback(() => setIsOpenCartPanel(false), []);
+  const dismissCartPanel = useBackDismissibleOverlay(
+    isOpenCartPanel,
+    closeCartPanel,
+    "cart",
+  );
   const openCartPanel = () => {
-    setIsOpenCartPanel(!isOpenCartPanel);
+    if (isOpenCartPanel) dismissCartPanel();
+    else setIsOpenCartPanel(true);
   };
 
   useEffect(() => {

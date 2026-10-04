@@ -163,27 +163,27 @@ const WEBSITE_GUIDES = [
       "appearance",
     ],
     reply:
-      "Theme change karne ke liye: 1. Profile ya account section open karo. 2. Settings page par jao. 3. Theme toggle use karke Day mode ya Night mode select karo. 4. Preference automatically save ho jayegi.",
+      "To change the theme: 1. Open your profile or account section. 2. Go to Settings. 3. Use the theme toggle to select Day or Night mode. 4. Your preference will be saved automatically.",
   },
   {
     terms: ["settings"],
     reply:
-      "Settings open karne ke liye: Home ya header se account/profile section open karo, phir Settings page par jao. Wahan theme aur appearance preferences manage kar sakte ho.",
+      "To open Settings, go to the account or profile section from Home or the header, then select Settings to manage your theme and appearance preferences.",
   },
   {
     terms: ["wishlist"],
     reply:
-      "Wishlist dekhne ke liye home page ka Navigation bar me dekho whishlist icon show hoga rahega  Wishlist section open karo. Product cards aur product details se items wishlist me add ya remove kar sakte ho.",
+      "Open the Wishlist section using the wishlist icon in the home page navigation. Add or remove items from product cards or product details pages.",
   },
   {
     terms: ["cart"],
     reply:
-      "Cart use karne ke liye product card ya product details se item add karo, phir cart section open karke quantity change karo aur checkout continue karo.",
+      "Add an item from a product card or product details page. Open your cart to change its quantity, then continue to checkout.",
   },
   {
     terms: ["support", "help chat", "customer support"],
     reply:
-      "Support ke liye support section open karo. Agar aap signed in ho to direct message conversation start ya continue kar sakte ho.",
+      "Open the Support section for help. If you are signed in, you can start or continue a direct message conversation.",
   },
 ];
 
@@ -211,12 +211,12 @@ const POLICY_GUIDES = [
   {
     terms: ["privacy", "privacy policy"],
     reply:
-      "Is website par abhi dedicated Privacy Policy page visibly available nahi hai. Agar aapko account ya data handling ke bare me help chahiye to support se contact karo ya available legal pages dekh lo.",
+      "A dedicated Privacy Policy page is not currently available on this website. For help with your account or data handling, contact support or review the available legal pages.",
   },
   {
     terms: ["refund policy", "return policy", "refund", "return"],
     reply:
-      "Dedicated refund ya return policy page abhi clearly available nahi hai. Returns aur cancellations order workflow ke through handle hote hain: delivered order par return request aur pending/processing order par cancellation possible hota hai.",
+      "A dedicated refund or return policy page is not currently available. Returns and cancellations are handled through the order workflow: delivered orders can be returned, and pending or processing orders can be cancelled.",
   },
 ];
 
@@ -1602,14 +1602,14 @@ const buildAccountAwareReply = ({ message, userContext }) => {
     if (!userContext?.latestOrder) {
       return {
         reply:
-          "Main aapka latest order tabhi bata sakta hoon jab signed-in account context available ho. Aap Orders page open karke latest order dekh sakte ho.",
+          "I can only show your latest order when your signed-in account is available. Open the Orders page to view it.",
         needsClarification: false,
         products: [],
       };
     }
 
     return {
-      reply: `Aapka latest order ${userContext.latestOrder.orderId} hai. Iska current status ${formatOrderStatusLabel(userContext.latestOrder.orderStatus)} hai aur total amount Rs ${userContext.latestOrder.totalAmount}. Detailed tracking ke liye Orders page open karo.`,
+      reply: `Your latest order is ${userContext.latestOrder.orderId}. Its current status is ${formatOrderStatusLabel(userContext.latestOrder.orderStatus)}, and the total is Rs ${userContext.latestOrder.totalAmount}. Open the Orders page for tracking details.`,
       needsClarification: false,
       products: [],
     };
@@ -1625,7 +1625,7 @@ const buildAccountAwareReply = ({ message, userContext }) => {
   ) {
     if (userContext?.latestOrder) {
       return {
-        reply: `Aapke latest order ${userContext.latestOrder.orderId} ka status abhi ${formatOrderStatusLabel(userContext.latestOrder.orderStatus)} hai. Track karne ke liye: Profile ya account se Orders open karo, phir latest order details page par jao.`,
+        reply: `Your latest order ${userContext.latestOrder.orderId} is currently ${formatOrderStatusLabel(userContext.latestOrder.orderStatus)}. To track it, open Orders from your profile or account, then select the order.`,
         needsClarification: false,
         products: [],
       };
@@ -1633,7 +1633,7 @@ const buildAccountAwareReply = ({ message, userContext }) => {
 
     return {
       reply:
-        "Order track karne ke liye: 1. Account ya Profile section open karo. 2. Orders page par jao. 3. Latest order open karo. 4. Wahan pending, processing, shipped, out for delivery, delivered ya cancelled status dekh sakte ho.",
+        "To track an order: 1. Open your Account or Profile section. 2. Go to Orders. 3. Select the latest order. 4. View its pending, processing, shipped, out for delivery, delivered, or cancelled status.",
       needsClarification: false,
       products: [],
     };
@@ -1646,14 +1646,14 @@ const buildAccountAwareReply = ({ message, userContext }) => {
       const status = normalize(userContext.latestOrder.orderStatus);
       if (["pending", "processing"].includes(status)) {
         return {
-          reply: `Aap latest order ${userContext.latestOrder.orderId} ko cancel request kar sakte ho, kyunki abhi iska status ${formatOrderStatusLabel(status)} hai. Orders page open karke order details me jao aur cancel option use karo.`,
+          reply: `You can cancel your latest order ${userContext.latestOrder.orderId} because it is currently ${formatOrderStatusLabel(status)}. Open the order details from the Orders page and select Cancel.`,
           needsClarification: false,
           products: [],
         };
       }
 
       return {
-        reply: `Latest order ${userContext.latestOrder.orderId} ka status ${formatOrderStatusLabel(status)} hai. Is stage par direct cancel usually allowed nahi hota. Agar order delivered ho chuka hai to return workflow use karna padega.`,
+        reply: `Your latest order ${userContext.latestOrder.orderId} is ${formatOrderStatusLabel(status)}. Cancellation is usually unavailable at this stage. If it has been delivered, use the return workflow.`,
         needsClarification: false,
         products: [],
       };
@@ -1661,7 +1661,7 @@ const buildAccountAwareReply = ({ message, userContext }) => {
 
     return {
       reply:
-        "Order cancel karne ke liye Orders page open karo aur order details me jao. Pending ya Processing status wale orders hi cancel kiye ja sakte hain.",
+        "To cancel an order, open its details from the Orders page. Only pending or processing orders can be cancelled.",
       needsClarification: false,
       products: [],
     };
@@ -1671,14 +1671,14 @@ const buildAccountAwareReply = ({ message, userContext }) => {
     if (!userContext) {
       return {
         reply:
-          "Signed-in cart context abhi available nahi hai. Aap cart section open karke cart items dekh sakte ho.",
+          "Your signed-in cart is not available right now. Open the cart section to view your items.",
         needsClarification: false,
         products: [],
       };
     }
 
     return {
-      reply: `Aapke cart me abhi ${userContext.cartCount} item group hai. Details ke liye Cart page open karo.`,
+      reply: `Your cart currently has ${userContext.cartCount} item groups. Open the Cart page for details.`,
       needsClarification: false,
       products: [],
     };
@@ -1688,14 +1688,14 @@ const buildAccountAwareReply = ({ message, userContext }) => {
     if (!userContext) {
       return {
         reply:
-          "Signed-in wishlist context abhi available nahi hai. Aap wishlist section open karke saved items dekh sakte ho.",
+          "Your signed-in wishlist is not available right now. Open the Wishlist section to view saved items.",
         needsClarification: false,
         products: [],
       };
     }
 
     return {
-      reply: `Aapki wishlist me abhi ${userContext.wishlistCount} saved item hai. Details ke liye Wishlist page open karo.`,
+      reply: `Your wishlist currently has ${userContext.wishlistCount} saved items. Open the Wishlist page for details.`,
       needsClarification: false,
       products: [],
     };
@@ -1707,14 +1707,14 @@ const buildAccountAwareReply = ({ message, userContext }) => {
     if (!userContext) {
       return {
         reply:
-          "Signed-in profile context abhi available nahi hai. Aap profile section open karke apni details dekh sakte ho.",
+          "Your signed-in profile is not available right now. Open the Profile section to view your details.",
         needsClarification: false,
         products: [],
       };
     }
 
     return {
-      reply: `Aapke profile me name ${userContext.name || "available"} hai${userContext.location ? ` aur default location ${userContext.location}` : ""}. Profile details update karne ke liye profile section open karo.`,
+      reply: `Your profile name is ${userContext.name || "available"}${userContext.location ? ` and your default location is ${userContext.location}` : ""}. Open the Profile section to update your details.`,
       needsClarification: false,
       products: [],
     };
@@ -1737,8 +1737,8 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
   if (taxonomyIntent) {
     return {
       reply: filterSummary
-        ? `Classy Store par abhi ${taxonomyIntent.value} me ${filterSummary} ke hisaab se koi matching product available nahi mila.`
-        : `Classy Store par abhi ${taxonomyIntent.value} se related koi matching product available nahi mila.`,
+        ? `No ${taxonomyIntent.value} products currently match ${filterSummary} on Classy Store.`
+        : `No products related to ${taxonomyIntent.value} are currently available on Classy Store.`,
       needsClarification: false,
       products: [],
     };
@@ -1747,8 +1747,8 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
   if (categoryHint) {
     return {
       reply: filterSummary
-        ? `Classy Store par abhi ${filterSummary} ke hisaab se koi ${categoryHint.category.toLowerCase()} product available nahi mila.`
-        : `Classy Store par abhi ${categoryHint.category.toLowerCase()} category me koi matching product available nahi mila.`,
+        ? `No ${categoryHint.category.toLowerCase()} products currently match ${filterSummary} on Classy Store.`
+        : `No matching products are currently available in the ${categoryHint.category.toLowerCase()} category on Classy Store.`,
       needsClarification: false,
       products: [],
     };
@@ -1757,8 +1757,8 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
   if (brandIntent) {
     return {
       reply: filterSummary
-        ? `Mujhe ${brandIntent} brand me ${filterSummary} ke hisaab se koi product abhi nahi mila.`
-        : `Mujhe ${brandIntent} brand ke matching products abhi nahi mile.`,
+        ? `No ${brandIntent} products currently match ${filterSummary}.`
+        : `No matching ${brandIntent} products were found.`,
       needsClarification: false,
       products: [],
     };
@@ -1767,8 +1767,8 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
   if (isShoppingQuery(message)) {
     return {
       reply: filterSummary
-        ? `Mujhe ${filterSummary} ke hisaab se koi product abhi nahi mila.`
-        : "Mujhe aapki shopping request ke hisaab se koi matching product abhi nahi mila.",
+        ? `No products currently match ${filterSummary}.`
+        : "No products currently match your search.",
       needsClarification: false,
       products: [],
     };
@@ -1777,7 +1777,7 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
   if (isFeatureOrPolicyQuery(normalizedMessage)) {
     return {
       reply:
-        "Main is website feature ya policy ke bare me exact grounded answer abhi confirm nahi kar pa raha hoon.",
+        "I cannot confirm an accurate answer about this website feature or policy right now.",
       needsClarification: false,
       products: [],
     };
@@ -1786,7 +1786,7 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
   if (isOrderQuery(normalizedMessage)) {
     return {
       reply:
-        "Main is order-related request ka exact answer abhi confirm nahi kar pa raha hoon. Agar aap tracking, cancellation, return, ya latest order poochna chahte ho to woh specifically likho.",
+        "I cannot confirm an accurate answer to this order request right now. Ask specifically about tracking, cancellation, returns, or your latest order.",
       needsClarification: false,
       products: [],
     };
@@ -1795,7 +1795,7 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
   if (isAccountQuery(normalizedMessage)) {
     return {
       reply:
-        "Main is account-related request ka exact answer abhi confirm nahi kar pa raha hoon. Aap profile, cart, wishlist, ya latest order ko thoda clearly likh sakte ho.",
+        "I cannot confirm an accurate answer to this account request right now. Ask clearly about your profile, cart, wishlist, or latest order.",
       needsClarification: false,
       products: [],
     };
@@ -1803,7 +1803,7 @@ const buildContextualUnavailableReply = ({ message, catalog, filters }) => {
 
   return {
     reply:
-      "Main is request ke liye exact grounded answer abhi confirm nahi kar pa raha hoon. Aap apna sawal thoda aur clearly likh sakte ho.",
+      "I cannot confirm an accurate answer to this request right now. Please clarify your question.",
     needsClarification: true,
     products: [],
   };
@@ -1827,8 +1827,8 @@ const buildShoppingReply = ({
   if (requiresExactMatch && !exactMatches.length) {
     return {
       reply: filterSummary
-        ? `Mujhe exact ${filterSummary} wala product abhi nahi mila. Isliye main galat ya approximate result nahi dikha raha hoon.`
-        : "Mujhe exact requested filter wala product abhi nahi mila, isliye main approximate result nahi dikha raha hoon.",
+        ? `No products currently match the exact filters: ${filterSummary}. I will not show inaccurate or approximate results.`
+        : "No products currently match the exact filters, so I will not show approximate results.",
       needsClarification: false,
       products: [],
     };
@@ -1837,8 +1837,8 @@ const buildShoppingReply = ({
   if (hasStrictFilters && !exactMatches.length) {
     return {
       reply: filterSummary
-        ? `Mujhe ${filterSummary} ke hisaab se koi product abhi nahi mila. Isliye main unrelated ya approximate result nahi dikha raha hoon.`
-        : "Mujhe requested filters ke hisaab se koi product abhi nahi mila. Isliye main approximate result nahi dikha raha hoon.",
+        ? `No products currently match ${filterSummary}. I will not show unrelated or approximate results.`
+        : "No products currently match your filters. I will not show approximate results.",
       needsClarification: false,
       products: [],
     };
@@ -1847,8 +1847,8 @@ const buildShoppingReply = ({
   if (exactMatches.length && countExplicitFilters(filters) > 0) {
     return {
       reply: filterSummary
-        ? `Maine aapke filters ke hisaab se ${filterSummary} wale best products nikale hain.`
-        : "Maine aapke request ke hisaab se matching products nikale hain.",
+        ? `Here are the best products matching your filters: ${filterSummary}.`
+        : "Here are products that match your request.",
       needsClarification: false,
       products: exactMatches.slice(0, 3),
     };
@@ -1862,8 +1862,8 @@ const buildShoppingReply = ({
   ) {
     return {
       reply: filterSummary
-        ? `Exact ${filterSummary} match nahi mila, lekin ye closest alternatives available hain.`
-        : "Exact match nahi mila, lekin ye closest alternatives available hain.",
+        ? `No exact match for ${filterSummary} was found, but these are the closest alternatives.`
+        : "No exact match was found, but these are the closest alternatives.",
       needsClarification: false,
       products: relaxedMatches.slice(0, 3),
     };
@@ -1882,8 +1882,8 @@ const buildShoppingReply = ({
   if (taxonomyIntent && !exactMatches.length) {
     return {
       reply: filterSummary
-        ? `Classy Store par abhi ${taxonomyIntent.value} me ${filterSummary} ke hisaab se koi matching product available nahi mila.`
-        : `Classy Store par abhi ${taxonomyIntent.value} se related koi matching product available nahi mila.`,
+        ? `No ${taxonomyIntent.value} products currently match ${filterSummary} on Classy Store.`
+        : `No products related to ${taxonomyIntent.value} are currently available on Classy Store.`,
       needsClarification: false,
       products: [],
     };
@@ -1906,7 +1906,7 @@ const buildShoppingReply = ({
 
     if (categoryMatches.length) {
       return {
-        reply: `Yeh ${categoryHint.category.toLowerCase()} products aapke request se best match karte hain.`,
+        reply: `These ${categoryHint.category.toLowerCase()} products best match your request.`,
         needsClarification: false,
         products: categoryMatches,
       };
@@ -1914,8 +1914,8 @@ const buildShoppingReply = ({
 
     return {
       reply: filterSummary
-        ? `Classy Store par abhi ${filterSummary} ke hisaab se koi ${categoryHint.category.toLowerCase()} product available nahi mila.`
-        : `Classy Store par abhi ${categoryHint.category.toLowerCase()} category me koi matching product available nahi mila.`,
+        ? `No ${categoryHint.category.toLowerCase()} products currently match ${filterSummary} on Classy Store.`
+        : `No matching products are currently available in the ${categoryHint.category.toLowerCase()} category on Classy Store.`,
       needsClarification: false,
       products: [],
     };
@@ -1924,7 +1924,7 @@ const buildShoppingReply = ({
   if (candidates.length) {
     return {
       reply:
-        "Maine aapke query ke hisaab se closest relevant products nikale hain.",
+        "Here are the most relevant products for your search.",
       needsClarification: false,
       products: candidates.slice(0, 3),
     };
@@ -1948,7 +1948,7 @@ const buildFallbackReply = ({
   if (!normalizedMessage) {
     return {
       reply:
-        "Main products, orders, cart, wishlist, theme, settings, delivery, payment aur website help me assist kar sakta hoon.",
+        "I can help with products, orders, your cart, wishlist, theme, settings, delivery, payments, and the website.",
       needsClarification: false,
       products: [],
     };
@@ -1957,7 +1957,7 @@ const buildFallbackReply = ({
   if (isGreetingMessage(normalizedMessage)) {
     return {
       reply:
-        "Hi, main aapka Classy Store assistant hoon. Products, filters, orders, theme, cart, wishlist, policies aur website navigation me help kar sakta hoon.",
+        "Hi, I’m your Classy Store assistant. I can help with products, filters, orders, themes, your cart, wishlist, policies, and navigating the website.",
       needsClarification: false,
       products: [],
     };
@@ -1966,7 +1966,7 @@ const buildFallbackReply = ({
   if (isUnsupportedQuery(normalizedMessage)) {
     return {
       reply:
-        "Thank you for your query. Yeh service abhi Classy Store website par available nahi hai. Main shopping, orders, account, policies aur website-related help me assist kar sakta hoon.",
+        "Thank you for your query. This service is not available on the Classy Store website. I can help with shopping, orders, accounts, policies, and website questions.",
       needsClarification: false,
       products: [],
     };
@@ -2023,7 +2023,7 @@ const buildDeterministicCatalogReply = ({
   if (isGreetingMessage(normalizedMessage)) {
     return {
       reply:
-        "Hi, main aapka Classy Store assistant hoon. Shopping, filters, orders, theme, cart, wishlist aur website help sab me assist kar sakta hoon.",
+        "Hi, I’m your Classy Store assistant. I can help with shopping, filters, orders, themes, your cart, wishlist, and the website.",
       needsClarification: false,
       products: [],
     };
@@ -2032,7 +2032,7 @@ const buildDeterministicCatalogReply = ({
   if (isUnsupportedQuery(normalizedMessage)) {
     return {
       reply:
-        "Thank you for your query. Yeh service abhi Classy Store website par available nahi hai. Main sirf website aur store-related help de sakta hoon.",
+        "Thank you for your query. This service is not available on the Classy Store website. I can only help with the website and store.",
       needsClarification: false,
       products: [],
     };
@@ -2071,7 +2071,7 @@ const buildDeterministicCatalogReply = ({
 
   if (brandIntent && candidates.length) {
     return {
-      reply: `Maine ${brandIntent} brand ke relevant products aapke request ke liye nikale hain.`,
+      reply: `Here are relevant ${brandIntent} products for your request.`,
       needsClarification: false,
       products: candidates.slice(0, 3),
     };
@@ -2085,7 +2085,7 @@ const buildDeterministicCatalogReply = ({
 
   if (isDirectProductLookup) {
     return {
-      reply: "Yeh aapke request ke closest matching products hain.",
+      reply: "These products are the closest matches to your request.",
       needsClarification: false,
       products: candidates.slice(0, 3),
     };
@@ -2347,7 +2347,7 @@ export const getAiMemoryRecommendations = async ({ userId, limit = 3 }) => {
 
   return {
     shouldShow: true,
-    reply: `Aapki recent activity ke hisaab se maine ${categoryLabel} se related kuch products select kiye hain.`,
+    reply: `Based on your recent activity, I selected products related to ${categoryLabel}.`,
     products: recommendedProducts.map(
       ({ finalScore, personalizationScore, behaviorScore, ...product }) => product,
     ),
